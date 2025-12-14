@@ -5,6 +5,7 @@
 **Visi:** Membangun platform digital koperasi yang transparent, auditable, dan user-friendly untuk memberdayakan ekonomi kelurahan Merah Putih Duri Kosambi.
 
 **Tujuan Bisnis:**
+
 - Digitalisasi 100% transaksi koperasi
 - Meningkatkan kepercayaan anggota melalui transparansi
 - Efisiensi operasional 70%
@@ -12,6 +13,7 @@
 - Skalabilitas hingga 10,000+ anggota
 
 **Tujuan Teknis:**
+
 - Zero data inconsistency
 - 99.9% uptime
 - < 2 detik response time
@@ -21,29 +23,35 @@
 ## 🏗️ Prinsip Arsitektur (The 5 Commandments)
 
 ### 1. Ledger-First Architecture
+
 Setiap transaksi finansial → Ledger Entry dulu → Baru update state
+
 - Ledger adalah source of truth
 - State bisa di-rebuild dari ledger
 - Audit trail natural
 - Compliance SAK-EP otomatis
 
 ### 2. Event-Driven Architecture
+
 - Loose coupling antar modul
 - Easy to add new features
 - Async processing = faster response
 - Natural audit log
 
 ### 3. Domain-Driven Design
+
 - Bounded Contexts: Member, Lending, Accounting, Inventory, Billing
 - Ubiquitous Language yang konsisten di seluruh sistem
 - Aggregates untuk konsistensi transaksional
 
 ### 4. Security by Design
+
 - Defense in Depth: API Gateway → Auth Check → RLS Policy → Business Logic → Audit Log
 - Zero Trust Model dengan Row Level Security
 - Audit Everything
 
 ### 5. Idempotency
+
 - No Duplicates
 - Retry Safe
 - Deterministic
@@ -68,6 +76,7 @@ Setiap transaksi finansial → Ledger Entry dulu → Baru update state
 ### Core Tables
 
 #### 1. Koperasi (Master Tenant)
+
 ```sql
 CREATE TABLE koperasi (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -97,6 +106,7 @@ CREATE TABLE koperasi (
 ```
 
 #### 2. Member (Anggota)
+
 ```sql
 CREATE TABLE member (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -122,6 +132,7 @@ CREATE TABLE member (
 ```
 
 #### 3. User Roles (Authorization)
+
 ```sql
 CREATE TABLE user_role (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -144,6 +155,7 @@ CREATE TABLE user_role (
 ```
 
 #### 4. Accounting Period
+
 ```sql
 CREATE TABLE accounting_period (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -171,6 +183,7 @@ CREATE TABLE accounting_period (
 ```
 
 #### 5. Unit Usaha
+
 ```sql
 CREATE TABLE unit_usaha (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -201,6 +214,7 @@ CREATE TABLE unit_usaha (
 ### Ledger Tables
 
 #### 1. Chart of Accounts
+
 ```sql
 CREATE TABLE chart_of_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -227,6 +241,7 @@ CREATE TABLE chart_of_accounts (
 ```
 
 #### 2. Ledger Entry (Double Entry)
+
 ```sql
 CREATE TABLE ledger_entry (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -258,6 +273,7 @@ CREATE TABLE ledger_entry (
 ## 🔐 Keamanan
 
 ### Row Level Security (RLS)
+
 ```sql
 -- Example: Member table RLS
 ALTER TABLE member ENABLE ROW LEVEL SECURITY;
@@ -281,6 +297,7 @@ CREATE POLICY "Pengurus see all members"
 ```
 
 ### Idempotency Implementation
+
 ```typescript
 interface IdempotentRequest {
   idempotencyKey: string;  // UUID dari client
@@ -352,33 +369,30 @@ sequenceDiagram
 
 ## 🧪 Testing Strategy
 
-1.  **Unit Testing**:
-    -   Model logic validation
-    -   Business rules testing
-    -   Utility functions
+1. **Unit Testing**:
+    - Model logic validation
+    - Business rules testing
+    - Utility functions
 
-2.  **Integration Testing**:
-    -   API endpoints
-    -   Database interactions
-    -   Event bus functionality
+2. **Integration Testing**:
+    - API endpoints
+    - Database interactions
+    - Event bus functionality
 
-3.  **End-to-End Testing**:
-    -   Critical user journeys
-    -   Transaction flows
-    -   Cross-module interactions
+3. **End-to-End Testing**:
+    - Critical user journeys
+    - Transaction flows
+    - Cross-module interactions
 
-4.  **Performance Testing**:
-    -   Load testing for 10,000 users
-    -   Stress testing
-    -   Response time validation
+4. **Performance Testing**:
+    - Load testing for 10,000 users
+    - Stress testing
+    - Response time validation
 
-5.  **Security Testing**:
-    -   Penetration testing
-    -   RLS policy validation
-    -   Idempotency verification
-```
-
----
+5. **Security Testing**:
+    - Penetration testing
+    - RLS policy validation
+    - Idempotency verification
 
 ### Isi untuk file `todo.md`
 
@@ -546,4 +560,3 @@ Salin seluruh konten di bawah ini dan simpan sebagai `todo.md`.
 - [ ] Technical documentation
 - [ ] Deployment guide
 ```
-
