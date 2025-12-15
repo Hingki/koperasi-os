@@ -1,0 +1,46 @@
+name: Check archived migrations
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  archived-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check archived markers in archived folder
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(supabase/migrations/archived/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No archived migrations found (ok)."
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            if ! grep -q -i 'ARCHIVED' "$f"; then
+              echo "Archived file $f missing ARCHIVED marker"
+              exit 1
+            fi
+          done
+
+      - name: Ensure disabled markers in root migration files are comment-only
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files 'supabase/migrations/*.sql')
+          for f in "${files[@]}"; do
+            if grep -q 'ARCHIVED and disabled' "$f"; then
+              # fail if any non-comment/non-blank line exists
+              if grep -nE '^[[:space:]]*[^-[:space:]]' "$f" > /dev/null; then
+                echo "Error: $f contains non-comment content but is marked ARCHIVED and disabled"
+                grep -nE '^[[:space:]]*[^-[:space:]]' "$f" || true
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Success
+        run: echo "Archived migrations are properly disabled and placed in /supabase/migrations/archived"
