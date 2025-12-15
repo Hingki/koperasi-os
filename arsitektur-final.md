@@ -400,7 +400,6 @@ Salin seluruh konten di bawah ini dan simpan sebagai `todo.md`.
 
 ```markdown
 # ✅ TODO List Koperasi OS
-
 ## 🚀 Phase 1: Foundation Setup (MVP)
 
 ### 1.1 Project Initialization

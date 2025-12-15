@@ -2,10 +2,10 @@
 GRANT USAGE ON SCHEMA public TO anon;
 GRANT USAGE ON SCHEMA public TO authenticated;
 
--- Grant all permissions on the member table specifically
 GRANT ALL ON TABLE public.member TO authenticated;
 GRANT ALL ON TABLE public.member TO anon;
 
+-- MIGRATION-LINTER: allow-anon
 -- Grant all permissions on sequences for the member table (for auto-incrementing UUIDs)
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;

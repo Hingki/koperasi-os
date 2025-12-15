@@ -6,7 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:migrations": "node ./scripts/check-migrations.js",
+    "fix:migrations:enums": "node ./scripts/fix-enum-idempotency.js",
+    "fix:migrations:enums:apply": "node ./scripts/fix-enum-idempotency.js --apply",
+    "fix:migrations:create-tables": "node ./scripts/fix-create-table-idempotency.js",
+    "fix:migrations:create-tables:apply": "node ./scripts/fix-create-table-idempotency.js --apply",
+    "fix:migrations:create-indexes": "node ./scripts/fix-create-index-idempotency.js",
+    "fix:migrations:create-indexes:apply": "node ./scripts/fix-create-index-idempotency.js --apply",
+    "fix:migrations:create-sequences": "node ./scripts/fix-create-sequence-idempotency.js",
+    "fix:migrations:create-sequences:apply": "node ./scripts/fix-create-sequence-idempotency.js --apply",
+    "test": "node ./scripts/tests/run-migration-fix-tests.js",
+    "test:migrations": "node ./scripts/tests/run-migration-fix-tests.js",
+    "e2e": "playwright test",
+    "e2e:ci": "npx playwright install --with-deps && playwright test --reporter=list"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -23,6 +36,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@playwright/test": "^1.47.0",
+    "wait-on": "^7.0.1",
+    "pgsql-ast-parser": "^1.22.0"
   }
 }

@@ -25,7 +25,7 @@ BEGIN
 END$$;
 
 -- Tabel koperasi
-CREATE TABLE IF NOT EXISTS koperasi (
+CREATE TABLE koperasi (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nama TEXT NOT NULL,
   nomor_badan_hukum TEXT UNIQUE NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS koperasi (
 );
 
 -- Tabel member
-CREATE TABLE IF NOT EXISTS member (
+CREATE TABLE member (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   koperasi_id UUID NOT NULL REFERENCES koperasi(id),
   nomor_anggota TEXT NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS member (
 );
 
 -- Tabel user_role
-CREATE TABLE IF NOT EXISTS user_role (
+CREATE TABLE user_role (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   koperasi_id UUID NOT NULL REFERENCES koperasi(id),
   user_id UUID NOT NULL REFERENCES auth.users(id),

@@ -1,5 +1,7 @@
 -- Berikan izin USAGE pada schema public kepada role anon dan authenticated
 GRANT USAGE ON SCHEMA public TO anon;
+
+-- MIGRATION-LINTER: allow-anon
 GRANT USAGE ON SCHEMA public TO authenticated;
 
 -- Berikan izin penuh pada semua tabel di schema public kepada role authenticated

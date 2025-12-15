@@ -1,3 +1,6 @@
+-- ARCHIVED and disabled: moved from active migrations
+-- This file is temporary test migration and has been archived after successful verification.
+
 -- ARCHIVED: 2025-12-15
 -- Original file: 20251215131500_008_test_member_insert.sql
 -- This was a temporary migration used to validate member insert and constraints.

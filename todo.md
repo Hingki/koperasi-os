@@ -10,6 +10,7 @@
 - [✅] Setup ESLint, Prettier, and Husky for code quality
 - [✅] Configure environment variables
 - [ ] Setup CI/CD pipeline (GitHub Actions)
+ - [✅] Setup CI/CD pipeline (GitHub Actions) (basic: lint/build/test, migrations preview, optional Vercel deploy)
 
 ### 1.2 Database Foundation
 
@@ -19,25 +20,24 @@
 - [ ] Implement ledger entry table with partitioning
  - [✅] Setup accounting periods
  - [✅] Create chart of accounts structure
- - [ ] Implement ledger entry table with partitioning
+ - [✅] Implement ledger entry table with partitioning
 - [✅] Create initial database migration
-- [ ] Setup RLS policies for all tables
+- [🔧] Setup RLS policies for all tables (in-progress: conservative RBAC migration + smoke tests added)
 - [ ] Create audit logging triggers
-	- [✅] Create audit logging triggers (audit_log + `fn_audit_log` and triggers attached to core tables)
-	- [✅] Member RLS policies implemented (insert/update)
-	- [✅] Grants for `public` schema and `member` table applied
-	- [✅] Make enum definitions idempotent and normalized (`member_type`, `member_status`, `user_role_type`)
-	- [✅] Add `updated_at` triggers for `koperasi`, `member`, and `user_role`
-	- [✅] Test migration validated `member` insert (temporary migration archived)
-    - [✅] Add CI check to verify archived migrations are disabled
-    - [✅] Add preview DB migration CI job to run migrations against disposable Postgres (applies only non-archived migrations)
+ - [✅] Create audit logging triggers
+- [✅] Member RLS policies implemented (insert/update)
+- [✅] Grants for `public` schema and `member` table applied
+- [✅] Make enum definitions idempotent and normalized (`member_type`, `member_status`, `user_role_type`)
+- [✅] Add `updated_at` triggers for `koperasi`, `member`, and `user_role`
+- [✅] Test migration validated `member` insert (temporary migration archived)
+  - [✅] Add CI check to verify archived migrations are disabled
+  - [✅] Add preview DB migration CI job to run migrations against disposable Postgres (applies only non-archived migrations)
 
 ### 1.3 Authentication & Authorization
 
 - [✅] Implement Supabase Auth integration
 - [✅] Create user registration/login flow
 - [ ] Implement role-based access control
-	- [✅] `user_role` table created
 - [ ] Setup session management
 - [ ] Create middleware for route protection
 
@@ -155,8 +155,8 @@
 ### 7.1 Testing Implementation
 
 - [ ] Unit tests for all business logic
-- [ ] Integration tests for APIs
-- [ ] E2E tests for critical flows
+- [🔧] Integration tests for APIs (in-progress: Playwright scaffold added)
+- [✅] E2E tests for critical flows (registration, login, ledger flows added)
 - [ ] Performance testing
 - [ ] Security testing
 
