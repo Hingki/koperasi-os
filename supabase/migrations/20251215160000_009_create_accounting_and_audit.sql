@@ -26,6 +26,32 @@ CREATE TABLE IF NOT EXISTS accounting_period (
 );
 
 -- chart_of_accounts (from arsitektur-final.md)
+-- Ensure unit_usaha exists (used by chart_of_accounts FK)
+CREATE TABLE IF NOT EXISTS unit_usaha (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  koperasi_id UUID NOT NULL REFERENCES koperasi(id),
+  kode_unit TEXT NOT NULL,
+  nama_unit TEXT NOT NULL,
+  deskripsi TEXT,
+  jenis_unit TEXT NOT NULL CHECK (jenis_unit IN (
+    'simpan_pinjam', 'sembako', 'frozen_food', 'lpg',
+    'akuaponik', 'maggot', 'pupuk', 'klinik',
+    'apotek', 'billboard', 'other'
+  )),
+  pic_name TEXT,
+  pic_phone TEXT,
+  alamat TEXT,
+  config JSONB DEFAULT '{}'::jsonb,
+  is_active BOOLEAN DEFAULT true,
+  tanggal_operasi DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_by UUID,
+  deleted_at TIMESTAMPTZ,
+  version INTEGER DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS chart_of_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   koperasi_id UUID NOT NULL REFERENCES koperasi(id),
