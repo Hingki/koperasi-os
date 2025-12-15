@@ -1,7 +1,7 @@
 -- Create partitioned ledger_entry table and helper to ensure monthly partitions
 
 CREATE TABLE IF NOT EXISTS ledger_entry (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID DEFAULT gen_random_uuid(),
   koperasi_id UUID NOT NULL REFERENCES koperasi(id),
   period_id UUID NOT NULL REFERENCES accounting_period(id),
   tx_id UUID NOT NULL,
@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS ledger_entry (
   voided_at TIMESTAMPTZ,
   voided_by UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID NOT NULL
+  created_by UUID NOT NULL,
+  PRIMARY KEY (book_date, id)
 ) PARTITION BY RANGE (book_date);
 
 -- Helper function: ensure monthly partition exists
