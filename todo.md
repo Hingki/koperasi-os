@@ -20,12 +20,20 @@
 - [✅] Create initial database migration
 - [ ] Setup RLS policies for all tables
 - [ ] Create audit logging triggers
+	- [✅] Member RLS policies implemented (insert/update)
+	- [✅] Grants for `public` schema and `member` table applied
+	- [✅] Make enum definitions idempotent and normalized (`member_type`, `member_status`, `user_role_type`)
+	- [✅] Add `updated_at` triggers for `koperasi`, `member`, and `user_role`
+	- [✅] Test migration validated `member` insert (temporary migration archived)
+    - [✅] Add CI check to verify archived migrations are disabled
+    - [✅] Add preview DB migration CI job to run migrations against disposable Postgres (applies only non-archived migrations)
 
 ### 1.3 Authentication & Authorization
 
 - [✅] Implement Supabase Auth integration
 - [✅] Create user registration/login flow
 - [ ] Implement role-based access control
+	- [✅] `user_role` table created
 - [ ] Setup session management
 - [ ] Create middleware for route protection
 
@@ -147,6 +155,15 @@
 - [ ] E2E tests for critical flows
 - [ ] Performance testing
 - [ ] Security testing
+
+## Notes & Actions Taken (mapped to `arsitektur-final.md`)
+
+- Normalized enums and made their creation idempotent in the initial migration (`20251214112545_001_create_core_tables.sql`).
+- Implemented `member` RLS policies and repaired remote migration history for debug entries.
+- Archived debug migrations and added marker files in `/supabase/migrations/archived` to prevent accidental execution.
+- Added `updated_at` trigger function and attached triggers to `koperasi`, `member`, and `user_role`.
+- Executed a temporary test migration to validate `member` insert under current RLS/grants; test was removed and archived.
+- Next: create PR for these changes and add CI rule to ignore `/supabase/migrations/archived` (PR open step in progress).
 
 ### 7.2 Quality Assurance
 

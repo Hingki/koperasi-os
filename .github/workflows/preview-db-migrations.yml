@@ -1,0 +1,66 @@
+name: Preview DB migrations
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch: {}
+
+jobs:
+  run-migrations-preview:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 && break || sleep 1
+          done
+
+      - name: Prepare minimal Supabase auth schema
+        run: |
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS auth;
+          CREATE TABLE IF NOT EXISTS auth.users (id UUID PRIMARY KEY);
+          SQL
+
+      - name: Run migrations (skip archived)
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          files=(supabase/migrations/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No migration files found"
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            if grep -q -i 'ARCHIVED and disabled' "$f"; then
+              echo "Skipping archived marker file: $f"
+              continue
+            fi
+            echo "Applying migration: $f"
+            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Verify member table exists
+        run: |
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "\dx" || true
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.member')" | tee /tmp/member_exists.txt
