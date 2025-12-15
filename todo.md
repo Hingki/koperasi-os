@@ -17,9 +17,13 @@
 - [ ] Setup accounting periods
 - [ ] Create chart of accounts structure
 - [ ] Implement ledger entry table with partitioning
+ - [✅] Setup accounting periods
+ - [✅] Create chart of accounts structure
+ - [ ] Implement ledger entry table with partitioning
 - [✅] Create initial database migration
 - [ ] Setup RLS policies for all tables
 - [ ] Create audit logging triggers
+	- [✅] Create audit logging triggers (audit_log + `fn_audit_log` and triggers attached to core tables)
 	- [✅] Member RLS policies implemented (insert/update)
 	- [✅] Grants for `public` schema and `member` table applied
 	- [✅] Make enum definitions idempotent and normalized (`member_type`, `member_status`, `user_role_type`)
