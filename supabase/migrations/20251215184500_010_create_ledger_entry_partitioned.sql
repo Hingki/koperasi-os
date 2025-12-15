@@ -57,14 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_ledger_entry_koperasi_book_date ON ledger_entry (
 -- Create initial partition for current month
 DO $$
 BEGIN
-  PERFORM ensure_ledger_partition_fn := 1;
-  -- Manually create partition for current month if missing
-  PERFORM (
-    SELECT 1 FROM (
-      SELECT date_trunc('month', CURRENT_DATE)::date AS start_date
-    ) s
-  );
-  -- Use same logic as function
+  -- Create partition for current month if missing
   EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF ledger_entry FOR VALUES FROM (%L) TO (%L)',
     format('ledger_entry_%s', to_char(date_trunc('month', CURRENT_DATE), 'YYYYMM')),
     date_trunc('month', CURRENT_DATE)::date,
