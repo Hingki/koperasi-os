@@ -1,0 +1,2 @@
+-- ARCHIVED and disabled: moved to /supabase/migrations/archived/20251215131500_008_test_member_insert.sql
+-- This file is temporary test migration and has been archived after successful verification.
