@@ -10,8 +10,6 @@ REVOKE ALL ON TABLE public.audit_log FROM anon;
 ALTER TABLE IF EXISTS public.koperasi ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.koperasi TO anon;
 -- MIGRATION-LINTER: allow-anon
-  FOR SELECT TO authenticated
-  USING ( true );
 DROP POLICY IF EXISTS "koperasi_dml_authenticated" ON public.koperasi;
 CREATE POLICY "koperasi_dml_authenticated" ON public.koperasi
   FOR ALL TO authenticated
