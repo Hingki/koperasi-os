@@ -37,7 +37,7 @@ BEGIN
 
   -- Insert ledger entry
   INSERT INTO ledger_entry (id, koperasi_id, period_id, tx_id, tx_type, tx_reference, account_debit, account_credit, amount, description, metadata, hash_current, created_by, book_date)
-  VALUES (gen_random_uuid(), v_k, v_period, gen_random_uuid(), 'test', 'REF-LE-001', v_acc1, v_acc2, 100.00, 'Test ledger entry', '{}'::jsonb, md5(random()::text), NULL, CURRENT_DATE);
+  VALUES (gen_random_uuid(), v_k, v_period, gen_random_uuid(), 'test', 'REF-LE-001', v_acc1, v_acc2, 100.00, 'Test ledger entry', '{}'::jsonb, md5(random()::text), gen_random_uuid(), CURRENT_DATE);
 
   -- Verify partition exists
   SELECT COUNT(*) INTO exists_part FROM pg_class WHERE relname = part_name;
