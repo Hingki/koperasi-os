@@ -56,6 +56,20 @@ jobs:
           CREATE SCHEMA IF NOT EXISTS auth;
           CREATE TABLE IF NOT EXISTS auth.users (id UUID PRIMARY KEY);
           SQL
+      - name: Ensure minimal roles exist
+        run: |
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+              CREATE ROLE anon;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              CREATE ROLE authenticated;
+            END IF;
+          END$$;
+          SQL
       - name: Run migrations (skip archived)
         run: |
           set -euo pipefail
