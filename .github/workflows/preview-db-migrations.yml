@@ -64,3 +64,16 @@ jobs:
           export PGPASSWORD=postgres
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "\dx" || true
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.member')" | tee /tmp/member_exists.txt
+
+      - name: Run migration smoke tests
+        run: |
+          export PGPASSWORD=postgres
+          tests=(supabase/migrations/tests/*.sql)
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "No migration tests found"
+            exit 0
+          fi
+          for t in "${tests[@]}"; do
+            echo "Running test: $t"
+            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$t"
+          done
