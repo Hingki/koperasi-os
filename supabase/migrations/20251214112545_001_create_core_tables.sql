@@ -1,0 +1,115 @@
+-- Membuat tipe data kustom (ENUM) secara idempotent
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'member_type') THEN
+    CREATE TYPE member_type AS ENUM (
+      'regular', 'honorary', 'family', 'student', 'staff'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'member_status') THEN
+    CREATE TYPE member_status AS ENUM (
+      'pending', 'active', 'inactive', 'suspended', 'archived'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_type') THEN
+    CREATE TYPE user_role_type AS ENUM (
+      'admin', 'pengurus', 'bendahara', 'ketua', 'anggota', 'staff'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_type') THEN
+    CREATE TYPE account_type AS ENUM ('asset', 'liability', 'equity', 'revenue', 'expense');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'period_status') THEN
+    CREATE TYPE period_status AS ENUM ('draft', 'open', 'closed', 'locked');
+  END IF;
+END$$;
+
+-- Tabel koperasi
+CREATE TABLE IF NOT EXISTS koperasi (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nama TEXT NOT NULL,
+  nomor_badan_hukum TEXT UNIQUE NOT NULL,
+  tanggal_berdiri DATE NOT NULL,
+  alamat TEXT NOT NULL,
+  kelurahan TEXT NOT NULL,
+  kecamatan TEXT NOT NULL,
+  kota TEXT NOT NULL,
+  provinsi TEXT NOT NULL,
+  kode_pos TEXT,
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  npwp TEXT UNIQUE,
+  siup TEXT,
+  config JSONB DEFAULT '{}'::jsonb,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_by UUID,
+  deleted_at TIMESTAMPTZ,
+  version INTEGER DEFAULT 1
+);
+
+-- Tabel member
+CREATE TABLE IF NOT EXISTS member (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  koperasi_id UUID NOT NULL REFERENCES koperasi(id),
+  nomor_anggota TEXT NOT NULL,
+  nama_lengkap TEXT NOT NULL,
+  nik TEXT UNIQUE NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT,
+  alamat_lengkap TEXT NOT NULL,
+  member_type member_type DEFAULT 'regular',
+  status member_status DEFAULT 'pending',
+  tanggal_daftar DATE NOT NULL DEFAULT CURRENT_DATE,
+  tanggal_aktif DATE,
+  user_id UUID UNIQUE REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_by UUID,
+  deleted_at TIMESTAMPTZ,
+  version INTEGER DEFAULT 1
+);
+
+-- Tabel user_role
+CREATE TABLE IF NOT EXISTS user_role (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  koperasi_id UUID NOT NULL REFERENCES koperasi(id),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  member_id UUID REFERENCES member(id),
+  role user_role_type NOT NULL,
+  permissions JSONB DEFAULT '[]'::jsonb,
+  unit_usaha_id UUID, -- Akan direferensikan setelah tabel unit_usaha dibuat
+  is_active BOOLEAN DEFAULT true,
+  valid_from TIMESTAMPTZ DEFAULT NOW(),
+  valid_until TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_by UUID,
+  deleted_at TIMESTAMPTZ,
+  version INTEGER DEFAULT 1
+);
+
+-- Trigger function untuk updated_at
+CREATE OR REPLACE FUNCTION handle_updated_at()
+RETURNS TRIGGER AS $$     BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Trigger untuk tabel koperasi
+CREATE TRIGGER handle_koperasi_updated_at BEFORE UPDATE ON koperasi
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+
+-- Trigger untuk tabel member
+CREATE TRIGGER handle_member_updated_at BEFORE UPDATE ON member
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+
+-- Trigger untuk tabel user_role
+CREATE TRIGGER handle_user_role_updated_at BEFORE UPDATE ON user_role
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();

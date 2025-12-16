@@ -1,0 +1,2 @@
+ -- Moved to archived/20251215131500_008_test_member_insert.sql (kept for provenance)
+ -- This file is a no-op placeholder in the active folder to document the archival.
