@@ -2,7 +2,7 @@ drop extension if exists "pg_net";
 
 create sequence "public"."member_nomor_anggota_seq_20251215";
 
-drop policy "Enable update for all users on their own profile" on "public"."member";
+DROP POLICY IF EXISTS "Enable update for all users on their own profile" ON "public"."member";
 
 alter table "public"."member" alter column "member_type" drop default;
 
