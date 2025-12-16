@@ -27,10 +27,11 @@ BEGIN
   SELECT id INTO v_acc1 FROM chart_of_accounts WHERE account_code = 'TEST-1000' LIMIT 1;
   SELECT id INTO v_acc2 FROM chart_of_accounts WHERE account_code = 'TEST-2000' LIMIT 1;
 
-  -- Create accounting period
-  INSERT INTO accounting_period (id, koperasi_id, period_name, period_type, year, start_date, end_date)
-  VALUES (gen_random_uuid(), v_k, 'Test Period', 'monthly', EXTRACT(YEAR FROM CURRENT_DATE)::int, date_trunc('month', CURRENT_DATE)::date, (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date)
-  ON CONFLICT (period_name) DO NOTHING;
+  -- Create accounting period (idempotent without requiring a unique constraint)
+  IF NOT EXISTS (SELECT 1 FROM accounting_period WHERE period_name = 'Test Period') THEN
+    INSERT INTO accounting_period (id, koperasi_id, period_name, period_type, year, start_date, end_date)
+    VALUES (gen_random_uuid(), v_k, 'Test Period', 'monthly', EXTRACT(YEAR FROM CURRENT_DATE)::int, date_trunc('month', CURRENT_DATE)::date, (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date);
+  END IF;
 
   SELECT id INTO v_period FROM accounting_period WHERE period_name = 'Test Period' LIMIT 1;
 
