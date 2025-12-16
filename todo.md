@@ -10,7 +10,7 @@
 - [✅] Setup ESLint, Prettier, and Husky for code quality
 - [✅] Configure environment variables
 - [ ] Setup CI/CD pipeline (GitHub Actions)
- - [✅] Setup CI/CD pipeline (GitHub Actions) (basic: lint/build/test, migrations preview, optional Vercel deploy)
+- [✅] Setup CI/CD pipeline (GitHub Actions) (basic: lint/build/test, migrations preview, optional Vercel deploy)
 
 ### 1.2 Database Foundation
 
@@ -18,13 +18,13 @@
 - [ ] Setup accounting periods
 - [ ] Create chart of accounts structure
 - [ ] Implement ledger entry table with partitioning
- - [✅] Setup accounting periods
- - [✅] Create chart of accounts structure
- - [✅] Implement ledger entry table with partitioning
+- [✅] Setup accounting periods
+- [✅] Create chart of accounts structure
+- [✅] Implement ledger entry table with partitioning
 - [✅] Create initial database migration
 - [🔧] Setup RLS policies for all tables (in-progress: conservative RBAC migration + smoke tests added)
 - [ ] Create audit logging triggers
- - [✅] Create audit logging triggers
+- [✅] Create audit logging triggers
 - [✅] Member RLS policies implemented (insert/update)
 - [✅] Grants for `public` schema and `member` table applied
 - [✅] Make enum definitions idempotent and normalized (`member_type`, `member_status`, `user_role_type`)
