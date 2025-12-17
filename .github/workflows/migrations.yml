@@ -1,0 +1,63 @@
+name: Migrations CI
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/migrations.yml"
+
+jobs:
+  preview-migrations:
+    name: Preview Migrations
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: previewdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          npm install -g supabase
+
+      - name: Apply migrations (excluding archived)
+        run: |
+          for file in supabase/migrations/*.sql; do
+            echo "Applying migration: $file"
+            psql postgresql://postgres:postgres@localhost:5432/previewdb -f "$file"
+          done
+
+      - name: Run smoke tests
+        run: |
+          for test in supabase/migrations/tests/*.sql; do
+            echo "Running test: $test"
+            psql postgresql://postgres:postgres@localhost:5432/previewdb -f "$test"
+          done
+
+      - name: Ensure archived migrations are ignored
+        run: |
+          if ls supabase/migrations/archived/*.sql 1> /dev/null 2>&1; then
+            echo "Archived migrations detected but ignored as expected"
+          fi
+
+      - name: Detect modified old migrations
+        run: |
+          git fetch origin main
+          git diff --exit-code origin/main -- supabase/migrations/*.sql || \
+          (echo "ERROR: Existing migrations were modified. Create a new migration instead." && exit 1)
