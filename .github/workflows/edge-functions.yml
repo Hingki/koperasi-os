@@ -1,0 +1,58 @@
+name: Edge Functions CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/migrations-fix-tests
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/edge-functions.yml"
+
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/edge-functions.yml"
+
+jobs:
+  edge-functions-ci:
+    name: Lint and build Edge Functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          if [ -f "package.json" ]; then
+            if [ -f "package-lock.json" ]; then
+              npm ci
+            else
+              npm install
+            fi
+          else
+            echo "No package.json found, skipping install."
+          fi
+
+      - name: Lint Edge Functions
+        run: |
+          if npm run | grep -q "lint:functions"; then
+            npm run lint:functions
+          else
+            echo "No lint:functions script defined, skipping."
+          fi
+
+      - name: Build Edge Functions
+        run: |
+          if npm run | grep -q "build:functions"; then
+            npm run build:functions
+          else
+            echo "No build:functions script defined, skipping."
+          fi

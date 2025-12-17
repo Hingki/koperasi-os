@@ -1,0 +1,79 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "pages/**"
+      - "styles/**"
+      - "package.json"
+      - "supabase/functions/**"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  deploy-frontend-vercel:
+    name: Deploy frontend to Vercel
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build frontend
+        run: |
+          if npm run | grep -q "build"; then
+            npm run build
+          else
+            echo "No build script defined, skipping build."
+          fi
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "Missing Vercel secrets. Please set VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID."
+            exit 1
+          fi
+          npx vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          npx vercel deploy --prod --token=$VERCEL_TOKEN
+
+  # Placeholder untuk deploy Supabase di masa depan
+  # deploy-supabase:
+  #   name: Deploy Supabase migrations and functions
+  #   needs: deploy-frontend-vercel
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Install Supabase CLI
+  #       run: |
+  #         curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  #         sudo apt-get install -y nodejs
+  #         npm install -g supabase
+  #
+  #     - name: Deploy migrations and functions (placeholder)
+  #       run: |
+  #         echo "Define Supabase deploy steps when ready."

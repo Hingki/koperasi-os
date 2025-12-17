@@ -1,0 +1,75 @@
+name: Frontend CI (Next.js)
+
+on:
+  push:
+    branches:
+      - main
+      - feature/migrations-fix-tests
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "pages/**"
+      - "styles/**"
+      - ".github/workflows/frontend.yml"
+
+  pull_request:
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "pages/**"
+      - "styles/**"
+      - "package.json"
+      - ".github/workflows/frontend.yml"
+
+jobs:
+  frontend-ci:
+    name: Lint, build, and test frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Lint
+        run: |
+          if npm run | grep -q "lint"; then
+            npm run lint
+          else
+            echo "No lint script defined, skipping."
+          fi
+
+      - name: Run tests
+        run: |
+          if npm run | grep -q "test"; then
+            npm test
+          else
+            echo "No test script defined, skipping."
+          fi
+
+      - name: Build
+        run: |
+          if npm run | grep -q "build"; then
+            npm run build
+          else
+            echo "No build script defined, skipping."
+          fi

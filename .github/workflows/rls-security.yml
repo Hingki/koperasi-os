@@ -1,0 +1,69 @@
+name: RLS & RBAC Security CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/migrations-fix-tests
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/rls_tests/**"
+      - ".github/workflows/rls-security.yml"
+
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/rls_tests/**"
+      - ".github/workflows/rls-security.yml"
+
+jobs:
+  rls-rbac-tests:
+    name: Run RLS & RBAC tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: securitydb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          npm install -g supabase
+
+      - name: Apply migrations to security DB
+        run: |
+          set -e
+          for file in supabase/migrations/*.sql; do
+            echo "Applying migration: $file"
+            psql postgresql://postgres:postgres@localhost:5432/securitydb -f "$file"
+          done
+
+      - name: Run RLS & RBAC tests
+        run: |
+          set -e
+          if [ -d "supabase/rls_tests" ]; then
+            for test in supabase/rls_tests/*.sql; do
+              [ -e "$test" ] || continue
+              echo "Running RLS/RBAC test: $test"
+              psql postgresql://postgres:postgres@localhost:5432/securitydb -f "$test"
+            done
+          else
+            echo "No RLS tests directory found, failing to enforce security tests."
+            exit 1
+          fi

@@ -16,7 +16,7 @@ on:
 
 jobs:
   preview-migrations:
-    name: Preview Migrations
+    name: Preview migrations on disposable DB
     runs-on: ubuntu-latest
 
     services:
@@ -46,6 +46,7 @@ jobs:
 
       - name: Apply migrations (excluding archived)
         run: |
+          set -e
           for file in supabase/migrations/*.sql; do
             echo "Applying migration: $file"
             psql postgresql://postgres:postgres@localhost:5432/previewdb -f "$file"
@@ -53,15 +54,23 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          for test in supabase/migrations/tests/*.sql; do
-            echo "Running test: $test"
-            psql postgresql://postgres:postgres@localhost:5432/previewdb -f "$test"
-          done
+          set -e
+          if [ -d "supabase/migrations/tests" ]; then
+            for test in supabase/migrations/tests/*.sql; do
+              [ -e "$test" ] || continue
+              echo "Running test: $test"
+              psql postgresql://postgres:postgres@localhost:5432/previewdb -f "$test"
+            done
+          else
+            echo "No smoke tests directory found, skipping."
+          fi
 
       - name: Ensure archived migrations are ignored
         run: |
           if ls supabase/migrations/archived/*.sql 1> /dev/null 2>&1; then
-            echo "Archived migrations detected but ignored as expected"
+            echo "Archived migrations detected but intentionally ignored."
+          else
+            echo "No archived migrations found, OK."
           fi
 
       - name: Detect modified old migrations
