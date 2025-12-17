@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches:
+      - dev
       - main
     paths:
       - "app/**"
@@ -10,15 +11,21 @@ on:
       - "lib/**"
       - "pages/**"
       - "styles/**"
+      - "public/**"
       - "package.json"
-      - "supabase/functions/**"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
       - ".github/workflows/deploy.yml"
 
 jobs:
-  deploy-frontend-vercel:
-    name: Deploy frontend to Vercel
+  deploy-frontend-dev:
+    name: Deploy frontend to Vercel (dev)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/dev'
+
+    environment:
+      name: development
 
     steps:
       - name: Checkout repository
@@ -46,24 +53,75 @@ jobs:
             echo "No build script defined, skipping build."
           fi
 
-      - name: Deploy to Vercel
+      - name: Deploy to Vercel (dev)
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_DEV_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_DEV_PROJECT_ID }}
         run: |
           if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "Missing Vercel secrets. Please set VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID."
+            echo "Missing Vercel dev secrets. Please set VERCEL_DEV_TOKEN, VERCEL_ORG_ID, VERCEL_DEV_PROJECT_ID."
+            exit 1
+          fi
+          npx vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          npx vercel deploy --prod --token=$VERCEL_TOKEN
+
+  deploy-frontend-prod:
+    name: Deploy frontend to Vercel (prod)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    # Hubungkan ke GitHub Environment "production"
+    # Aktifkan protection & approval di Settings → Environments
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build frontend
+        run: |
+          if npm run | grep -q "build"; then
+            npm run build
+          else
+            echo "No build script defined, skipping build."
+          fi
+
+      - name: Deploy to Vercel (prod)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_PROD_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROD_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "Missing Vercel prod secrets. Please set VERCEL_PROD_TOKEN, VERCEL_ORG_ID, VERCEL_PROD_PROJECT_ID."
             exit 1
           fi
           npx vercel pull --yes --environment=production --token=$VERCEL_TOKEN
           npx vercel deploy --prod --token=$VERCEL_TOKEN
 
-  # Placeholder untuk deploy Supabase di masa depan
+  # Placeholder masa depan: deploy Supabase migrations & edge functions dengan gate ketat
   # deploy-supabase:
-  #   name: Deploy Supabase migrations and functions
-  #   needs: deploy-frontend-vercel
+  #   name: Deploy Supabase migrations and functions (manual gated)
   #   runs-on: ubuntu-latest
+  #   needs: [deploy-frontend-prod]
+  #   environment:
+  #     name: production
   #   steps:
   #     - name: Checkout repository
   #       uses: actions/checkout@v4
@@ -74,6 +132,6 @@ jobs:
   #         sudo apt-get install -y nodejs
   #         npm install -g supabase
   #
-  #     - name: Deploy migrations and functions (placeholder)
+  #     - name: Deploy migrations and functions (define when ready)
   #       run: |
-  #         echo "Define Supabase deploy steps when ready."
+  #         echo "Define Supabase deploy steps according to SAK-EP and audit procedures."
