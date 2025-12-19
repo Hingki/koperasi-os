@@ -339,3 +339,4 @@ supabase migration up
 5. **Role Expiration**: Automatic role expiration based on `valid_until`
 6. **Multi-Koperasi Support**: Better handling of users with roles in multiple koperasi
 
+
