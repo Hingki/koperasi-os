@@ -1,4 +1,10 @@
 ﻿## [Unreleased]
+- test: verify git hook works
+
+## [Unreleased]
+- fix: resolve lint config and git hook issues
+
+## [Unreleased]
 - Test: update changelog hook
 
 ## [Unreleased]
@@ -47,6 +53,8 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ### Fixed
 - Bug akses anggota non-otorisasi pada RLS
+
+
 
 
 
