@@ -26,6 +26,7 @@
 - [ ] Create audit logging triggers
 - [✅] Create audit logging triggers
 - [✅] Member RLS policies implemented (insert/update)
+- [✅] Fix Member INSERT RLS policy security issue (migration 015 - enforce user_id = auth.uid())
 - [✅] Grants for `public` schema and `member` table applied
 - [✅] Make enum definitions idempotent and normalized (`member_type`, `member_status`, `user_role_type`)
 - [✅] Add `updated_at` triggers for `koperasi`, `member`, and `user_role`
@@ -37,15 +38,15 @@
 
 - [✅] Implement Supabase Auth integration
 - [✅] Create user registration/login flow
-- [ ] Implement role-based access control
-- [ ] Setup session management
-- [ ] Create middleware for route protection
+- [✅] Implement role-based access control (helper functions, RLS policies, API endpoints, middleware)
+- [✅] Setup session management (via Supabase Auth + middleware)
+- [✅] Create middleware for route protection (role-based route protection implemented)
 
 ## 🏗️ Phase 2: Core Modules (MVP)
 
 ### 2.1 Member Management
 
-- [✅] Member registration form
+- [✅] Member registration form (refactored to use API endpoint with Zod validation)
 - [ ] Member profile management
 - [ ] Member list with search/filter
 - [ ] Member status management (active, suspended, etc.)
@@ -167,6 +168,19 @@
 - Archived debug migrations and added marker files in `/supabase/migrations/archived` to prevent accidental execution.
 - Added `updated_at` trigger function and attached triggers to `koperasi`, `member`, and `user_role`.
 - Executed a temporary test migration to validate `member` insert under current RLS/grants; test was removed and archived.
+- **SECURITY FIX (2025-12-16)**: Fixed critical RLS security vulnerability in member INSERT policy. Migration `20251216120000_015_fix_member_insert_rls_policy.sql` enforces `user_id = auth.uid()` constraint. Previous policy allowed any authenticated user to insert with any user_id. See `docs/security/member-rls-security-issue.md` for details.
+- **MEMBER REGISTRATION (2025-12-16)**: Implemented production-ready member registration feature:
+  - ✅ Zod validation schema with Indonesian data format validation (NIK, phone)
+  - ✅ Secure API endpoint `/api/members/register` with RLS compliance
+  - ✅ Refactored frontend form with client-side validation and error handling
+  - ✅ Integration tests (Playwright) for end-to-end flow and RLS verification
+- **RBAC IMPLEMENTATION (2025-12-16)**: Implemented complete Role-Based Access Control system:
+  - ✅ Helper functions for role checking (getUserRoles, hasRole, hasAnyRole, etc.)
+  - ✅ RLS policies for user_role table (users see own, admins manage all)
+  - ✅ API endpoints: GET /api/auth/roles, POST /api/admin/roles/assign
+  - ✅ Next.js middleware for route protection based on roles
+  - ✅ Member approval API with auto-assign role 'anggota'
+  - ✅ E2E tests for RBAC verification
 - Next: create PR for these changes and add CI rule to ignore `/supabase/migrations/archived` (PR open step in progress).
 
 ### 7.2 Quality Assurance

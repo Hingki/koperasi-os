@@ -278,11 +278,26 @@ CREATE TABLE ledger_entry (
 -- Example: Member table RLS
 ALTER TABLE member ENABLE ROW LEVEL SECURITY;
 
+-- INSERT: Users can only create their own member profile
+CREATE POLICY "member_insert_own_profile"
+  ON member FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- UPDATE: Users can only update their own profile
+CREATE POLICY "member_update_own_profile"
+  ON member FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- SELECT: Members see own data
 CREATE POLICY "Members see own data"
   ON member FOR SELECT
   TO authenticated
   USING (user_id = auth.uid());
 
+-- SELECT: Pengurus see all members
 CREATE POLICY "Pengurus see all members"
   ON member FOR SELECT
   TO authenticated
@@ -295,6 +310,8 @@ CREATE POLICY "Pengurus see all members"
     )
   );
 ```
+
+**Security Note:** INSERT policy MUST enforce `auth.uid() = user_id` to prevent users from creating member records with other users' IDs. This is a critical security boundary.
 
 ### Idempotency Implementation
 
