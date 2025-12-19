@@ -22,3 +22,4 @@ CREATE POLICY "member_insert_own_profile" ON public.member
 -- Verify RLS is still enabled
 ALTER TABLE public.member ENABLE ROW LEVEL SECURITY;
 
+

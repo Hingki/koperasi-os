@@ -98,3 +98,4 @@ CREATE POLICY "user_role_delete_admin" ON public.user_role
 -- Note: Soft delete is preferred (set deleted_at) over hard delete
 -- This policy allows DELETE but application should use UPDATE to set deleted_at
 
+

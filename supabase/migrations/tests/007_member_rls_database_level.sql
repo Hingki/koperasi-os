@@ -228,3 +228,4 @@ END$$;
 -- Cleanup (optional - comment out if you want to inspect test data)
 -- DELETE FROM public.member WHERE nik IN ('RLS_DB_NIK_001', 'RLS_DB_NIK_002', 'RLS_DB_NIK_003');
 
+
