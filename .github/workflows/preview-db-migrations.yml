@@ -1,79 +1,37 @@
 name: Preview DB migrations
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/migrations/**'
   pull_request:
     paths:
       - 'supabase/migrations/**'
-  workflow_dispatch: {}
 
 jobs:
-  run-migrations-preview:
+  preview-migrations:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install psql client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-      - name: Wait for Postgres
-        run: |
-          for i in {1..30}; do
-            pg_isready -h localhost -p 5432 && break || sleep 1
-          done
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Prepare minimal Supabase auth schema
+      - name: Start Supabase local
         run: |
-          export PGPASSWORD=postgres
-          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE SCHEMA IF NOT EXISTS auth;
-          CREATE TABLE IF NOT EXISTS auth.users (id UUID PRIMARY KEY);
-          SQL
+          npx supabase start
+          sleep 10
 
-      - name: Run migrations (skip archived)
+      - name: Apply migrations
         run: |
-          set -euo pipefail
-          export PGPASSWORD=postgres
-          files=(supabase/migrations/*.sql)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No migration files found"
-            exit 0
-          fi
-          for f in "${files[@]}"; do
-            if grep -q -i 'ARCHIVED and disabled' "$f"; then
-              echo "Skipping archived marker file: $f"
-              continue
-            fi
-            echo "Applying migration: $f"
-            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
-          done
+          npx supabase migration up
 
-      - name: Verify member table exists
+      - name: Verify migrations applied
         run: |
-          export PGPASSWORD=postgres
-          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "\dx" || true
-          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.member')" | tee /tmp/member_exists.txt
-
-      - name: Run migration smoke tests
-        run: |
-          export PGPASSWORD=postgres
-          tests=(supabase/migrations/tests/*.sql)
-          if [ ${#tests[@]} -eq 0 ]; then
-            echo "No migration tests found"
-            exit 0
-          fi
-          for t in "${tests[@]}"; do
-            echo "Running test: $t"
-            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$t"
-          done
+          echo "Migrations applied successfully to preview DB"

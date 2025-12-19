@@ -1,6 +1,10 @@
 name: Check archived migrations
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'supabase/migrations/**'
   pull_request:
     paths:
       - 'supabase/migrations/**'
