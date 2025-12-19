@@ -1,0 +1,15 @@
+﻿{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["scripts/**/*.js"],
+      "env": {
+        "node": true
+      },
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off",
+        "no-unused-vars": "warning"
+      }
+    }
+  ]
+}
