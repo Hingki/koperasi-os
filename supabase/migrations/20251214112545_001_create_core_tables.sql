@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS user_role (
   member_id UUID REFERENCES member(id),
   role user_role_type NOT NULL,
   permissions JSONB DEFAULT '[]'::jsonb,
-  unit_usaha_id UUID, -- Akan direferensikan setelah tabel unit_usaha dibuat
+  unit_usaha_id UUID,
   is_active BOOLEAN DEFAULT true,
   valid_from TIMESTAMPTZ DEFAULT NOW(),
   valid_until TIMESTAMPTZ,
@@ -96,20 +96,24 @@ CREATE TABLE IF NOT EXISTS user_role (
 
 -- Trigger function untuk updated_at
 CREATE OR REPLACE FUNCTION handle_updated_at()
-RETURNS TRIGGER AS $$     BEGIN
+RETURNS TRIGGER AS $$
+BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
 -- Trigger untuk tabel koperasi
+DROP TRIGGER IF EXISTS handle_koperasi_updated_at ON koperasi;
 CREATE TRIGGER handle_koperasi_updated_at BEFORE UPDATE ON koperasi
     FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
 -- Trigger untuk tabel member
+DROP TRIGGER IF EXISTS handle_member_updated_at ON member;
 CREATE TRIGGER handle_member_updated_at BEFORE UPDATE ON member
     FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
 -- Trigger untuk tabel user_role
+DROP TRIGGER IF EXISTS handle_user_role_updated_at ON user_role;
 CREATE TRIGGER handle_user_role_updated_at BEFORE UPDATE ON user_role
     FOR EACH ROW EXECUTE FUNCTION handle_updated_at();

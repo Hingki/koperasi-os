@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "supabase-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:Koperasi2004@db.jppyqrxoswkhlnzuokwm.supabase.co:5432/postgres"
+      ],
+      "env": {
+        "SUPABASE_URL": "https://jppyqrxoswkhlnzuokwm.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwcHlxcnhvc3draGxuenVva3dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDg2NTUsImV4cCI6MjA4MTI4NDY1NX0.glgYfk-wdrYYC0tW-aqrLQJdA-1_trRuAbo4cGRETVE",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwcHlxcnhvc3draGxuenVva3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTcwODY1NSwiZXhwIjoyMDgxMjg0NjU1fQ.uFmpzNdSz2Gfc4sMUEFG1x3FWVOUtt21uckJ413f90k"
+      }
+    }
+  }
+}

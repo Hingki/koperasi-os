@@ -1,4 +1,16 @@
 ﻿## [Unreleased]
+- test: verify hook is working
+
+## [Unreleased]
+- test: verify hook is working
+
+## [Unreleased]
+- chore: fix eslint to ignore build files
+
+## [Unreleased]
+- test: verify hook is working
+
+## [Unreleased]
 - test: verify git hook works
 
 ## [Unreleased]
@@ -53,6 +65,10 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ### Fixed
 - Bug akses anggota non-otorisasi pada RLS
+
+
+
+
 
 
 

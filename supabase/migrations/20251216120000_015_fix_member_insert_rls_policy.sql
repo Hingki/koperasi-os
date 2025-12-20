@@ -23,3 +23,4 @@ CREATE POLICY "member_insert_own_profile" ON public.member
 ALTER TABLE public.member ENABLE ROW LEVEL SECURITY;
 
 
+

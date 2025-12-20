@@ -20,5 +20,7 @@
   ],
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
-  }
+  },
+  "trae.codeIndexing.enabled": true,
+  "files.autoSave": "afterDelay"
 }

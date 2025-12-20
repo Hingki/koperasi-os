@@ -340,3 +340,4 @@ supabase migration up
 6. **Multi-Koperasi Support**: Better handling of users with roles in multiple koperasi
 
 
+

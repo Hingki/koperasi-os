@@ -229,3 +229,4 @@ END$$;
 -- DELETE FROM public.member WHERE nik IN ('RLS_DB_NIK_001', 'RLS_DB_NIK_002', 'RLS_DB_NIK_003');
 
 
+
