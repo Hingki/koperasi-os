@@ -1,4 +1,7 @@
-﻿# Changelog
+﻿## [Unreleased]
+- chore: clean up and consolidate CHANGELOG.md
+
+# Changelog
 
 Semua perubahan penting pada proyek **Koperasi-OS** akan didokumentasikan di sini.
 Format mengikuti Keep a Changelog dan Semantic Versioning.
@@ -54,3 +57,4 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ### Fixed
 - Bug akses anggota non-otorisasi pada RLS
+

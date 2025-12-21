@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { getUserRoleRedirectPath } from '@/lib/actions/auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -26,7 +27,9 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      router.push('/dashboard');
+      // Determine redirect based on role
+      const redirectPath = await getUserRoleRedirectPath();
+      router.push(redirectPath);
       router.refresh();
     } catch (err: any) {
       setError(err.message);

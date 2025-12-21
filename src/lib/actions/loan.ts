@@ -51,9 +51,55 @@ export async function applyForLoan(data: {
     });
 
     revalidatePath('/dashboard/pinjaman/pengajuan');
+    revalidatePath('/dashboard/pinjaman');
     return { success: true };
   } catch (error: any) {
-    console.error('Apply Loan Error:', error);
+    console.error('Create Loan App Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function submitMemberLoanApplication(formData: FormData) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Unauthorized');
+
+    const productId = formData.get('product_id') as string;
+    const amountStr = formData.get('amount') as string;
+    const tenorStr = formData.get('tenor_months') as string;
+    const purpose = formData.get('purpose') as string;
+
+    if (!productId || !amountStr || !tenorStr) {
+      throw new Error('Mohon lengkapi semua field');
+    }
+
+    // Get Member ID from Session
+    const { data: member } = await supabase
+      .from('member')
+      .select('id, koperasi_id')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (!member) throw new Error('Member profile not found');
+
+    const service = new LoanService(supabase);
+    
+    await service.applyForLoan({
+      koperasi_id: member.koperasi_id,
+      member_id: member.id,
+      loan_type_id: productId,
+      amount: Number(amountStr),
+      tenor_months: Number(tenorStr),
+      purpose: purpose || 'Pengajuan via Portal Anggota',
+      created_by: user.id
+    });
+
+    revalidatePath('/member/pinjaman');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Member Loan App Error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -104,6 +150,53 @@ export async function createLoanApplication(formData: FormData) {
   
   revalidatePath('/dashboard/loans/approvals');
   redirect('/dashboard/loans/approvals');
+}
+
+export async function applyForLoanMemberAction(formData: FormData) {
+  try {
+    const { service, user } = await getLoanService();
+
+    const productId = formData.get('product_id') as string;
+    const amountStr = formData.get('amount') as string;
+    const tenorStr = formData.get('tenor_months') as string;
+    const purpose = formData.get('purpose') as string;
+
+    if (!productId || !amountStr || !tenorStr) {
+        throw new Error('Mohon lengkapi semua field');
+    }
+
+    // Validate UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(productId)) throw new Error('Invalid Product ID');
+
+    // Get Member ID linked to Current User (Security Enforced)
+    const supabase = await createClient();
+    const { data: member } = await supabase
+        .from('member')
+        .select('id, koperasi_id')
+        .eq('user_id', user.id)
+        .single();
+    
+    if (!member) throw new Error('Member data not found for current user');
+
+    await service.applyForLoan({
+        koperasi_id: member.koperasi_id,
+        member_id: member.id,
+        loan_type_id: productId,
+        amount: Number(amountStr),
+        tenor_months: Number(tenorStr),
+        purpose: purpose,
+        created_by: user.id
+    });
+
+  } catch (error: any) {
+    console.error('Member Apply Error:', error);
+    // return { error: error.message }; // If used with useFormState
+    throw error;
+  }
+  
+  revalidatePath('/member/pinjaman');
+  redirect('/member/pinjaman');
 }
 
 export async function reviewLoanApplicationAction(formData: FormData) {
