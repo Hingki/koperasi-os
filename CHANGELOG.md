@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- feat: complete MVP (Ledger, Loans, Savings, Reports, E2E)
+
+## [Unreleased]
 - test: verify hook is working
 
 ## [Unreleased]
@@ -65,6 +68,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ### Fixed
 - Bug akses anggota non-otorisasi pada RLS
+
 
 
 

@@ -99,18 +99,16 @@ CREATE POLICY "Members can view own loans"
         member_id IN (SELECT id FROM member WHERE user_id = auth.uid())
     );
 
--- Policy: Admins/Pengurus can view/manage all loans
+-- Policy: Admins/Pengurus can manage loans
 DROP POLICY IF EXISTS "Admins can manage loans" ON loans;
 CREATE POLICY "Admins can manage loans"
     ON loans FOR ALL
     TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM user_role
-            WHERE user_id = auth.uid()
-            AND role IN ('admin', 'pengurus', 'ketua', 'bendahara', 'credit_analyst')
-            AND koperasi_id = loans.koperasi_id
-        )
+        public.has_permission(koperasi_id, ARRAY['admin', 'pengurus', 'ketua', 'bendahara']::user_role_type[])
+    )
+    WITH CHECK (
+        public.has_permission(koperasi_id, ARRAY['admin', 'pengurus', 'ketua', 'bendahara']::user_role_type[])
     );
 
 -- 7. RLS Policies for Schedules
@@ -142,9 +140,9 @@ CREATE POLICY "Admins can manage schedules"
 DROP TRIGGER IF EXISTS update_loans_modtime ON loans;
 CREATE TRIGGER update_loans_modtime
     BEFORE UPDATE ON loans
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
 DROP TRIGGER IF EXISTS update_loan_schedule_modtime ON loan_repayment_schedule;
 CREATE TRIGGER update_loan_schedule_modtime
     BEFORE UPDATE ON loan_repayment_schedule
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();

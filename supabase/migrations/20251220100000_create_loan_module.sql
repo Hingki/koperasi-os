@@ -148,7 +148,7 @@ CREATE POLICY "Admins can view all applications"
         EXISTS (
             SELECT 1 FROM user_role
             WHERE user_id = auth.uid()
-            AND role IN ('admin', 'pengurus', 'ketua', 'bendahara', 'credit_analyst')
+            AND role IN ('admin', 'pengurus', 'ketua', 'bendahara')
             AND koperasi_id = loan_applications.koperasi_id
         )
     );
@@ -159,21 +159,19 @@ CREATE POLICY "Admins can update applications"
     ON loan_applications FOR UPDATE
     TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM user_role
-            WHERE user_id = auth.uid()
-            AND role IN ('admin', 'pengurus', 'ketua', 'bendahara', 'credit_analyst')
-            AND koperasi_id = loan_applications.koperasi_id
-        )
+        public.has_permission(koperasi_id, ARRAY['admin', 'pengurus', 'ketua', 'bendahara']::user_role_type[])
+    )
+    WITH CHECK (
+        public.has_permission(koperasi_id, ARRAY['admin', 'pengurus', 'ketua', 'bendahara']::user_role_type[])
     );
 
 -- 8. Add Triggers for updated_at
 DROP TRIGGER IF EXISTS update_loan_products_modtime ON loan_products;
 CREATE TRIGGER update_loan_products_modtime
     BEFORE UPDATE ON loan_products
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
 DROP TRIGGER IF EXISTS update_loan_applications_modtime ON loan_applications;
 CREATE TRIGGER update_loan_applications_modtime
     BEFORE UPDATE ON loan_applications
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();

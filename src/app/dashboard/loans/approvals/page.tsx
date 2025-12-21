@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 export default async function LoanApprovalsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Fetch applications
   const { data: applications, error } = await supabase

@@ -1,4 +1,3 @@
-// src/app/register/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -81,6 +80,22 @@ export default function RegisterPage() {
         return;
       }
 
+      // Check if session is established (Email Confirmation might be ON)
+      // NOTE: For local dev with Supabase, sometimes session is null if email confirm is on.
+      // But we want to proceed for DX if possible, or show message.
+      if (authData.user && !authData.session) {
+        // Force manual login redirect if session is missing (likely email confirm required)
+        setMessageType('success');
+        setMessage(
+            'Registrasi berhasil! Silakan periksa email Anda (jika diwajibkan) atau coba Login sekarang.'
+        );
+        setTimeout(() => {
+             router.push('/login');
+        }, 2000);
+        setLoading(false);
+        return;
+      }
+
       // Step 2: Register member profile via API endpoint
       // This ensures RLS compliance and proper validation
       const response = await fetch('/api/members/register', {
@@ -111,13 +126,13 @@ export default function RegisterPage() {
       setMessageType('success');
       setMessage(
         result.message ||
-          'Registrasi berhasil! Silakan cek email Anda untuk verifikasi akun.'
+          'Registrasi berhasil! Anda akan dialihkan ke dashboard...'
       );
 
-      // Redirect to login or dashboard after 3 seconds
+      // Redirect to login or dashboard after 1.5 seconds (quicker)
       setTimeout(() => {
-        router.push('/login');
-      }, 3000);
+        router.push('/dashboard');
+      }, 1500);
     } catch (error) {
       console.error('Registration error:', error);
       setMessage('Terjadi kesalahan. Silakan coba lagi.');
@@ -132,7 +147,7 @@ export default function RegisterPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Registrasi Anggota Koperasi
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm font-medium text-gray-800">
             Lengkapi data diri Anda untuk menjadi anggota koperasi
           </p>
         </div>
@@ -141,9 +156,9 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="nama_lengkap"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-semibold text-gray-900"
               >
-                Nama Lengkap <span className="text-red-500">*</span>
+                Nama Lengkap <span className="text-red-600">*</span>
               </label>
               <input
                 id="nama_lengkap"
@@ -151,21 +166,21 @@ export default function RegisterPage() {
                 type="text"
                 required
                 disabled={loading}
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
                   errors.nama_lengkap ? 'border-red-500' : ''
                 }`}
               />
               {errors.nama_lengkap && (
-                <p className="mt-1 text-sm text-red-500">{errors.nama_lengkap}</p>
+                <p className="mt-1 text-sm text-red-600 font-medium">{errors.nama_lengkap}</p>
               )}
             </div>
 
             <div>
               <label
                 htmlFor="nik"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-semibold text-gray-900"
               >
-                NIK <span className="text-red-500">*</span>
+                NIK <span className="text-red-600">*</span>
               </label>
               <input
                 id="nik"
@@ -175,21 +190,21 @@ export default function RegisterPage() {
                 maxLength={16}
                 disabled={loading}
                 placeholder="16 digit angka"
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
                   errors.nik ? 'border-red-500' : ''
                 }`}
               />
               {errors.nik && (
-                <p className="mt-1 text-sm text-red-500">{errors.nik}</p>
+                <p className="mt-1 text-sm text-red-600 font-medium">{errors.nik}</p>
               )}
             </div>
 
             <div>
               <label
                 htmlFor="phone"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-semibold text-gray-900"
               >
-                No. HP <span className="text-red-500">*</span>
+                No. HP <span className="text-red-600">*</span>
               </label>
               <input
                 id="phone"
@@ -198,21 +213,21 @@ export default function RegisterPage() {
                 required
                 disabled={loading}
                 placeholder="08xx-xxxx-xxxx"
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
                   errors.phone ? 'border-red-500' : ''
                 }`}
               />
               {errors.phone && (
-                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+                <p className="mt-1 text-sm text-red-600 font-medium">{errors.phone}</p>
               )}
             </div>
 
             <div>
               <label
                 htmlFor="alamat_lengkap"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-semibold text-gray-900"
               >
-                Alamat Lengkap <span className="text-red-500">*</span>
+                Alamat Lengkap <span className="text-red-600">*</span>
               </label>
               <textarea
                 id="alamat_lengkap"
@@ -220,21 +235,21 @@ export default function RegisterPage() {
                 rows={3}
                 required
                 disabled={loading}
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
                   errors.alamat_lengkap ? 'border-red-500' : ''
                 }`}
               />
               {errors.alamat_lengkap && (
-                <p className="mt-1 text-sm text-red-500">{errors.alamat_lengkap}</p>
+                <p className="mt-1 text-sm text-red-600 font-medium">{errors.alamat_lengkap}</p>
               )}
             </div>
 
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-semibold text-gray-900"
               >
-                Email <span className="text-red-500">*</span>
+                Email <span className="text-red-600">*</span>
               </label>
               <input
                 id="email"
@@ -243,21 +258,21 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 disabled={loading}
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
                   errors.email ? 'border-red-500' : ''
                 }`}
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                <p className="mt-1 text-sm text-red-600 font-medium">{errors.email}</p>
               )}
             </div>
 
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-semibold text-gray-900"
               >
-                Password <span className="text-red-500">*</span>
+                Password <span className="text-red-600">*</span>
               </label>
               <input
                 id="password"
@@ -267,9 +282,9 @@ export default function RegisterPage() {
                 required
                 minLength={8}
                 disabled={loading}
-                className="mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-700 font-medium">
                 Minimal 8 karakter
               </p>
             </div>
@@ -279,7 +294,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-bold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Mendaftar...' : 'Daftar'}
             </button>
@@ -287,10 +302,10 @@ export default function RegisterPage() {
         </form>
         {message && (
           <div
-            className={`mt-4 rounded-md p-3 text-center text-sm ${
+            className={`mt-4 rounded-md p-3 text-center text-sm font-medium ${
               messageType === 'success'
-                ? 'bg-green-50 text-green-800'
-                : 'bg-red-50 text-red-800'
+                ? 'bg-green-100 text-green-900 border border-green-200'
+                : 'bg-red-100 text-red-900 border border-red-200'
             }`}
           >
             {message}

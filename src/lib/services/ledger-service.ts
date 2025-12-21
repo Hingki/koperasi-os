@@ -81,12 +81,16 @@ export class LedgerService {
 
     const previousHash = lastEntry?.hash_current || 'GENESIS_HASH';
 
-    // 4. Compute Current Hash
+    // 4. Resolve Account UUIDs
+    const debitAccountId = await this.ensureAccount(trx.koperasi_id, trx.account_debit, trx.created_by);
+    const creditAccountId = await this.ensureAccount(trx.koperasi_id, trx.account_credit, trx.created_by);
+
+    // 5. Compute Current Hash
     // Hash = SHA256(prev_hash + amount + debit + credit + ref + timestamp)
-    const entryData = `${previousHash}|${trx.amount}|${trx.account_debit}|${trx.account_credit}|${trx.tx_reference}|${Date.now()}`;
+    const entryData = `${previousHash}|${trx.amount}|${debitAccountId}|${creditAccountId}|${trx.tx_reference}|${Date.now()}`;
     const currentHash = crypto.createHash('sha256').update(entryData).digest('hex');
 
-    // 5. Insert Entry
+    // 6. Insert Entry
     const { data: entry, error: insertError } = await this.supabase
       .from('ledger_entry')
       .insert({
@@ -95,8 +99,8 @@ export class LedgerService {
         tx_id: crypto.randomUUID(), // Unique Transaction ID
         tx_type: trx.tx_type,
         tx_reference: trx.tx_reference,
-        account_debit: trx.account_debit,
-        account_credit: trx.account_credit,
+        account_debit: debitAccountId,
+        account_credit: creditAccountId,
         amount: trx.amount,
         description: trx.description,
         metadata: trx.metadata || {},
@@ -117,5 +121,49 @@ export class LedgerService {
     }
 
     return entry;
+  }
+
+  private async ensureAccount(koperasiId: string, accountCode: string, createdBy: string): Promise<string> {
+    // 1. Check if exists
+    const { data: existing } = await this.supabase
+      .from('chart_of_accounts')
+      .select('id')
+      .eq('koperasi_id', koperasiId)
+      .eq('account_code', accountCode)
+      .maybeSingle();
+
+    if (existing) return existing.id;
+
+    // 2. Determine Type and Normal Balance
+    let type = 'asset';
+    let balance = 'debit';
+    const prefix = accountCode.split('-')[0];
+    
+    switch(prefix) {
+        case '1': type = 'asset'; balance = 'debit'; break;
+        case '2': type = 'liability'; balance = 'credit'; break;
+        case '3': type = 'equity'; balance = 'credit'; break;
+        case '4': type = 'revenue'; balance = 'credit'; break;
+        case '5': type = 'expense'; balance = 'debit'; break;
+    }
+
+    // 3. Create
+    const { data: newAccount, error } = await this.supabase
+        .from('chart_of_accounts')
+        .insert({
+            koperasi_id: koperasiId,
+            account_code: accountCode,
+            account_name: `Auto Account ${accountCode}`, // Ideally should be passed, but for auto-provisioning this works
+            level: 4, // Detail account
+            account_type: type,
+            normal_balance: balance,
+            is_header: false,
+            created_by: createdBy
+        })
+        .select('id')
+        .single();
+        
+    if (error) throw new Error(`Failed to create account ${accountCode}: ${error.message}`);
+    return newAccount.id;
   }
 }

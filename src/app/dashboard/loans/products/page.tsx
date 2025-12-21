@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
 export default async function LoanProductsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: products, error } = await supabase
     .from('loan_products')
     .select('*')

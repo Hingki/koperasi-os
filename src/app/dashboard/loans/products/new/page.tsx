@@ -8,7 +8,7 @@ export default function NewLoanProductPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <Link href="/dashboard/loans/products" className="p-2 hover:bg-slate-100 rounded-full">
+        <Link href="/dashboard/loans/products" className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
             <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Create Loan Product</h1>
@@ -19,36 +19,36 @@ export default function NewLoanProductPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Product Code</label>
-                    <input type="text" name="code" placeholder="e.g. FLAT-12" required 
+                    <label htmlFor="code" className="text-sm font-medium">Product Code</label>
+                    <input type="text" id="code" name="code" placeholder="e.g. FLAT-12" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Product Name</label>
-                    <input type="text" name="name" placeholder="e.g. Pinjaman Flat Reguler" required 
+                    <label htmlFor="name" className="text-sm font-medium">Product Name</label>
+                    <input type="text" id="name" name="name" placeholder="e.g. Pinjaman Flat Reguler" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
 
             <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
-                <textarea name="description" rows={2} 
+                <label htmlFor="description" className="text-sm font-medium">Description</label>
+                <textarea id="description" name="description" rows={2} 
                     className="flex w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Interest Rate (% p.a.)</label>
-                    <input type="number" name="interest_rate" step="0.01" required 
+                    <label htmlFor="interest_rate" className="text-sm font-medium">Interest Rate (% p.a.)</label>
+                    <input type="number" id="interest_rate" name="interest_rate" step="0.01" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Interest Type</label>
-                    <select name="interest_type" required 
+                    <label htmlFor="interest_type" className="text-sm font-medium">Interest Type</label>
+                    <select id="interest_type" name="interest_type" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
                         <option value="flat">Flat</option>
@@ -57,8 +57,8 @@ export default function NewLoanProductPage() {
                     </select>
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Tenor (Months)</label>
-                    <input type="number" name="max_tenor_months" required 
+                    <label htmlFor="max_tenor_months" className="text-sm font-medium">Max Tenor (Months)</label>
+                    <input type="number" id="max_tenor_months" name="max_tenor_months" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
@@ -66,14 +66,14 @@ export default function NewLoanProductPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Min Amount (Rp)</label>
-                    <input type="number" name="min_amount" required 
+                    <label htmlFor="min_amount" className="text-sm font-medium">Min Amount (Rp)</label>
+                    <input type="number" id="min_amount" name="min_amount" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Amount (Rp)</label>
-                    <input type="number" name="max_amount" required 
+                    <label htmlFor="max_amount" className="text-sm font-medium">Max Amount (Rp)</label>
+                    <input type="number" id="max_amount" name="max_amount" required 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
@@ -81,20 +81,20 @@ export default function NewLoanProductPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Admin Fee (Rp)</label>
-                    <input type="number" name="admin_fee" defaultValue={0} 
+                    <label htmlFor="admin_fee" className="text-sm font-medium">Admin Fee (Rp)</label>
+                    <input type="number" id="admin_fee" name="admin_fee" defaultValue={0} 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Provision Fee (%)</label>
-                    <input type="number" name="provision_fee" step="0.1" defaultValue={0} 
+                    <label htmlFor="provision_fee" className="text-sm font-medium">Provision Fee (%)</label>
+                    <input type="number" id="provision_fee" name="provision_fee" step="0.1" defaultValue={0} 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Late Penalty (%/day)</label>
-                    <input type="number" name="penalty_late_daily" step="0.01" defaultValue={0} 
+                    <label htmlFor="penalty_late_daily" className="text-sm font-medium">Late Penalty (%/day)</label>
+                    <input type="number" id="penalty_late_daily" name="penalty_late_daily" step="0.01" defaultValue={0} 
                         className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>

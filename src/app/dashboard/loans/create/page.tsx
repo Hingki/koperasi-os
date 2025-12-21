@@ -28,18 +28,18 @@ export default function CreateApplicationPage() {
     return (
         <div className="max-w-2xl mx-auto space-y-6">
              <div className="flex items-center space-x-4">
-                <Link href="/dashboard/loans/approvals" className="p-2 hover:bg-slate-100 rounded-full">
+                <Link href="/dashboard/loans/approvals" className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
                     <ArrowLeft className="h-5 w-5" />
                 </Link>
-                <h1 className="text-2xl font-bold tracking-tight">New Loan Application</h1>
+                <h1 className="text-2xl font-bold tracking-tight">Pengajuan Pinjaman Baru</h1>
             </div>
 
             <div className="bg-white p-6 rounded-lg border shadow-sm">
                 <form action={createLoanApplication} className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Select Member</label>
-                        <select name="member_id" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white">
-                            <option value="">-- Choose Member --</option>
+                        <label htmlFor="member_id" className="text-sm font-medium">Pilih Anggota</label>
+                        <select id="member_id" name="member_id" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white">
+                            <option value="">-- Pilih Anggota --</option>
                             {members.map(m => (
                                 <option key={m.id} value={m.id}>{m.nama_lengkap} ({m.nomor_anggota})</option>
                             ))}
@@ -47,9 +47,9 @@ export default function CreateApplicationPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Select Product</label>
-                        <select name="product_id" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white">
-                            <option value="">-- Choose Product --</option>
+                        <label htmlFor="product_id" className="text-sm font-medium">Pilih Produk</label>
+                        <select id="product_id" name="product_id" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm bg-white">
+                            <option value="">-- Pilih Produk --</option>
                             {products.map(p => (
                                 <option key={p.id} value={p.id}>{p.name} ({p.interest_rate}% p.a.)</option>
                             ))}
@@ -58,28 +58,28 @@ export default function CreateApplicationPage() {
 
                     <div className="grid grid-cols-2 gap-6">
                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Amount (Rp)</label>
-                            <input type="number" name="amount" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" />
+                            <label htmlFor="amount" className="text-sm font-medium">Jumlah (Rp)</label>
+                            <input id="amount" type="number" name="amount" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" />
                         </div>
                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Tenor (Months)</label>
-                            <input type="number" name="tenor_months" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" />
+                            <label htmlFor="tenor_months" className="text-sm font-medium">Tenor (Bulan)</label>
+                            <input id="tenor_months" type="number" name="tenor_months" required className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" />
                         </div>
                     </div>
 
                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Purpose</label>
-                        <textarea name="purpose" required className="flex w-full rounded-md border border-slate-200 px-3 py-2 text-sm" rows={3}></textarea>
+                        <label htmlFor="purpose" className="text-sm font-medium">Tujuan Pinjaman</label>
+                        <textarea id="purpose" name="purpose" required className="flex w-full rounded-md border border-slate-200 px-3 py-2 text-sm" rows={3}></textarea>
                     </div>
 
                     <div className="pt-4 flex justify-end space-x-4">
                          <Link href="/dashboard/loans/approvals">
                             <button type="button" className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">
-                                Cancel
+                                Batal
                             </button>
                         </Link>
                         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                            Submit Application
+                            Ajukan Pinjaman
                         </button>
                     </div>
                 </form>

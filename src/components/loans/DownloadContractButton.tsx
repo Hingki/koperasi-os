@@ -32,7 +32,7 @@ export function DownloadContractButton({ application, member, product }: Downloa
             onClick={handleDownload}
             className="w-full flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200 text-sm font-medium border border-slate-300"
         >
-            <FileText className="w-4 h-4 mr-2" /> Download Contract (PDF)
+            <FileText className="w-4 h-4 mr-2" /> Unduh Kontrak (PDF)
         </button>
     );
 }

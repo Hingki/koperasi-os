@@ -160,6 +160,10 @@
 - [✅] E2E tests for critical flows (registration, login, ledger flows added)
 - [ ] Performance testing
 - [ ] Security testing
+- [ ] **Business Logic Testing** (SHU calculation, interest rules)
+- [ ] **Compliance Testing** (SAK-EP rules)
+- [ ] **Disaster Recovery Testing**
+- [ ] **Data Integrity Testing** (Ledger consistency checks)
 
 ## Notes & Actions Taken (mapped to `arsitektur-final.md`)
 

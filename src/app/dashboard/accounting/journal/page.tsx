@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
 export default async function JournalPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: entries } = await supabase
     .from('ledger_entries')
     .select('*')

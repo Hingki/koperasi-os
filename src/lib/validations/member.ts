@@ -12,3 +12,19 @@ export const createMemberSchema = z.object({
 });
 
 export type CreateMemberPayload = z.infer<typeof createMemberSchema>;
+
+// Schema for Registration Form (Public)
+export const memberRegistrationSchema = z.object({
+  nama_lengkap: z.string().min(3, "Nama lengkap minimal 3 karakter"),
+  nik: z.string().length(16, "NIK harus 16 digit"),
+  phone: z.string().min(10, "Nomor HP tidak valid"),
+  email: z.string().email("Email tidak valid").optional(),
+  alamat_lengkap: z.string().min(10, "Alamat lengkap minimal 10 karakter"),
+  member_type: z.enum(['regular', 'honorary', 'family', 'student', 'staff']).optional(),
+});
+
+export type MemberRegistrationInput = z.infer<typeof memberRegistrationSchema>;
+
+export function safeValidateMemberRegistration(data: unknown) {
+  return memberRegistrationSchema.safeParse(data);
+}

@@ -7,10 +7,11 @@ import { z } from 'zod';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Auth Check
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -21,14 +22,19 @@ export async function POST(
       );
     }
 
-    // 2. Parse Body
+    // 2. Validate ID & Parse Body
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(params.id)) {
+        return NextResponse.json({ error: 'ValidationError', message: 'Invalid Loan ID format' }, { status: 400 });
+    }
+
     const body = await request.json();
     const validatedData = loanRepaymentSchema.parse(body);
 
     // 3. Permission Check (Koperasi Context)
     const { data: loan, error: loanError } = await supabase
         .from('loans')
-        .select('koperasi_id')
+        .select('id, koperasi_id, loan_code')
         .eq('id', params.id)
         .single();
 
@@ -37,7 +43,7 @@ export async function POST(
     }
 
     // Only Admin/Teller can process repayments
-    const isAuthorized = await hasAnyRole(supabase, user.id, loan.koperasi_id, ['admin', 'pengurus', 'bendahara', 'teller']);
+    const isAuthorized = await hasAnyRole(['admin', 'pengurus', 'bendahara', 'staff'], loan.koperasi_id);
     if (!isAuthorized) {
         return NextResponse.json(
             { error: 'Forbidden', message: 'Insufficient permissions to process repayment' },
@@ -45,13 +51,30 @@ export async function POST(
         );
     }
 
-    // 4. Invoke Service
+    // 4. Find Oldest Pending Schedule
+    const { data: schedule, error: scheduleError } = await supabase
+        .from('loan_repayment_schedule')
+        .select('id, installment_number, total_installment, paid_amount')
+        .eq('loan_id', loan.id)
+        .eq('status', 'pending')
+        .order('installment_number', { ascending: true })
+        .limit(1)
+        .single();
+
+    if (scheduleError || !schedule) {
+         // Check if partially paid?
+         // For now, if no pending schedule found, assume paid off or error
+         return NextResponse.json({ error: 'BadRequest', message: 'No pending installments found for this loan' }, { status: 400 });
+    }
+
+    // 5. Invoke Service
     const loanService = new LoanService(supabase);
-    const result = await loanService.processRepayment(params.id, validatedData.amount, user.id);
+    // Use the schedule ID found
+    const result = await loanService.recordRepayment(schedule.id, validatedData.amount, user.id);
 
     return NextResponse.json(
       { 
-        message: 'Repayment processed successfully', 
+        message: `Repayment processed successfully for Installment #${schedule.installment_number}`, 
         data: result 
       }, 
       { status: 200 }

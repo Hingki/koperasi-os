@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Auth Check
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only Admin/Teller can perform transactions for now (or maybe members can deposit via payment gateway later)
-    const isAuthorized = await hasAnyRole(supabase, user.id, account.koperasi_id, ['admin', 'pengurus', 'bendahara', 'teller']);
+    const isAuthorized = await hasAnyRole(['admin', 'pengurus', 'bendahara', 'staff'], account.koperasi_id);
     if (!isAuthorized) {
         return NextResponse.json(
             { error: 'Forbidden', message: 'Insufficient permissions' },

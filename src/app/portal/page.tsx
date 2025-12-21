@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Wallet, Banknote, ArrowRight, TrendingUp } from 'lucide-react';
 
 export default async function MemberPortalDashboard() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 

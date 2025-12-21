@@ -9,6 +9,64 @@ export class SavingsService {
     this.ledgerService = new LedgerService(supabase);
   }
 
+  async getBalance(memberId: string, type: 'sukarela' = 'sukarela'): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('savings_accounts')
+      .select('balance, product:savings_products!inner(type)')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .eq('product.type', type)
+      .single();
+
+    if (error) return 0; // Return 0 if no account found
+    return data?.balance || 0;
+  }
+
+  async deductBalance(
+    memberId: string,
+    amount: number,
+    description: string,
+    userId?: string
+  ) {
+    // 1. Get Account (Voluntary)
+    const { data: account, error: accountError } = await this.supabase
+      .from('savings_accounts')
+      .select('id, koperasi_id, balance, product:savings_products!inner(type)')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .eq('product.type', 'sukarela')
+      .single();
+
+    if (accountError || !account) throw new Error('No active voluntary savings account found');
+    if (account.balance < amount) throw new Error('Insufficient savings balance');
+
+    const newBalance = account.balance - amount;
+
+    // 2. Update Balance
+    const { error: updateError } = await this.supabase
+      .from('savings_accounts')
+      .update({
+        balance: newBalance,
+        last_transaction_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', account.id);
+
+    if (updateError) throw new Error('Failed to update savings balance');
+
+    // 3. Record Savings Transaction (Read Model)
+    await this.supabase.from('savings_transactions').insert({
+      koperasi_id: account.koperasi_id,
+      account_id: account.id,
+      member_id: memberId,
+      type: 'withdrawal',
+      amount: -amount,
+      balance_after: newBalance,
+      description: description,
+      created_by: userId
+    });
+  }
+
   async processTransaction(
     accountId: string,
     amount: number,

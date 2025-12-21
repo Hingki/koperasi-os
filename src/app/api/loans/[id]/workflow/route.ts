@@ -6,10 +6,11 @@ import { z } from 'zod';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Auth Check
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -21,6 +22,11 @@ export async function POST(
     }
 
     // 2. Parse & Validate Body
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(params.id)) {
+        return NextResponse.json({ error: 'ValidationError', message: 'Invalid Loan ID format' }, { status: 400 });
+    }
+
     const body = await request.json();
     const validatedData = loanWorkflowSchema.parse(body);
     const { action, notes } = validatedData;
@@ -81,7 +87,7 @@ export async function POST(
         // Rule: Only Admin/Pengurus can approve
         // Rule: Can only approve if status is 'submitted' (or 'committee_review' in complex workflow)
 
-        const isAuthorized = await hasAnyRole(supabase, user.id, loan.koperasi_id, ['admin', 'pengurus', 'ketua']);
+        const isAuthorized = await hasAnyRole(['admin', 'pengurus', 'ketua'], loan.koperasi_id);
         if (!isAuthorized) {
             return NextResponse.json(
                 { error: 'Forbidden', message: 'Insufficient permissions to approve loans' },
@@ -108,7 +114,7 @@ export async function POST(
         // Rule: Only Admin/Pengurus can reject
         // Rule: Can reject from 'submitted'
 
-        const isAuthorized = await hasAnyRole(supabase, user.id, loan.koperasi_id, ['admin', 'pengurus', 'ketua']);
+        const isAuthorized = await hasAnyRole(['admin', 'pengurus', 'ketua'], loan.koperasi_id);
         if (!isAuthorized) {
             return NextResponse.json(
                 { error: 'Forbidden', message: 'Insufficient permissions to reject loans' },

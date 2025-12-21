@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS savings_transactions (
     
     description TEXT,
     reference_number TEXT, -- External ref or generated
-    ledger_entry_id UUID REFERENCES ledger_entry(id), -- Link to Accounting
+    ledger_entry_id UUID, -- Link to Accounting (Removed FK due to partitioning)
     
     transaction_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -105,17 +105,16 @@ CREATE POLICY "Authenticated users can view active savings products"
     TO authenticated
     USING (is_active = true AND koperasi_id IS NOT NULL);
 
+-- Policy: Admins can manage savings products
 DROP POLICY IF EXISTS "Admins can manage savings products" ON savings_products;
 CREATE POLICY "Admins can manage savings products"
     ON savings_products FOR ALL
     TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM user_role
-            WHERE user_id = auth.uid()
-            AND role IN ('admin', 'pengurus', 'ketua', 'bendahara')
-            AND koperasi_id = savings_products.koperasi_id
-        )
+        public.has_permission(koperasi_id, ARRAY['admin', 'pengurus', 'ketua', 'bendahara']::user_role_type[])
+    )
+    WITH CHECK (
+        public.has_permission(koperasi_id, ARRAY['admin', 'pengurus', 'ketua', 'bendahara']::user_role_type[])
     );
 
 -- Savings Accounts: View Own, Manage Admin
@@ -166,9 +165,9 @@ CREATE POLICY "Admins can manage savings transactions"
 DROP TRIGGER IF EXISTS update_savings_products_modtime ON savings_products;
 CREATE TRIGGER update_savings_products_modtime
     BEFORE UPDATE ON savings_products
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
 
 DROP TRIGGER IF EXISTS update_savings_accounts_modtime ON savings_accounts;
 CREATE TRIGGER update_savings_accounts_modtime
     BEFORE UPDATE ON savings_accounts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();

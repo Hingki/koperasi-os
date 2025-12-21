@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 export async function createLoanProduct(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Auth Check
   const { data: { user } } = await supabase.auth.getUser();

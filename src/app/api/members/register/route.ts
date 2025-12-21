@@ -57,16 +57,50 @@ export async function POST(request: NextRequest) {
     const validatedData = validation.data;
 
     // 3. Get koperasi_id from environment or config
-    // TODO: Replace with actual koperasi_id from config/database
-    // For now, using environment variable or default
-    const koperasiId =
-      process.env.KOPERASI_ID || '5dbd0f3f-e591-4714-8522-2809eb9f3d33';
+    let koperasiId = process.env.KOPERASI_ID;
 
+    // If not in env, try to fetch the first one from DB
     if (!koperasiId) {
-      return NextResponse.json(
-        { error: 'Koperasi ID not configured' },
-        { status: 500 }
-      );
+        const { data: koperasiData } = await supabase
+            .from('koperasi')
+            .select('id')
+            .limit(1)
+            .single();
+        
+        if (koperasiData) {
+            koperasiId = koperasiData.id;
+        }
+    }
+
+    // If still no ID (and table is empty), handle error or use fallback
+    // In a real app, this should be a critical configuration error
+    if (!koperasiId) {
+      // Create a default Koperasi automatically if none exists (Auto-Seeding for MVP)
+      const { data: newKoperasi, error: createError } = await supabase
+        .from('koperasi')
+        .insert({
+           nama: 'Koperasi Merah Putih',
+           nomor_badan_hukum: 'BH-001-' + Date.now(),
+           tanggal_berdiri: new Date().toISOString(),
+           alamat: 'Jl. Merah Putih No. 1',
+           kelurahan: 'Duri Kosambi',
+           kecamatan: 'Cengkareng',
+           kota: 'Jakarta Barat',
+           provinsi: 'DKI Jakarta',
+           email: 'admin@koperasi.id',
+           phone: '08123456789'
+        })
+        .select('id')
+        .single();
+      
+      if (createError || !newKoperasi) {
+          console.error("Failed to auto-seed koperasi:", createError);
+          return NextResponse.json(
+            { error: 'System configuration error: No Koperasi found and failed to create default.' },
+            { status: 500 }
+          );
+      }
+      koperasiId = newKoperasi.id;
     }
 
     // 4. Check if member already exists for this user
@@ -153,7 +187,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Return success response
+    // 7. Auto-Assign Admin Role for First User (MVP Helper)
+    // Check if this is the only member/user, if so, make them admin
+    const { count: memberCount } = await supabase.from('member').select('*', { count: 'exact', head: true });
+    
+    if (memberCount === 1) { // This is the first member
+        await supabase.from('user_role').insert({
+            koperasi_id: koperasiId,
+            user_id: user.id,
+            member_id: member.id,
+            role: 'admin'
+        });
+    } else {
+         // Default role for others: Anggota
+         await supabase.from('user_role').insert({
+            koperasi_id: koperasiId,
+            user_id: user.id,
+            member_id: member.id,
+            role: 'anggota'
+        });
+    }
+
+    // 8. Return success response
     return NextResponse.json(
       {
         success: true,
