@@ -1,44 +1,30 @@
-﻿## [Unreleased]
-- feat: complete MVP (Ledger, Loans, Savings, Reports, E2E)
-
-## [Unreleased]
-- test: verify hook is working
-
-## [Unreleased]
-- test: verify hook is working
-
-## [Unreleased]
-- chore: fix eslint to ignore build files
-
-## [Unreleased]
-- test: verify hook is working
-
-## [Unreleased]
-- test: verify git hook works
-
-## [Unreleased]
-- fix: resolve lint config and git hook issues
-
-## [Unreleased]
-- Test: update changelog hook
-
-## [Unreleased]
-- Add CHANGELOG.md template for Koperasi-OS
-
-## [Unreleased]
-- Add CHANGELOG.md template for Koperasi-OS
-
-## [Unreleased]
-- Add CHANGELOG.md template for Koperasi-OS
-
-# Changelog
+﻿# Changelog
 
 Semua perubahan penting pada proyek **Koperasi-OS** akan didokumentasikan di sini.
 Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ## [Unreleased]
-- Draft fitur baru yang sedang dikembangkan
-- Catatan ide atau rencana sprint berikutnya
+### Added
+- **Full Dashboard Implementation**:
+  - **Retail Module**: Suppliers, Products, Purchases, POS (Point of Sale).
+  - **Loans Module**: Loan application, approval workflow, active loan management.
+  - **Accounting Module**: Balance Sheet, Income Statement, Cash Flow (with Tailwind styling).
+  - **Settings Module**: Koperasi profile management with auto-linking to user metadata.
+- **System Stability & Validation**:
+  - Implemented consistent UUID validation (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`) across all pages.
+  - Added `koperasi_id` filtering to all database queries to ensure data isolation and performance.
+  - Enhanced server actions with robust error handling and type safety.
+  - Added `getIndentClass` helper to replace inline styles in reports.
+
+### Fixed
+- **Critical Bugs**:
+  - Resolved "22P02" invalid input syntax for UUID errors on loan and settings pages.
+  - Fixed `net::ERR_ABORTED` errors on `/dashboard/settings` and `/dashboard/members` due to slow rendering/unfiltered queries.
+  - Fixed "ERR_EMPTY_RESPONSE" server crashes by implementing defensive coding patterns.
+- **Improvements**:
+  - Fixed TypeScript errors in form actions (`reviewLoanApplicationAction`).
+  - Resolved "CSS inline styles should not be used" warnings.
+  - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
 ### Added
@@ -68,14 +54,3 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ### Fixed
 - Bug akses anggota non-otorisasi pada RLS
-
-
-
-
-
-
-
-
-
-
-
