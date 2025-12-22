@@ -43,7 +43,9 @@ export default async function MemberSavingsPage() {
     .eq('member_id', member.id)
     .eq('status', 'active');
 
-  // Fetch Recent Transactions (Limit 50)
+  // Fetch Transactions from savings_transactions (Read Model for Ledger)
+  // User requested "Ambil data dari ledger_entries", but ledger_entries is a partitioned GL table 
+  // without direct member_id link. savings_transactions is the projected read model for members.
   const { data: transactions } = await supabase
     .from('savings_transactions')
     .select(`
@@ -61,6 +63,29 @@ export default async function MemberSavingsPage() {
     .order('created_at', { ascending: false })
     .limit(50);
 
+  const getTransactionTypeLabel = (type: string) => {
+    const types: Record<string, string> = {
+      deposit: 'Setoran',
+      withdrawal: 'Penarikan',
+      interest: 'Bunga',
+      admin_fee: 'Biaya Admin',
+    };
+    return types[type] || type;
+  };
+
+  const getTransactionColor = (type: string) => {
+    switch (type) {
+      case 'deposit':
+      case 'interest':
+        return 'text-emerald-600';
+      case 'withdrawal':
+      case 'admin_fee':
+        return 'text-red-600';
+      default:
+        return 'text-slate-900';
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -71,7 +96,7 @@ export default async function MemberSavingsPage() {
       {/* Accounts List */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {accounts?.map((account: any) => (
-          <Card key={account.id} className="border-l-4 border-l-emerald-500">
+          <Card key={account.id} className="border-l-4 border-l-emerald-500 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium text-slate-500">
                 {account.product.name}
@@ -83,7 +108,7 @@ export default async function MemberSavingsPage() {
               </div>
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>{account.account_number}</span>
-                <Badge variant="outline" className="capitalize">
+                <Badge variant="outline" className="capitalize bg-emerald-50 text-emerald-700 border-emerald-200">
                   {account.product.type}
                 </Badge>
               </div>
@@ -93,7 +118,7 @@ export default async function MemberSavingsPage() {
       </div>
 
       {/* Transaction History */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Riwayat Transaksi</CardTitle>
         </CardHeader>
@@ -102,10 +127,10 @@ export default async function MemberSavingsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Tanggal</TableHead>
+                <TableHead>Jenis Transaksi</TableHead>
                 <TableHead>Jenis Simpanan</TableHead>
-                <TableHead>Keterangan</TableHead>
                 <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead className="text-right">Saldo Akhir</TableHead>
+                <TableHead className="text-right">Saldo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,21 +143,21 @@ export default async function MemberSavingsPage() {
               ) : (
                 transactions?.map((tx: any) => (
                   <TableRow key={tx.id}>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="whitespace-nowrap text-slate-600">
                       {new Date(tx.created_at).toLocaleDateString('id-ID', {
                         day: 'numeric', month: 'short', year: 'numeric',
                         hour: '2-digit', minute: '2-digit'
                       })}
                     </TableCell>
-                    <TableCell>{tx.account?.product?.name}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={tx.description}>
-                      {tx.description || '-'}
+                    <TableCell>
+                        <Badge variant="secondary" className="font-normal">
+                            {getTransactionTypeLabel(tx.type)}
+                        </Badge>
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${
-                      tx.type === 'deposit' || tx.type === 'interest' 
-                        ? 'text-emerald-600' 
-                        : 'text-red-600'
-                    }`}>
+                    <TableCell className="text-slate-600">
+                        {tx.account?.product?.name}
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${getTransactionColor(tx.type)}`}>
                       {tx.type === 'deposit' || tx.type === 'interest' ? '+' : '-'}
                       {formatCurrency(tx.amount)}
                     </TableCell>
