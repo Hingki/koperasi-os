@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { redirect } from 'next/navigation';
+import { EditProfileDialog } from './edit-profile-dialog';
 
 export default async function MemberProfilePage() {
   const supabase = await createClient();
@@ -20,9 +21,18 @@ export default async function MemberProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Profil Anggota</h2>
-        <p className="text-slate-500">Informasi data diri anda.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Profil Anggota</h2>
+          <p className="text-slate-500">Informasi data diri anda.</p>
+        </div>
+        <EditProfileDialog 
+          initialData={{
+            phone: member.phone,
+            email: member.email,
+            alamat_lengkap: member.alamat_lengkap
+          }} 
+        />
       </div>
 
       <Card>

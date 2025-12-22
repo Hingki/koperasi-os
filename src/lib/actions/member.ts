@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createMemberSchema } from '@/lib/validations/member';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 
 export async function createMember(formData: FormData) {
   const supabase = await createClient();
@@ -58,4 +59,49 @@ export async function createMember(formData: FormData) {
   // 5. Revalidate & Redirect
   revalidatePath('/dashboard/members');
   redirect('/dashboard/members');
+}
+
+const updateProfileSchema = z.object({
+  phone: z.string().min(10, "Nomor telepon minimal 10 digit"),
+  email: z.string().email("Email tidak valid").optional().or(z.literal('')),
+  alamat_lengkap: z.string().min(10, "Alamat minimal 10 karakter"),
+});
+
+export async function updateMemberProfile(formData: FormData) {
+  const supabase = await createClient();
+
+  // 1. Auth Check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  // 2. Validate Input
+  const rawData = {
+    phone: formData.get('phone'),
+    email: formData.get('email'),
+    alamat_lengkap: formData.get('alamat_lengkap'),
+  };
+
+  const result = updateProfileSchema.safeParse(rawData);
+  if (!result.success) {
+    return { success: false, error: result.error.errors[0].message };
+  }
+
+  // 3. Update Member
+  // Ensure we only update the member record belonging to this user
+  const { error } = await supabase
+    .from('member')
+    .update({
+      phone: result.data.phone,
+      email: result.data.email || null,
+      alamat_lengkap: result.data.alamat_lengkap,
+    })
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('Update Profile Error:', error);
+    return { success: false, error: 'Gagal memperbarui profil' };
+  }
+
+  revalidatePath('/member/profil');
+  return { success: true };
 }

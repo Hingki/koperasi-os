@@ -1,13 +1,23 @@
-﻿## [Unreleased]
-- chore: clean up and consolidate CHANGELOG.md
-
-# Changelog
+﻿# Changelog
 
 Semua perubahan penting pada proyek **Koperasi-OS** akan didokumentasikan di sini.
 Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ## [Unreleased]
 ### Added
+- **Member Portal Enhancements**:
+  - **Editable Profile**: Members can now update their phone number, email, and address.
+  - **Notifications**: Real-time notification system with read status tracking.
+  - **Header Bar**: New top navigation bar in member area with notification bell.
+- **Member Portal (`/member`)**:
+  - **Role-Based Access**: Dedicated login flow and routing for members vs admins.
+  - **Dashboard**: Personal summary of savings, loans, and upcoming installments.
+  - **Savings**: View account balances and transaction history.
+  - **Loans**: 
+    - List of active and past loans.
+    - Detailed view with repayment schedule and progress bar.
+    - Online Loan Application form with server-side validation.
+  - **Profile**: Read-only view of member details.
 - **Full Dashboard Implementation**:
   - **Retail Module**: Suppliers, Products, Purchases, POS (Point of Sale).
   - **Loans Module**: Loan application, approval workflow, active loan management.
@@ -30,31 +40,3 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
-### Added
-- Integrasi penuh idempotent SQL (ENUM, tabel, trigger, index, constraint, foreign key)
-- File rollback.sql untuk reset database dan recovery cepat
-- Test harness untuk audit RLS (Row Level Security)
-- Dokumentasi onboarding.md untuk contributor baru di Cursor IDE
-
-### Changed
-- Struktur folder: src/, migrations/, tests/, docs/
-- Penyesuaian .gitignore agar credential .env tidak ikut ter-track
-- Update README.md dengan instruksi setup & recovery
-
-### Fixed
-- Perbaikan error pada migrasi ENUM ganda
-- Resolusi konflik branch dev vs main dengan merge aman
-
-## [v6.0.0] - 2025-11-30
-### Added
-- Modul simpan pinjam koperasi
-- Template CHANGELOG.md untuk dokumentasi sprint
-- Script supabase migration list untuk verifikasi migrasi
-
-### Changed
-- Penyesuaian struktur database sesuai RK-RAPB 2024
-- Update branding koperasi-OS di README.md
-
-### Fixed
-- Bug akses anggota non-otorisasi pada RLS
-
