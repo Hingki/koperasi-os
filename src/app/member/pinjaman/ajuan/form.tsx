@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+import { useToast } from '@/components/ui/use-toast';
 import { submitMemberLoanApplication } from '@/lib/actions/loan';
 import { formatCurrency } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
@@ -41,8 +41,12 @@ interface Product {
   id: string;
   name: string;
   interest_rate: number;
+  interest_type: string;
   max_amount: number;
-  max_duration_months: number;
+  min_amount: number;
+  max_tenor_months: number;
+  admin_fee: number;
+  provision_fee: number;
 }
 
 interface MemberLoanApplicationFormProps {
@@ -51,6 +55,7 @@ interface MemberLoanApplicationFormProps {
 
 export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFormProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -70,6 +75,11 @@ export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFor
   const monthlyInstallment = selectedProduct && watchAmount && watchTenor 
     ? (watchAmount + (watchAmount * (selectedProduct.interest_rate / 100) * (watchTenor / 12))) / watchTenor
     : 0;
+    
+  const adminFee = selectedProduct?.admin_fee || 0;
+  const provisionFee = selectedProduct ? (watchAmount * (selectedProduct.provision_fee / 100)) : 0;
+  const totalDeduction = adminFee + provisionFee;
+  const receivedAmount = watchAmount - totalDeduction;
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -83,14 +93,26 @@ export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFor
       const result = await submitMemberLoanApplication(formData);
 
       if (result.success) {
-        toast.success('Pengajuan pinjaman berhasil dikirim');
+        toast({
+          title: "Berhasil",
+          description: "Pengajuan pinjaman berhasil dikirim",
+          variant: "default",
+        });
         router.push('/member/pinjaman');
         router.refresh();
       } else {
-        toast.error(result.error || 'Gagal mengirim pengajuan');
+        toast({
+          title: "Gagal",
+          description: result.error || 'Gagal mengirim pengajuan',
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast.error('Terjadi kesalahan sistem');
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan sistem",
+        variant: "destructive",
+      });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -111,27 +133,38 @@ export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFor
                   field.onChange(val);
                   const prod = products.find(p => p.id === val) || null;
                   setSelectedProduct(prod);
-                  // Reset validation limits if needed, or rely on schema/server
+                  
+                  if (prod) {
+                    if (form.getValues('amount') > prod.max_amount) {
+                      form.setValue('amount', prod.max_amount);
+                    }
+                    if (form.getValues('tenor_months') > prod.max_tenor_months) {
+                      form.setValue('tenor_months', prod.max_tenor_months);
+                    }
+                  }
                 }} 
                 defaultValue={field.value}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Pilih jenis pinjaman" />
+                    <SelectValue placeholder="Pilih produk pinjaman" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
-                      {product.name} (Bunga {product.interest_rate}% p.a)
+                      {product.name} (Bunga {product.interest_rate}% / thn)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {selectedProduct && (
                 <FormDescription>
-                  Maksimal pinjaman: {formatCurrency(selectedProduct.max_amount)}. 
-                  Maksimal tenor: {selectedProduct.max_duration_months} bulan.
+                  <div className="mt-2 text-xs space-y-1 text-slate-600 bg-slate-50 p-2 rounded">
+                    <p>Limit: {formatCurrency(selectedProduct.min_amount)} - {formatCurrency(selectedProduct.max_amount)}</p>
+                    <p>Tenor Max: {selectedProduct.max_tenor_months} bulan</p>
+                    <p>Jenis Bunga: {selectedProduct.interest_type}</p>
+                  </div>
                 </FormDescription>
               )}
               <FormMessage />
@@ -179,17 +212,26 @@ export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFor
           />
         </div>
 
-        {selectedProduct && watchAmount > 0 && watchTenor > 0 && (
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h4 className="text-sm font-semibold text-slate-700 mb-2">Estimasi Angsuran</h4>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-600">Angsuran per bulan:</span>
-              <span className="text-lg font-bold text-emerald-600">
-                {formatCurrency(monthlyInstallment)}
-              </span>
+        {selectedProduct && (
+          <div className="rounded-lg bg-slate-50 p-4 space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Jumlah Pinjaman:</span>
+              <span className="font-medium">{formatCurrency(watchAmount || 0)}</span>
+            </div>
+            <div className="flex justify-between text-amber-700">
+              <span>Biaya Admin & Provisi:</span>
+              <span>- {formatCurrency(totalDeduction)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-slate-900 border-t pt-2">
+              <span>Dana Diterima Bersih:</span>
+              <span>{formatCurrency(receivedAmount)}</span>
+            </div>
+            <div className="flex justify-between text-blue-700 border-t pt-2 mt-2">
+              <span>Estimasi Angsuran / Bulan:</span>
+              <span className="font-bold">{formatCurrency(monthlyInstallment)}</span>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              *Estimasi ini belum termasuk biaya admin atau provisi jika ada.
+              *Simulasi perhitungan. Nilai realisasi mungkin berbeda tergantung tanggal pencairan.
             </p>
           </div>
         )}
@@ -212,14 +254,14 @@ export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFor
           )}
         />
 
-        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Mengirim...
             </>
           ) : (
-            'Ajukan Pinjaman'
+            'Kirim Pengajuan'
           )}
         </Button>
       </form>

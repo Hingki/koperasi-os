@@ -29,11 +29,9 @@ export async function createMember(formData: FormData) {
 
   const validatedData = createMemberSchema.parse(rawData);
 
-  // 3. Get Koperasi ID (Assuming User has one, or fetch from context)
-  // For MVP, fetch the first koperasi user is admin of, or just ANY koperasi for now if only 1 exists
+  // 3. Get Koperasi ID
   const { data: userRole } = await supabase.from('user_role').select('koperasi_id').eq('user_id', user.id).single();
   
-  // Fallback if no role found (e.g. Service Role in test or Super Admin), just pick first Koperasi
   let koperasiId = userRole?.koperasi_id;
   if (!koperasiId) {
       const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
@@ -46,7 +44,7 @@ export async function createMember(formData: FormData) {
   const { error } = await supabase.from('member').insert({
     koperasi_id: koperasiId,
     ...validatedData,
-    nomor_anggota: `M-${Date.now().toString().slice(-6)}`, // Auto-gen simple
+    nomor_anggota: `M-${Date.now().toString().slice(-6)}`,
     status: 'active',
     tanggal_daftar: new Date().toISOString()
   });
@@ -87,7 +85,6 @@ export async function updateMemberProfile(formData: FormData) {
   }
 
   // 3. Update Member
-  // Ensure we only update the member record belonging to this user
   const { error } = await supabase
     .from('member')
     .update({
@@ -103,5 +100,90 @@ export async function updateMemberProfile(formData: FormData) {
   }
 
   revalidatePath('/member/profil');
+  return { success: true };
+}
+
+const completeRegistrationSchema = z.object({
+  nama_lengkap: z.string().min(3, "Nama lengkap minimal 3 karakter"),
+  nik: z.string().min(16, "NIK harus 16 digit").max(16),
+  phone: z.string().min(10, "Nomor telepon minimal 10 digit"),
+  alamat_lengkap: z.string().min(10, "Alamat minimal 10 karakter"),
+});
+
+export async function completeMemberRegistration(formData: FormData) {
+  const supabase = await createClient();
+
+  // 1. Auth Check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  // 2. Validate Input
+  const rawData = {
+    nama_lengkap: formData.get('nama_lengkap'),
+    nik: formData.get('nik'),
+    phone: formData.get('phone'),
+    alamat_lengkap: formData.get('alamat_lengkap'),
+  };
+
+  const result = completeRegistrationSchema.safeParse(rawData);
+  if (!result.success) {
+    return { success: false, error: result.error.errors[0].message };
+  }
+
+  // 3. Get Koperasi ID
+  let koperasiId = user.user_metadata?.koperasi_id;
+  if (!koperasiId) {
+    // Fallback to first available koperasi
+    const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
+    koperasiId = kop?.id;
+  }
+
+  if (!koperasiId) return { success: false, error: 'Sistem error: Koperasi tidak ditemukan' };
+
+  // 4. Create Member
+  const { data: member, error } = await supabase.from('member').insert({
+    koperasi_id: koperasiId,
+    user_id: user.id,
+    nama_lengkap: result.data.nama_lengkap,
+    nik: result.data.nik,
+    phone: result.data.phone,
+    alamat_lengkap: result.data.alamat_lengkap,
+    email: user.email,
+    nomor_anggota: `M-${Date.now().toString().slice(-6)}`,
+    status: 'active',
+    tanggal_daftar: new Date().toISOString()
+  }).select().single();
+
+  if (error) {
+    console.error('Complete Registration Error:', error);
+    if (error.code === '23505') { // Unique violation
+        return { success: false, error: 'NIK atau Data sudah terdaftar' };
+    }
+    return { success: false, error: 'Gagal membuat profil anggota' };
+  }
+
+  // 5. Ensure User Role exists
+  const { error: roleError } = await supabase.from('user_role').insert({
+    user_id: user.id,
+    koperasi_id: koperasiId,
+    role: 'anggota',
+    member_id: member.id
+  });
+  
+  // Ignore role error if it already exists (though unlikely for new member)
+  if (roleError && roleError.code !== '23505') {
+      console.error("Role creation error", roleError);
+  }
+
+  // 6. Update User Metadata
+  await supabase.auth.updateUser({
+    data: {
+      koperasi_id: koperasiId,
+      nama_lengkap: result.data.nama_lengkap
+    }
+  });
+
+  revalidatePath('/member/profil');
+  revalidatePath('/dashboard');
   return { success: true };
 }

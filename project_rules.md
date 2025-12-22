@@ -2,7 +2,7 @@
 
 ## 1. Tech Stack
 
-- **Framework:** Next.js 15+ (App Router)
+- **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript
 - **Database & Auth:** Supabase
 - **Styling:** Tailwind CSS + Shadcn UI
@@ -25,6 +25,13 @@
 - **Member vs Public:**
   - Retail module supports dual pricing (`price_sell_member` vs `price_sell_public`).
   - Savings payment method available only for Members.
+- **Retail POS Alignment (Kopdesa/Smartscoop):**
+  - Barcode scanning via scanner modal dan lookup server action.
+  - Pembayaran: Tunai, QRIS (dengan polling status), Saldo Simpanan Anggota.
+  - Diskon transaksi: mendukung nominal dan persen, dikalkulasi ke `final_amount`.
+  - Produk konsinyasi: penandaan visual dan tetap tercatat di transaksi.
+  - UI menampilkan harga anggota/umum secara jelas dan konsisten.
+ - Service: gunakan `PaymentService` untuk mencatat pembayaran dan jurnal.
 
 ## 4. Coding Conventions
 
@@ -39,3 +46,26 @@
 - `src/lib/services`: Business Logic classes.
 - `src/lib/actions`: Server Actions (form handlers).
 - `src/lib/utils`: Helper functions.
+
+## 6. Feature Alignment (Smartscoop & Kopdesa)
+
+- Retail POS
+  - Voucher dan Point
+  - Discount, Donasi, Split Bill
+  - PPN Masukan/Keluaran
+  - Stok Opname dan penyesuaian persediaan
+  - Barang Konsinyasi
+- Simpan Pinjam
+  - Produk Simpanan (umum, rencana, berjangka)
+  - Autodebet Simpanan Wajib
+  - Pembayaran kredit via QRIS
+- Master Data
+  - Profil Koperasi, Anggota, Pengurus
+  - Karyawan, Pelanggan Toko, Aset Barang
+  - Pengaturan Email dan Konfigurasi
+- Unit Usaha
+  - Apotek/Klinik: pasien, layanan, farmasi, pembayaran QRIS/simpanan
+  - Gudang/Cold Storage: DO, opname, penimbangan, lelang online
+- Pelaporan
+  - Konsolidasi laporan per unit usaha ke koperasi
+  - Laporan SAK-EP, jurnal otomatis via `LedgerService`

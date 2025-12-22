@@ -22,10 +22,12 @@ export default async function SavingsProductsPage() {
         </div>
         <div className="flex space-x-2">
             <SeedProductsButton />
-            <button className="flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium">
-                <Plus className="w-4 h-4 mr-2" />
-                Tambah Produk
-            </button>
+            <Link href="/dashboard/savings/products/new">
+                <button className="flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Tambah Produk
+                </button>
+            </Link>
         </div>
       </div>
 

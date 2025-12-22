@@ -15,6 +15,8 @@ export type UserRoleType =
   | 'pengurus'
   | 'bendahara'
   | 'ketua'
+  | 'wakil_ketua'
+  | 'sekretaris'
   | 'anggota'
   | 'staff';
 
@@ -25,7 +27,9 @@ export type UserRoleType =
 export const ROLE_HIERARCHY: Record<UserRoleType, number> = {
   admin: 100,
   ketua: 90,
+  wakil_ketua: 85,
   pengurus: 80,
+  sekretaris: 75,
   bendahara: 75,
   staff: 50,
   anggota: 10,

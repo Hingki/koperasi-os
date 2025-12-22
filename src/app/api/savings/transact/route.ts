@@ -1,29 +1,23 @@
 import { createClient } from '@/lib/supabase/server';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { SavingsService } from '@/lib/services/savings-service';
 import { savingsTransactionSchema } from '@/lib/validations/savings';
 import { hasAnyRole } from '@/lib/auth/roles';
 import { z } from 'zod';
+import { respondSuccess, respondError, respondZodError, respondServiceError } from '@/lib/api/response';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 1. Auth Check
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in' },
-        { status: 401 }
-      );
+      return respondError('UNAUTHORIZED', 'You must be logged in', 401);
     }
 
-    // 2. Parse & Validate Body
     const body = await request.json();
     const validatedData = savingsTransactionSchema.parse(body);
 
-    // 3. Permission Check
-    // We need to know the Koperasi ID to check permissions.
     const { data: account, error: accError } = await supabase
         .from('savings_accounts')
         .select('koperasi_id')
@@ -31,19 +25,14 @@ export async function POST(request: NextRequest) {
         .single();
 
     if (accError || !account) {
-        return NextResponse.json({ error: 'NotFound', message: 'Account not found' }, { status: 404 });
+        return respondError('NOT_FOUND', 'Account not found', 404, [{ field: 'accountId', message: 'Account not found' }]);
     }
 
-    // Only Admin/Teller can perform transactions for now (or maybe members can deposit via payment gateway later)
     const isAuthorized = await hasAnyRole(['admin', 'pengurus', 'bendahara', 'staff'], account.koperasi_id);
     if (!isAuthorized) {
-        return NextResponse.json(
-            { error: 'Forbidden', message: 'Insufficient permissions' },
-            { status: 403 }
-        );
+        return respondError('FORBIDDEN', 'Insufficient permissions', 403);
     }
 
-    // 4. Invoke Service
     const savingsService = new SavingsService(supabase);
     const result = await savingsService.processTransaction(
         validatedData.accountId,
@@ -53,25 +42,12 @@ export async function POST(request: NextRequest) {
         validatedData.description
     );
 
-    return NextResponse.json(
-      { 
-        message: 'Transaction successful', 
-        data: result 
-      }, 
-      { status: 200 }
-    );
+    return respondSuccess(result, 'Transaction successful', 200);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'ValidationError', details: error.errors },
-        { status: 400 }
-      );
+      return respondZodError(error, 400);
     }
-    console.error('Savings Transaction Error:', error);
-    return NextResponse.json(
-      { error: 'InternalServerError', message: error.message || 'Transaction failed' },
-      { status: 500 }
-    );
+    return respondServiceError(error);
   }
 }

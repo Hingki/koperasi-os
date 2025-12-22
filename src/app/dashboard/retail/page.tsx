@@ -5,7 +5,8 @@ import {
   Package, 
   Truck, 
   BarChart3, 
-  Tags 
+  Tags,
+  Users
 } from 'lucide-react';
 
 export default function RetailDashboardPage() {
@@ -44,6 +45,13 @@ export default function RetailDashboardPage() {
       href: '/dashboard/retail/categories',
       icon: Tags,
       color: 'bg-indigo-500',
+    },
+    {
+      name: 'Pelanggan Toko',
+      description: 'Data pelanggan non-anggota',
+      href: '/dashboard/retail/customers',
+      icon: Users,
+      color: 'bg-pink-500',
     },
     {
       name: 'Laporan Penjualan',

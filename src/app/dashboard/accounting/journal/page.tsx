@@ -1,50 +1,43 @@
 import { createClient } from '@/lib/supabase/server';
+import { JournalTable } from './journal-table';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { Plus } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 
 export default async function JournalPage() {
   const supabase = await createClient();
+
+  // Fetch recent entries
   const { data: entries } = await supabase
-    .from('ledger_entries')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .from('ledger_entry')
+    .select(`
+        *,
+        debit_account:chart_of_accounts!account_debit(account_code, account_name),
+        credit_account:chart_of_accounts!account_credit(account_code, account_name)
+    `)
+    .order('entry_date', { ascending: false })
+    .limit(100);
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center space-x-4">
-        <Link href="/dashboard/accounting" className="p-2 hover:bg-slate-100 rounded-full">
-            <ArrowLeft className="h-5 w-5" />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Jurnal Umum</h1>
+          <p className="text-muted-foreground">
+            Histori transaksi keuangan dan jurnal penyesuaian.
+          </p>
+        </div>
+        <Link href="/dashboard/accounting/journal/new">
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Buat Jurnal Manual
+          </Button>
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">General Journal</h1>
       </div>
 
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-500 font-medium">
-                <tr>
-                    <th className="px-6 py-3">Date</th>
-                    <th className="px-6 py-3">Ref</th>
-                    <th className="px-6 py-3">Description</th>
-                    <th className="px-6 py-3">Debit</th>
-                    <th className="px-6 py-3">Credit</th>
-                    <th className="px-6 py-3 text-right">Amount</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y">
-                {entries?.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-slate-50/50">
-                        <td className="px-6 py-3 whitespace-nowrap">{new Date(entry.transaction_date).toLocaleString()}</td>
-                        <td className="px-6 py-3 font-mono text-xs">{entry.tx_reference}</td>
-                        <td className="px-6 py-3">{entry.description}</td>
-                        <td className="px-6 py-3 font-mono text-xs">{entry.account_debit}</td>
-                        <td className="px-6 py-3 font-mono text-xs">{entry.account_credit}</td>
-                        <td className="px-6 py-3 text-right font-medium">
-                            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(entry.amount)}
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
+      <div className="rounded-md border bg-white p-4">
+         <JournalTable initialEntries={entries || []} />
       </div>
     </div>
   );

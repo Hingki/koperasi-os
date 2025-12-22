@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, CheckCircle, Banknote, Clock, AlertCircle } from 'lucide-react';
+import { Eye, CheckCircle, Banknote, Clock, AlertCircle, AlertTriangle, FileText } from 'lucide-react';
 import { reviewLoanApplication, disburseLoan } from '@/lib/actions/loan';
+import ExportLoansButton from '@/components/loans/export-loans-button';
+import { LoanActionButtons } from './action-buttons';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +54,20 @@ export default async function LoanManagementPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Manajemen Pinjaman</h1>
           <p className="text-slate-500">Kelola pengajuan dan pencairan pinjaman anggota</p>
+        </div>
+        <div className="flex space-x-2">
+            <ExportLoansButton loans={loans} />
+            <Link href="/dashboard/pinjaman/due">
+                <Button variant="secondary">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Jatuh Tempo
+                </Button>
+            </Link>
+            <Link href="/dashboard/settings/loan-products">
+                <Button variant="outline">
+                    Produk Pinjaman
+                </Button>
+            </Link>
         </div>
       </div>
 
@@ -132,6 +148,13 @@ export default async function LoanManagementPage() {
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
+                                    {loan.status === 'submitted' && (
+                                        <LoanActionButtons 
+                                            id={loan.id} 
+                                            status={loan.status} 
+                                            amount={loan.amount}
+                                        />
+                                    )}
                                     <Link href={`/dashboard/pinjaman/${loan.id}`}>
                                         <Button variant="outline" size="sm">
                                             <Eye className="h-4 w-4 mr-1" />

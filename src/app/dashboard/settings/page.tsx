@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
-import { User, Mail, Shield, Building } from 'lucide-react';
+import { User, Mail, Shield, Building, CreditCard, Users, Banknote } from 'lucide-react';
 import { KoperasiProfileForm } from '@/components/settings/koperasi-profile-form';
 import { koperasiService } from '@/lib/services/koperasi-service';
+import Link from 'next/link';
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -88,6 +89,48 @@ export default async function SettingsPage() {
                 <p>Koperasi OS Version: <span className="text-slate-900 font-medium">v0.1.0-beta</span></p>
                 <p>Environment: <span className="text-slate-900 font-medium">{process.env.NODE_ENV}</span></p>
             </div>
+        </div>
+
+        {/* Pengaturan Lainnya */}
+        <div className="bg-white p-6 rounded-lg border shadow-sm">
+          <h2 className="text-lg font-semibold mb-4">Pengaturan Lainnya</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Link href="/dashboard/settings/coa" className="p-4 rounded-lg border hover:bg-slate-50 transition-colors flex items-center gap-3">
+              <Banknote className="w-5 h-5 text-slate-500" />
+              <div>
+                <div className="font-semibold text-slate-900">Kode Akun (COA)</div>
+                <div className="text-sm text-slate-500">Kelola chart of accounts.</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/settings/email" className="p-4 rounded-lg border hover:bg-slate-50 transition-colors flex items-center gap-3">
+              <Mail className="w-5 h-5 text-slate-500" />
+              <div>
+                <div className="font-semibold text-slate-900">Pengaturan Email</div>
+                <div className="text-sm text-slate-500">Konfigurasi SMTP untuk notifikasi sistem.</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/settings/payment-sources" className="p-4 rounded-lg border hover:bg-slate-50 transition-colors flex items-center gap-3">
+              <CreditCard className="w-5 h-5 text-slate-500" />
+              <div>
+                <div className="font-semibold text-slate-900">Sumber Bayar</div>
+                <div className="text-sm text-slate-500">Kelola metode dan provider pembayaran.</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/settings/staff" className="p-4 rounded-lg border hover:bg-slate-50 transition-colors flex items-center gap-3">
+              <Users className="w-5 h-5 text-slate-500" />
+              <div>
+                <div className="font-semibold text-slate-900">Pengurus & Karyawan</div>
+                <div className="text-sm text-slate-500">Kelola peran pengurus dan staf.</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/settings/assets" className="p-4 rounded-lg border hover:bg-slate-50 transition-colors flex items-center gap-3">
+              <Building className="w-5 h-5 text-slate-500" />
+              <div>
+                <div className="font-semibold text-slate-900">Data Aset Barang</div>
+                <div className="text-sm text-slate-500">Kelola aset tetap koperasi.</div>
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

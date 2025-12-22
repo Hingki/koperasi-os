@@ -6,7 +6,7 @@
 
 - [✅] Initialize Git repository with proper branching strategy
 - [✅] Setup Supabase project
-- [✅] Configure Next.js 14 with TypeScript
+- [✅] Configure Next.js 16 with TypeScript
 - [✅] Setup ESLint, Prettier, and Husky for code quality
 - [✅] Configure environment variables
 - [ ] Setup CI/CD pipeline (GitHub Actions)
@@ -15,9 +15,6 @@
 ### 1.2 Database Foundation
 
 - [✅] Implement core tables (koperasi, member, user_role)
-- [ ] Setup accounting periods
-- [ ] Create chart of accounts structure
-- [ ] Implement ledger entry table with partitioning
 - [✅] Setup accounting periods
 - [✅] Create chart of accounts structure
 - [✅] Implement ledger entry table with partitioning
@@ -76,6 +73,7 @@
 - [ ] Trial balance generation
 - [ ] Financial statements (Balance Sheet, Income Statement)
 - [ ] Period closing process
+- [ ] Konsolidasi laporan unit usaha ke koperasi (mapping akun per unit)
 
 ## 🔐 Phase 3: Security & Compliance
 
@@ -120,6 +118,14 @@
 - [ ] Sembako management
 - [ ] LPG distribution
 - [ ] Other business units (based on AD/ART)
+- [ ] PPOB module (pembayaran tagihan)
+- [ ] Kiosk/self-service checkout (mode kasir mandiri)
+- [ ] E-RAT (Rapat Anggota Tahunan digital)
+- [ ] Voucher POS dan Loyalty Points (akumulasi & redeem)
+- [ ] Split Bill POS (multi metode dan multi transaksi pembayaran)
+- [ ] Donasi POS (alokasi dan jurnal pendapatan donasi)
+- [ ] PPN Masukan/Keluaran (item-level, jurnal akun pajak)
+- [ ] Stok Opname & Penyesuaian Persediaan (audit trail)
 
 ### 5.2 Integrations
 
@@ -127,6 +133,8 @@
 - [ ] Email notifications
 - [ ] Bank API integration
 - [ ] Payment gateway (QRIS)
+- [ ] Autodebet Simpanan Wajib (penarikan berkala)
+- [ ] Provider pembayaran nyata (Xendit/Midtrans) + webhook Edge Functions
 
 ### 5.3 Mobile App
 
@@ -164,6 +172,10 @@
 - [ ] **Compliance Testing** (SAK-EP rules)
 - [ ] **Disaster Recovery Testing**
 - [ ] **Data Integrity Testing** (Ledger consistency checks)
+- [✅] POS: Diskon transaksi (nominal/persen) terintegrasi total & checkout
+- [ ] POS: Voucher/Point, Split Bill, Donasi, PPN, Stok Opname
+- [ ] Simpan Pinjam: UI pembayaran angsuran via QRIS
+- [ ] Konsolidasi: Laporan unit usaha → koperasi
 
 ## Notes & Actions Taken (mapped to `arsitektur-final.md`)
 

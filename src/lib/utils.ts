@@ -15,3 +15,11 @@ export function formatCurrency(amount: number): string {
 
   return amount < 0 ? `(${formatted})` : formatted;
 }
+
+export function formatDate(date: string | Date): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(date))
+}

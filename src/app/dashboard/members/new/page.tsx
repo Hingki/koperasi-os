@@ -1,6 +1,7 @@
 'use client';
 
 import { createMember } from '@/lib/actions/member';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -105,11 +106,9 @@ export default function NewMemberPage() {
             </div>
 
             <div className="pt-4 flex justify-end space-x-4">
-                <Link href="/dashboard/members">
-                    <button type="button" className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">
-                        Batal
-                    </button>
-                </Link>
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/members">Batal</Link>
+                </Button>
                 <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                     Simpan Anggota
                 </button>

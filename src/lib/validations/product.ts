@@ -19,3 +19,17 @@ export const loanProductSchema = z.object({
 });
 
 export type LoanProductPayload = z.infer<typeof loanProductSchema>;
+
+export const savingsProductSchema = z.object({
+  code: z.string().min(3, "Kode minimal 3 karakter").max(20),
+  name: z.string().min(3, "Nama minimal 3 karakter"),
+  type: z.enum(['pokok', 'wajib', 'sukarela', 'berjangka']),
+  description: z.string().optional(),
+  interest_rate: z.coerce.number().min(0).max(100).default(0),
+  min_balance: z.coerce.number().min(0).default(0),
+  min_deposit: z.coerce.number().min(0).default(0),
+  is_withdrawal_allowed: z.coerce.boolean().default(true),
+  is_active: z.coerce.boolean().default(true),
+});
+
+export type SavingsProductPayload = z.infer<typeof savingsProductSchema>;

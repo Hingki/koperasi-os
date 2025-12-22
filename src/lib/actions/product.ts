@@ -56,6 +56,52 @@ export async function createLoanProduct(formData: FormData) {
   }
 
   // 5. Redirect
-  revalidatePath('/dashboard/loans/products');
-  redirect('/dashboard/loans/products');
+  revalidatePath('/dashboard/settings/loan-products');
+  redirect('/dashboard/settings/loan-products');
+}
+
+export async function updateLoanProduct(id: string, formData: FormData) {
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const rawData = {
+    code: formData.get('code'),
+    name: formData.get('name'),
+    description: formData.get('description'),
+    interest_rate: formData.get('interest_rate'),
+    interest_type: formData.get('interest_type'),
+    max_tenor_months: formData.get('max_tenor_months'),
+    min_amount: formData.get('min_amount'),
+    max_amount: formData.get('max_amount'),
+    admin_fee: formData.get('admin_fee'),
+    provision_fee: formData.get('provision_fee'),
+    penalty_late_daily: formData.get('penalty_late_daily'),
+    is_active: formData.get('is_active') === 'on',
+  };
+
+  const validatedData = loanProductSchema.parse(rawData);
+
+  const { error } = await supabase
+    .from('loan_products')
+    .update(validatedData)
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard/settings/loan-products');
+  redirect('/dashboard/settings/loan-products');
+}
+
+export async function deleteLoanProduct(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('loan_products').delete().eq('id', id);
+  
+  if (error) {
+    console.error("Delete Product Error:", error);
+    throw new Error(error.message);
+  }
+  
+  revalidatePath('/dashboard/settings/loan-products');
 }

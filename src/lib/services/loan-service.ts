@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LedgerService } from './ledger-service';
 import { AccountCode } from '@/lib/types/ledger';
+import { NotificationService } from './notification-service';
 
 export interface LoanType {
   id: string;
@@ -218,6 +219,14 @@ export class LoanService {
       .single();
 
     if (error) throw error;
+    if (status === 'approved' && data?.member_id) {
+      const notifier = new NotificationService(this.supabase);
+      const title = 'Pengajuan Pinjaman Disetujui';
+      const message = 'Pengajuan pinjaman Anda telah disetujui. Silakan menunggu proses pencairan.';
+      try {
+        await notifier.createNotification(data.member_id, title, message);
+      } catch {}
+    }
     return data;
   }
 

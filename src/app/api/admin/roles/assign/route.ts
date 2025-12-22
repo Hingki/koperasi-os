@@ -25,7 +25,7 @@ import { isAdmin, type UserRoleType } from '@/lib/auth/roles';
 const assignRoleSchema = z.object({
   user_id: z.string().uuid('Invalid user_id format'),
   koperasi_id: z.string().uuid('Invalid koperasi_id format'),
-  role: z.enum(['admin', 'pengurus', 'bendahara', 'ketua', 'anggota', 'staff']),
+  role: z.enum(['admin', 'pengurus', 'bendahara', 'ketua', 'wakil_ketua', 'sekretaris', 'anggota', 'staff']),
   member_id: z.string().uuid().optional().nullable(),
   permissions: z.array(z.string()).default([]),
   valid_until: z.string().datetime().optional().nullable(),

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { Wallet, Settings, ArrowUpRight, ArrowDownLeft, FileSpreadsheet } from 'lucide-react';
+import { Wallet, Settings, ArrowUpRight, ArrowDownLeft, FileSpreadsheet, AlertTriangle, List } from 'lucide-react';
+import { SavingsTransactionForms, SavingsAccountOption } from '@/components/savings/transaction-forms';
+import ExportSavingsButton from '@/components/savings/export-button';
 
 export default async function SavingsDashboardPage() {
   const supabase = await createClient();
@@ -19,6 +21,28 @@ export default async function SavingsDashboardPage() {
     `)
     .order('created_at', { ascending: false })
     .limit(10);
+  
+  // For export, fetch more data
+  const { data: allAccounts } = await supabase
+    .from('savings_accounts')
+    .select(`
+        *,
+        member:member(nama_lengkap, nomor_anggota),
+        product:savings_products(name)
+    `)
+    .limit(1000);
+
+  const { data: selectAccounts } = await supabase
+    .from('savings_accounts')
+    .select(`
+      id,
+      account_number,
+      balance,
+      product:savings_products(type, min_balance, min_deposit, is_withdrawal_allowed, name),
+      member:member(nama_lengkap)
+    `)
+    .eq('status', 'active')
+    .order('account_number');
 
   return (
     <div className="space-y-6">
@@ -28,22 +52,45 @@ export default async function SavingsDashboardPage() {
             <p className="text-slate-500">Kelola rekening simpanan anggota dan transaksi.</p>
         </div>
         <div className="flex space-x-2">
+            <ExportSavingsButton data={allAccounts || []} />
             <Link href="/dashboard/savings/products">
                 <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 h-10 px-4 py-2">
                     <Settings className="mr-2 h-4 w-4" />
                     Produk
                 </button>
             </Link>
-             <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2">
-                <ArrowUpRight className="mr-2 h-4 w-4" />
-                Setoran
-            </button>
-             <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 h-10 px-4 py-2">
-                <ArrowDownLeft className="mr-2 h-4 w-4" />
-                Penarikan
-            </button>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Link href="/dashboard/savings/arrears" className="p-4 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-full text-orange-600">
+                    <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                    <h3 className="font-semibold text-orange-900">Tunggakan Wajib</h3>
+                    <p className="text-sm text-orange-700">Cek anggota yang menunggak</p>
+                </div>
+            </div>
+            <ArrowUpRight className="h-5 w-5 text-orange-400" />
+        </Link>
+        
+        <Link href="/dashboard/savings/withdrawals" className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                    <List className="h-5 w-5" />
+                </div>
+                <div>
+                    <h3 className="font-semibold text-blue-900">Riwayat Penarikan</h3>
+                    <p className="text-sm text-blue-700">Lihat semua penarikan dana</p>
+                </div>
+            </div>
+            <ArrowUpRight className="h-5 w-5 text-blue-400" />
+        </Link>
+      </div>
+
+      <SavingsTransactionForms accounts={(selectAccounts as unknown as SavingsAccountOption[]) || []} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="p-6 bg-white rounded-lg border shadow-sm">
@@ -73,7 +120,11 @@ export default async function SavingsDashboardPage() {
             <tbody className="divide-y">
                 {accounts?.map((acc) => (
                     <tr key={acc.id} className="hover:bg-slate-50/50">
-                        <td className="p-4 font-mono">{acc.account_number}</td>
+                        <td className="p-4 font-mono">
+                            <Link href={`/dashboard/savings/${acc.id}`} className="text-blue-600 hover:underline">
+                                {acc.account_number}
+                            </Link>
+                        </td>
                         <td className="p-4">
                             <div className="font-medium">{acc.member?.nama_lengkap}</div>
                             <div className="text-xs text-slate-500">{acc.member?.nomor_anggota}</div>

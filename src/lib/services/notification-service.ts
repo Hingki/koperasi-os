@@ -1,32 +1,31 @@
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export class NotificationService {
-    /**
-     * Send a notification to a user.
-     * Currently mocks WhatsApp via Console Log.
-     */
-    static async sendWhatsApp(phone: string, message: string) {
-        // In a real app, this would call Twilio or a WhatsApp Business API
-        // For MVP, we log to stdout which is viewable in server logs
-        console.log(`[WhatsApp Mock] To: ${phone}`);
-        console.log(`[WhatsApp Mock] Body: ${message}`);
-        console.log(`[WhatsApp Mock] ----------------------------------------`);
-        
-        return { success: true, provider: 'mock' };
-    }
+  constructor(private supabase: SupabaseClient) {}
 
-    static async notifyLoanApproval(memberPhone: string, memberName: string, loanCode: string) {
-        const message = `Halo ${memberName}, Pengajuan pinjaman Anda dengan kode ${loanCode} telah DISETUJUI. Silakan cek portal anggota untuk detail pencairan.`;
-        return this.sendWhatsApp(memberPhone, message);
-    }
+  async createNotification(memberId: string, title: string, message: string) {
+    const { data: member, error: memberError } = await this.supabase
+      .from('member')
+      .select('id, koperasi_id, user_id')
+      .eq('id', memberId)
+      .single();
 
-    static async notifyLoanRejection(memberPhone: string, memberName: string, loanCode: string) {
-        const message = `Halo ${memberName}, Mohon maaf, pengajuan pinjaman Anda dengan kode ${loanCode} belum dapat kami setujui saat ini.`;
-        return this.sendWhatsApp(memberPhone, message);
-    }
+    if (memberError || !member) throw new Error('Member not found');
 
-    static async notifyDisbursement(memberPhone: string, memberName: string, amount: number) {
-        const fmtAmount = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
-        const message = `Halo ${memberName}, Dana sebesar ${fmtAmount} telah dicairkan ke rekening Anda (Tunai/Transfer). Terima kasih.`;
-        return this.sendWhatsApp(memberPhone, message);
-    }
+    const { data, error } = await this.supabase
+      .from('notifications')
+      .insert({
+        member_id: memberId,
+        koperasi_id: member.koperasi_id,
+        user_id: member.user_id,
+        title,
+        message,
+        is_read: false
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
 }

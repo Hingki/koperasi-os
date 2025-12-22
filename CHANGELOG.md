@@ -1,14 +1,22 @@
-﻿# Changelog
+# Changelog
 
 Semua perubahan penting pada proyek **Koperasi-OS** akan didokumentasikan di sini.
 Format mengikuti Keep a Changelog dan Semantic Versioning.
 
 ## [Unreleased]
+
 ### Added
+- **Accounting Reports Suite**:
+  - **SHU Report**: Automated Sisa Hasil Usaha calculation with allocation simulation.
+  - **Unit Balance Sheet**: Balance sheet filtered by business unit (USP vs Waserda).
+  - **Daily Report**: Transaction daily recap with date filtering and Excel export.
+  - **Billing Recap**: Monthly loan billing monitoring with payment status.
+  - **RAT Archive**: Digital repository for Annual Members Meeting documents.
 - **Member Portal Enhancements**:
   - **Editable Profile**: Members can now update their phone number, email, and address.
   - **Notifications**: Real-time notification system with read status tracking.
   - **Header Bar**: New top navigation bar in member area with notification bell.
+  - **Savings**: Updated member savings page columns and data source.
 - **Member Portal (`/member`)**:
   - **Role-Based Access**: Dedicated login flow and routing for members vs admins.
   - **Dashboard**: Personal summary of savings, loans, and upcoming installments.

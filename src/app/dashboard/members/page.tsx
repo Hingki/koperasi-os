@@ -80,6 +80,7 @@ export default async function MembersPage() {
                     <TableHead>Telepon</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Tanggal Bergabung</TableHead>
+                    <TableHead>Aksi</TableHead>
                 </TableRow>
             </TableHeader>
             <tbody>
@@ -95,6 +96,14 @@ export default async function MembersPage() {
                             </Badge>
                         </TableCell>
                         <TableCell>{new Date(member.tanggal_daftar).toLocaleDateString('id-ID')}</TableCell>
+                        <TableCell>
+                            <Link 
+                              href={`/dashboard/members/${member.id}/savings`}
+                              className="text-blue-600 hover:underline text-xs"
+                            >
+                              Lihat Simpanan
+                            </Link>
+                        </TableCell>
                     </TableRow>
                 ))}
                 {members?.length === 0 && (

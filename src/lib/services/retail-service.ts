@@ -75,6 +75,11 @@ export interface POSTransactionItem {
 import { PaymentService } from './payment-service';
 import { SavingsService } from './savings-service';
 
+export type PaymentBreakdown = {
+  method: 'cash' | 'qris' | 'savings_balance';
+  amount: number;
+};
+
 export class RetailService {
   private ledgerService: LedgerService;
   private paymentService: PaymentService;
@@ -268,13 +273,13 @@ export class RetailService {
   }
 
   // POS Transaction
-  async processTransaction(transaction: Partial<POSTransaction>, items: Partial<POSTransactionItem>[]) {
+  async processTransaction(transaction: Partial<POSTransaction>, items: Partial<POSTransactionItem>[], payments?: PaymentBreakdown[]) {
     // 0. Pre-flight Checks
     const paymentMethod = transaction.payment_method || 'cash';
     const memberId = transaction.member_id;
     const finalAmount = transaction.final_amount || 0;
 
-    if (paymentMethod === 'savings_balance') {
+    if (paymentMethod === 'savings_balance' && (!payments || payments.length === 0)) {
         if (!memberId) throw new Error('Member ID is required for savings payment');
         // Check Balance
         const balance = await this.savingsService.getBalance(memberId, 'sukarela');
@@ -289,7 +294,7 @@ export class RetailService {
       .insert({
         ...transaction,
         invoice_number: `INV-${Date.now()}`,
-        payment_status: paymentMethod === 'qris' ? 'pending' : 'paid'
+        payment_status: (payments && payments.some(p => p.method === 'qris')) || paymentMethod === 'qris' ? 'pending' : 'paid'
       })
       .select()
       .single();
@@ -345,53 +350,64 @@ export class RetailService {
 
     // 4. Payment Processing & Ledger
     let paymentResult: any = {};
+    const paymentsToProcess: PaymentBreakdown[] = payments && payments.length > 0 ? payments : [{ method: paymentMethod as PaymentBreakdown['method'], amount: finalAmount }];
     
-    if (transaction.created_by && finalAmount > 0) {
-        if (paymentMethod === 'cash') {
-             const paymentTx = await this.paymentService.recordManualPayment(
-                transaction.koperasi_id!,
-                txData.id,
-                'retail_sale',
-                finalAmount,
-                'cash',
-                `Payment Cash for POS ${txData.invoice_number}`,
-                transaction.created_by
-             );
-             paymentResult = { payment_transaction_id: paymentTx.id };
-        } else if (paymentMethod === 'savings_balance') {
-             // Deduct Balance from Savings
-             await this.savingsService.deductBalance(
-                 memberId!,
-                 finalAmount,
-                 `Payment for POS ${txData.invoice_number}`,
-                 transaction.created_by
-             );
-
-             // Record Payment (Ledger)
-             const paymentTx = await this.paymentService.recordManualPayment(
-                transaction.koperasi_id!,
-                txData.id,
-                'retail_sale',
-                finalAmount,
-                'savings_balance',
-                `Payment Savings for POS ${txData.invoice_number}`,
-                transaction.created_by
-             );
-             paymentResult = { payment_transaction_id: paymentTx.id };
-        } else if (paymentMethod === 'qris') {
-            const qrisTx = await this.paymentService.createQRISPayment(
-                transaction.koperasi_id!,
-                txData.id,
-                'retail_sale',
-                finalAmount,
-                `Payment QRIS for POS ${txData.invoice_number}`,
-                transaction.created_by
-            );
-            paymentResult = {
-                qr_code_url: qrisTx.qr_code_url,
-                payment_transaction_id: qrisTx.id
-            };
+    if (transaction.created_by) {
+      const qrisResults: { qr_code_url: string; payment_transaction_id: string; amount: number }[] = [];
+      for (const p of paymentsToProcess) {
+        if (p.amount <= 0) continue;
+        if (p.method === 'cash') {
+          const paymentTx = await this.paymentService.recordManualPayment(
+            transaction.koperasi_id!,
+            txData.id,
+            'retail_sale',
+            p.amount,
+            'cash',
+            `Payment Cash for POS ${txData.invoice_number}`,
+            transaction.created_by
+          );
+          paymentResult.payment_transactions = [...(paymentResult.payment_transactions || []), paymentTx.id];
+        } else if (p.method === 'savings_balance') {
+          if (!memberId) throw new Error('Member ID is required for savings payment');
+          const balance = await this.savingsService.getBalance(memberId, 'sukarela');
+          if (balance < p.amount) throw new Error('Saldo simpanan sukarela tidak mencukupi');
+          
+          await this.savingsService.deductBalance(
+            memberId,
+            p.amount,
+            `Payment for POS ${txData.invoice_number}`,
+            transaction.created_by
+          );
+          const paymentTx = await this.paymentService.recordManualPayment(
+            transaction.koperasi_id!,
+            txData.id,
+            'retail_sale',
+            p.amount,
+            'savings_balance',
+            `Payment Savings for POS ${txData.invoice_number}`,
+            transaction.created_by
+          );
+          paymentResult.payment_transactions = [...(paymentResult.payment_transactions || []), paymentTx.id];
+        } else if (p.method === 'qris') {
+          const qrisTx = await this.paymentService.createQRISPayment(
+            transaction.koperasi_id!,
+            txData.id,
+            'retail_sale',
+            p.amount,
+            `Payment QRIS for POS ${txData.invoice_number}`,
+            transaction.created_by
+          );
+          qrisResults.push({ qr_code_url: qrisTx.qr_code_url || '', payment_transaction_id: qrisTx.id, amount: p.amount });
+          paymentResult.payment_transactions = [...(paymentResult.payment_transactions || []), qrisTx.id];
         }
+      }
+      if (qrisResults.length === 1) {
+        paymentResult.qr_code_url = qrisResults[0].qr_code_url;
+        paymentResult.payment_transaction_id = qrisResults[0].payment_transaction_id;
+        paymentResult.qris_amount = qrisResults[0].amount;
+      } else if (qrisResults.length > 1) {
+        paymentResult.qris_multi = qrisResults;
+      }
     }
 
     // 5. Record COGS (Accounting)

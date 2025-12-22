@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { updateMemberProfile } from '@/lib/actions/member';
-import { toast } from 'sonner';
+import { useToast } from '@/components/ui/use-toast';
 import { Pencil } from 'lucide-react';
 
 interface EditProfileDialogProps {
@@ -29,6 +29,7 @@ interface EditProfileDialogProps {
 export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,10 +39,18 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
     const result = await updateMemberProfile(formData);
 
     if (result.success) {
-      toast.success('Profil berhasil diperbarui');
+      toast({
+        title: "Berhasil",
+        description: "Profil berhasil diperbarui",
+        variant: "default",
+      });
       setOpen(false);
     } else {
-      toast.error(result.error || 'Gagal memperbarui profil');
+      toast({
+        title: "Gagal",
+        description: result.error || 'Gagal memperbarui profil',
+        variant: "destructive",
+      });
     }
 
     setLoading(false);

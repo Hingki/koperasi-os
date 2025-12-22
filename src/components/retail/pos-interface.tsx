@@ -62,6 +62,13 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
   
   // Barcode Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [discountType, setDiscountType] = useState<'percent' | 'nominal'>('nominal');
+  const [discountInput, setDiscountInput] = useState('');
+  const [isSplitMode, setIsSplitMode] = useState(false);
+  const [splitGroups, setSplitGroups] = useState<{ id: string; name: string; method: 'cash' | 'qris' | 'savings_balance'; cashGiven?: string }[]>([{ id: 'g1', name: 'Grup 1', method: 'cash' }]);
+  const [itemGroupMap, setItemGroupMap] = useState<Record<string, string>>({});
+  const [qrisQueue, setQrisQueue] = useState<{ url: string; id: string; amount: number }[]>([]);
+  const [processingSplit, setProcessingSplit] = useState(false);
   
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -119,8 +126,48 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
   }, 0);
   
   const tax = 0; 
-  const total = subtotal + tax;
+  const discountValueNum = Number(discountInput) || 0;
+  const discountAmount = discountType === 'percent' ? Math.min(subtotal * (discountValueNum / 100), subtotal) : Math.min(discountValueNum, subtotal);
+  const total = Math.max(0, subtotal - discountAmount + tax);
   const change = (Number(cashGiven) || 0) - total;
+
+  const addGroup = () => {
+    const idx = splitGroups.length + 1;
+    const newId = `g${idx}`;
+    setSplitGroups(prev => [...prev, { id: newId, name: `Grup ${idx}`, method: 'cash' }]);
+  };
+
+  const removeGroup = (id: string) => {
+    if (id === 'g1') return;
+    const remaining = splitGroups.filter(g => g.id !== id);
+    const reassigned: Record<string, string> = {};
+    for (const item of cart) {
+      const gid = itemGroupMap[item.id] || 'g1';
+      reassigned[item.id] = gid === id ? 'g1' : gid;
+    }
+    setItemGroupMap(reassigned);
+    setSplitGroups(remaining);
+  };
+
+  const setItemGroup = (productId: string, groupId: string) => {
+    setItemGroupMap(prev => ({ ...prev, [productId]: groupId }));
+  };
+
+  const groupTotals = useMemo(() => {
+    const sums: Record<string, number> = {};
+    for (const item of cart) {
+      const price = selectedMember ? item.price_sell_member : item.price_sell_public;
+      const gid = itemGroupMap[item.id] || 'g1';
+      sums[gid] = (sums[gid] || 0) + price * item.qty;
+    }
+    return splitGroups.map(g => {
+      const sub = sums[g.id] || 0;
+      const discShare = subtotal > 0 ? discountAmount * (sub / subtotal) : 0;
+      const taxShare = subtotal > 0 ? tax * (sub / subtotal) : 0;
+      const final = Math.max(0, sub - discShare + taxShare);
+      return { id: g.id, subtotal: sub, discount: discShare, tax: taxShare, final };
+    });
+  }, [cart, itemGroupMap, splitGroups, selectedMember, subtotal, discountAmount, tax]);
 
   const addToCart = (product: InventoryProduct) => {
     setCart(prev => {
@@ -132,10 +179,15 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
       }
       return [...prev, { ...product, qty: 1 }];
     });
+    setItemGroupMap(prev => ({ ...prev, [product.id]: 'g1' }));
   };
 
   const removeFromCart = (productId: string) => {
     setCart(prev => prev.filter(item => item.id !== productId));
+    setItemGroupMap(prev => {
+      const { [productId]: _, ...rest } = prev;
+      return rest;
+    });
   };
 
   const updateQty = (productId: string, delta: number) => {
@@ -198,7 +250,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
           member_id: selectedMember?.id || null,
           customer_name: selectedMember ? selectedMember.name : 'General Customer',
           total_amount: subtotal,
-          discount_amount: 0,
+          discount_amount: discountAmount,
           tax_amount: tax,
           final_amount: total,
           payment_method: method,
@@ -240,6 +292,79 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
       setIsQRISModalOpen(false);
       setQrisData(null);
       // Keep selected member? Maybe yes for convenience.
+      setIsSplitMode(false);
+      setSplitGroups([{ id: 'g1', name: 'Grup 1', method: 'cash' }]);
+      setItemGroupMap({});
+      setQrisQueue([]);
+      setProcessingSplit(false);
+  };
+
+  const processSplitCheckout = async () => {
+    if (cart.length === 0) return;
+    setProcessingSplit(true);
+    try {
+      const resultsQris: { url: string; id: string; amount: number }[] = [];
+      for (const g of splitGroups) {
+        const totals = groupTotals.find(gt => gt.id === g.id);
+        const groupItems = cart
+          .filter(item => (itemGroupMap[item.id] || 'g1') === g.id)
+          .map(item => ({
+            product_id: item.id,
+            quantity: item.qty,
+            price_at_sale: selectedMember ? item.price_sell_member : item.price_sell_public,
+            cost_at_sale: item.price_cost,
+            subtotal: (selectedMember ? item.price_sell_member : item.price_sell_public) * item.qty
+          }));
+        if (!totals || totals.final <= 0 || groupItems.length === 0) continue;
+        if (g.method === 'savings_balance' && !selectedMember) {
+          throw new Error('Pilih anggota untuk pembayaran saldo simpanan');
+        }
+        if (g.method === 'cash') {
+          const cg = Number(g.cashGiven || '0');
+          if (cg > 0 && cg < totals.final) {
+            throw new Error(`Uang tunai untuk ${g.name} kurang`);
+          }
+        }
+        const result = await processPosTransaction(
+          {
+            koperasi_id: user.user_metadata.koperasi_id,
+            unit_usaha_id: products[0]?.unit_usaha_id || user.user_metadata.unit_usaha_id,
+            member_id: selectedMember?.id || null,
+            customer_name: selectedMember ? selectedMember.name : 'General Customer',
+            total_amount: totals.subtotal,
+            discount_amount: totals.discount,
+            tax_amount: totals.tax,
+            final_amount: totals.final,
+            payment_method: g.method,
+            payment_status: g.method === 'qris' ? 'pending' : 'paid'
+          },
+          groupItems
+        );
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        if (g.method === 'qris') {
+          resultsQris.push({
+            url: result.data.qr_code_url,
+            id: result.data.payment_transaction_id,
+            amount: totals.final
+          });
+        }
+      }
+      if (resultsQris.length > 0) {
+        setQrisQueue(resultsQris);
+        const first = resultsQris[0];
+        setQrisData(first);
+        setIsQRISModalOpen(true);
+      } else {
+        alert('Transaksi Split Berhasil!');
+        resetCart();
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message);
+    } finally {
+      setProcessingSplit(false);
+    }
   };
 
   return (
@@ -269,6 +394,18 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
           </Button>
         </div>
 
+        {/* Sale Type Indicator */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium text-slate-600">
+            Mode Penjualan: <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${selectedMember ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'}`}>
+              {selectedMember ? 'Anggota' : 'Umum'}
+            </span>
+          </div>
+          <div className="text-xs text-slate-500">
+            Harga {selectedMember ? 'Anggota' : 'Umum'} ditampilkan
+          </div>
+        </div>
+
         {/* Grid */}
         <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
           {filteredProducts.length === 0 ? (
@@ -289,10 +426,16 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                     {product.name}
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">{product.sku}</p>
+                    {product.product_type === 'consignment' && (
+                      <span className="mt-2 inline-block text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">Konsinyasi</span>
+                    )}
                 </div>
                 <div className="mt-2">
                     <div className="text-lg font-bold text-blue-600">
-                    Rp {selectedMember ? product.price_sell_member.toLocaleString('id-ID') : product.price_sell_public.toLocaleString('id-ID')}
+                      Rp {selectedMember ? product.price_sell_member.toLocaleString('id-ID') : product.price_sell_public.toLocaleString('id-ID')}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {selectedMember ? `Harga Anggota • Umum Rp ${product.price_sell_public.toLocaleString('id-ID')}` : `Harga Umum • Anggota Rp ${product.price_sell_member.toLocaleString('id-ID')}`}
                     </div>
                     <div className={`text-xs mt-1 ${product.stock_quantity > 0 ? 'text-green-600' : 'text-red-500'}`}>
                     Stok: {product.stock_quantity}
@@ -350,6 +493,66 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                  </div>
              </div>
            )}
+           <div className="mt-3 flex items-center justify-between">
+             <span className="text-xs text-slate-600">Split Bill</span>
+             <button
+               type="button"
+               className={`text-xs px-2 py-1 rounded ${isSplitMode ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}
+               onClick={() => setIsSplitMode(v => !v)}
+             >
+               {isSplitMode ? 'Aktif' : 'Nonaktif'}
+             </button>
+           </div>
+           {isSplitMode && (
+             <div className="mt-2 space-y-2">
+               <div className="flex items-center justify-between">
+                 <span className="text-xs font-medium text-slate-700">Grup Pembayaran</span>
+                 <button type="button" className="text-xs text-blue-600 hover:underline" onClick={addGroup}>Tambah Grup</button>
+               </div>
+               <div className="space-y-2">
+                 {splitGroups.map(g => {
+                   const totals = groupTotals.find(gt => gt.id === g.id);
+                   return (
+                     <div key={g.id} className="flex items-center justify-between bg-slate-50 p-2 rounded border">
+                       <div className="flex-1">
+                         <div className="text-xs font-semibold text-slate-800">{g.name}</div>
+                         <div className="text-[11px] text-slate-600">Total Rp {(totals?.final || 0).toLocaleString('id-ID')}</div>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <select
+                           className="text-xs border rounded px-2 py-1 bg-white"
+                           value={g.method}
+                           onChange={(e) => {
+                             const val = e.target.value as 'cash' | 'qris' | 'savings_balance';
+                             setSplitGroups(prev => prev.map(x => x.id === g.id ? { ...x, method: val } : x));
+                           }}
+                         >
+                           <option value="cash">Tunai</option>
+                           <option value="qris">QRIS</option>
+                           <option value="savings_balance" disabled={!selectedMember}>Saldo</option>
+                         </select>
+                         {g.method === 'cash' && (
+                           <Input
+                             placeholder="Uang diterima"
+                             className="h-8 w-28 text-right"
+                             type="number"
+                             value={g.cashGiven || ''}
+                             onChange={(e) => {
+                               const val = e.target.value;
+                               setSplitGroups(prev => prev.map(x => x.id === g.id ? { ...x, cashGiven: val } : x));
+                             }}
+                           />
+                         )}
+                         {g.id !== 'g1' && (
+                           <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => removeGroup(g.id)}>Hapus</button>
+                         )}
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
+           )}
         </div>
 
         {/* Cart Items */}
@@ -369,6 +572,17 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                     <p className="text-xs text-blue-600 font-medium">Rp {price.toLocaleString('id-ID')}</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {isSplitMode && (
+                      <select
+                        className="text-xs border rounded px-2 py-1 bg-white"
+                        value={itemGroupMap[item.id] || 'g1'}
+                        onChange={(e) => setItemGroup(item.id, e.target.value)}
+                      >
+                        {splitGroups.map(g => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                      </select>
+                    )}
                     <div className="flex items-center bg-white rounded-md border shadow-sm">
                       <button type="button" aria-label="Kurangi" onClick={() => updateQty(item.id, -1)} className="p-1 hover:bg-slate-100"><Minus className="h-3 w-3" /></button>
                       <span className="w-8 text-center text-sm font-medium">{item.qty}</span>
@@ -390,41 +604,91 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
             <span className="text-slate-500">Subtotal</span>
             <span className="font-medium">Rp {subtotal.toLocaleString('id-ID')}</span>
           </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-slate-500">Diskon</span>
+              <div className="flex items-center gap-2">
+                <Input 
+                  placeholder={discountType === 'percent' ? '0%' : 'Rp 0'} 
+                  className="h-9 w-28 text-right" 
+                  value={discountInput}
+                  onChange={(e) => setDiscountInput(e.target.value)}
+                  type="number"
+                  min="0"
+                />
+                <div className="flex rounded-md overflow-hidden border">
+                  <button 
+                    type="button" 
+                    className={`px-2 h-9 text-sm ${discountType === 'nominal' ? 'bg-slate-800 text-white' : 'bg-white text-slate-700'}`} 
+                    onClick={() => setDiscountType('nominal')}
+                    title="Nominal"
+                  >
+                    Rp
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`px-2 h-9 text-sm border-l ${discountType === 'percent' ? 'bg-slate-800 text-white' : 'bg-white text-slate-700'}`} 
+                    onClick={() => setDiscountType('percent')}
+                    title="Persen"
+                  >
+                    %
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Potongan</span>
+              <span>Rp {discountAmount.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
           <div className="flex justify-between text-lg font-bold text-slate-900 border-t pt-2">
             <span>Total</span>
             <span>Rp {total.toLocaleString('id-ID')}</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-             <Button 
+          {!isSplitMode && (
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
                 className="bg-green-600 hover:bg-green-700 h-12 flex flex-col items-center justify-center gap-0 leading-tight"
                 onClick={() => setIsCashModalOpen(true)}
                 disabled={cart.length === 0}
-             >
+              >
                 <Banknote className="h-5 w-5 mb-1" />
                 <span className="text-xs">TUNAI</span>
-             </Button>
-             <Button 
+              </Button>
+              <Button 
                 className="bg-blue-600 hover:bg-blue-700 h-12 flex flex-col items-center justify-center gap-0 leading-tight"
                 onClick={() => processCheckout('qris')}
                 disabled={cart.length === 0 || loading}
-             >
+              >
                 <QrCode className="h-5 w-5 mb-1" />
                 <span className="text-xs">QRIS</span>
-             </Button>
-             <Button 
+              </Button>
+              <Button 
                 className={`h-12 flex flex-col items-center justify-center gap-0 leading-tight ${selectedMember ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-300 text-slate-500'}`}
                 onClick={() => {
-                    if (confirm(`Bayar Rp ${total.toLocaleString('id-ID')} dengan Saldo Simpanan?`)) {
-                        processCheckout('savings_balance');
-                    }
+                  if (confirm(`Bayar Rp ${total.toLocaleString('id-ID')} dengan Saldo Simpanan?`)) {
+                    processCheckout('savings_balance');
+                  }
                 }}
                 disabled={cart.length === 0 || !selectedMember || loading}
-             >
+              >
                 <Wallet className="h-5 w-5 mb-1" />
                 <span className="text-xs">SALDO</span>
-             </Button>
-          </div>
+              </Button>
+            </div>
+          )}
+          {isSplitMode && (
+            <div className="grid grid-cols-1 gap-2">
+              <Button 
+                className="bg-slate-800 hover:bg-slate-900 h-12"
+                onClick={processSplitCheckout}
+                disabled={cart.length === 0 || processingSplit}
+              >
+                {processingSplit ? 'Memproses...' : 'Proses Split Bill'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -436,9 +700,15 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
           qrCodeUrl={qrisData.url}
           transactionId={qrisData.id}
           onSuccess={() => {
-              setIsQRISModalOpen(false);
-              alert('Pembayaran QRIS Berhasil!');
-              resetCart();
+              const rest = qrisQueue.slice(1);
+              if (rest.length > 0) {
+                setQrisQueue(rest);
+                setQrisData(rest[0]);
+              } else {
+                setIsQRISModalOpen(false);
+                alert('Pembayaran QRIS Berhasil!');
+                resetCart();
+              }
           }} 
           onClose={() => setIsQRISModalOpen(false)}
         />

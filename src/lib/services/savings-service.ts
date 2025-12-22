@@ -97,6 +97,14 @@ export class SavingsService {
     let creditAccount: AccountCode;
 
     if (type === 'deposit') {
+        const minDeposit = Number(account.product?.min_deposit ?? 0);
+        if (minDeposit > 0 && amount < minDeposit) {
+            throw new Error(`Kurang dari minimum setoran untuk produk ${account.product.name}`);
+        }
+        const maxDeposit = Number(account.product?.max_deposit ?? 0);
+        if (maxDeposit > 0 && amount > maxDeposit) {
+            throw new Error(`Melebihi batas maksimum setoran untuk produk ${account.product.name}`);
+        }
         newBalance += amount;
         ledgerTxType = 'savings_deposit';
         // Debit Cash (Asset +), Credit Savings (Liability +)

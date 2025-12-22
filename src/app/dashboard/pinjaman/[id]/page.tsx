@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, CreditCard, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, Clock, AlertTriangle, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LoanActionButtons } from '../action-buttons';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PrintLoanButton } from '@/components/loans/print-loan-button';
 
 export default async function LoanDetailPage(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -64,7 +65,8 @@ export default async function LoanDetailPage(props: { params: Promise<{ id: stri
                         </span>
                     </div>
                 </div>
-                <div className="ml-auto">
+                <div className="ml-auto flex gap-2">
+                    <PrintLoanButton data={loan} />
                     <LoanActionButtons 
                         id={loan.id} 
                         status={loan.status} 

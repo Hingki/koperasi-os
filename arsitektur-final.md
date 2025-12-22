@@ -60,7 +60,7 @@ Setiap transaksi finansial → Ledger Entry dulu → Baru update state
 
 | Layer | Technology | Alasan |
 |-------|------------|--------|
-| **Frontend** | Next.js 14 (App Router) | RSC, SSR, SEO-friendly, TypeScript native |
+| **Frontend** | Next.js 16 (App Router) | RSC, SSR, SEO-friendly, TypeScript native |
 | **Backend** | Supabase Edge Functions | Serverless, auto-scale, dekat dengan DB |
 | **Database** | PostgreSQL (Supabase) | ACID, RLS native, JSON support, mature |
 | **Auth** | Supabase Auth | Built-in, RLS integration, social login |
@@ -71,6 +71,35 @@ Setiap transaksi finansial → Ledger Entry dulu → Baru update state
 | **Search** | PostgreSQL FTS | Built-in, no extra infra |
 | **Monitoring** | Sentry + Vercel Analytics | Error tracking, performance |
 
+> Catatan Implementasi Pembayaran: Saat ini QRIS menggunakan provider mock melalui `PaymentService` dan route API untuk polling status. Migrasi ke Edge Functions akan dilakukan untuk provider nyata (Xendit/Midtrans) dan webhook yang aman.
+
+## 🧭 Feature Alignment Smartscoop & Kopdesa
+
+- Retail POS
+  - Voucher dan Point, Discount, Donasi, Split Bill
+  - PPN Masukan/Keluaran per item
+  - Stok Opname, barang konsinyasi
+  - Pembayaran Tunai/QRIS/Saldo Simpanan
+- Simpan Pinjam
+  - Produk simpanan (umum, rencana, berjangka), autodebet simpanan wajib
+  - Pembayaran angsuran via QRIS
+- Master Data
+  - Karyawan, Pelanggan Toko, Aset Barang, Pengaturan Email
+  - Profil Koperasi, Anggota, Pengurus
+- Unit Usaha
+  - Klinik/Apotek: pasien, layanan medis/farmasi, etiket, lab, pembayaran
+  - Gudang: DO, penimbangan, lelang online
+- Pelaporan & Konsolidasi
+  - Konsolidasi per unit usaha, akuntansi SAK-EP, ledger-first
+
+## 🗺️ Roadmap Bertahap
+
+- Tahap 1: POS Enhancement (voucher/point, split bill, donasi, stok opname, PPN item-level)
+- Tahap 2: Pajak & Pelaporan (PPN Masukan/Keluaran, konsolidasi laporan per unit)
+- Tahap 3: Simpan Pinjam (autodebet wajib, UI pembayaran kredit via QRIS)
+- Tahap 4: Klinik/Apotek (data pasien, farmasi, billing)
+- Tahap 5: Gudang/Cold Storage (DO, penimbangan, lelang)
+- Tahap 6: Notifikasi (email/WA) dan integrasi provider pembayaran nyata
 ## 📋 Analysis & Recommendations (Post-Review)
 
 Based on comprehensive analysis of the roadmap and current progress, the following strategic adjustments have been adopted to ensure project success.

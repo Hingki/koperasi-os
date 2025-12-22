@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { redirect } from 'next/navigation';
 import { EditProfileDialog } from './edit-profile-dialog';
+import { CompleteProfileForm } from './complete-profile-form';
 
 export default async function MemberProfilePage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function MemberProfilePage() {
     .single();
 
   if (!member) {
-    return <div>Data anggota tidak ditemukan.</div>;
+    return <CompleteProfileForm userEmail={user.email || ''} />;
   }
 
   return (

@@ -24,6 +24,10 @@ export async function processPosTransaction(
     price_at_sale: number;
     cost_at_sale: number;
     subtotal: number;
+  }[],
+  payments?: {
+    method: 'cash' | 'qris' | 'savings_balance';
+    amount: number;
   }[]
 ) {
   const supabase = await createClient();
@@ -42,7 +46,8 @@ export async function processPosTransaction(
         member_id: transactionData.member_id || undefined,
         created_by: user.id
       },
-      items
+      items,
+      payments
     );
 
     revalidatePath('/dashboard/retail/pos');
