@@ -11,6 +11,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { WithdrawalDialog } from './withdrawal-dialog';
 
 export default async function MemberSavingsPage() {
   const supabase = await createClient();
@@ -37,15 +38,14 @@ export default async function MemberSavingsPage() {
       product:savings_products (
         name,
         type,
-        interest_rate
+        interest_rate,
+        is_withdrawal_allowed
       )
     `)
     .eq('member_id', member.id)
     .eq('status', 'active');
 
-  // Fetch Transactions from savings_transactions (Read Model for Ledger)
-  // User requested "Ambil data dari ledger_entries", but ledger_entries is a partitioned GL table 
-  // without direct member_id link. savings_transactions is the projected read model for members.
+  // Fetch Transactions
   const { data: transactions } = await supabase
     .from('savings_transactions')
     .select(`
@@ -62,6 +62,25 @@ export default async function MemberSavingsPage() {
     .eq('member_id', member.id)
     .order('created_at', { ascending: false })
     .limit(50);
+
+  // Fetch Withdrawal Requests
+  const { data: withdrawalRequests } = await supabase
+    .from('savings_withdrawal_requests')
+    .select(`
+        id,
+        created_at,
+        amount,
+        status,
+        bank_name,
+        account_number,
+        admin_note,
+        account:savings_accounts(
+            product:savings_products(name)
+        )
+    `)
+    .eq('member_id', member.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
 
   const getTransactionTypeLabel = (type: string) => {
     const types: Record<string, string> = {
@@ -86,11 +105,23 @@ export default async function MemberSavingsPage() {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+        case 'pending': return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Menunggu</Badge>;
+        case 'approved': return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Disetujui</Badge>;
+        case 'rejected': return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Ditolak</Badge>;
+        default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Simpanan Saya</h2>
-        <p className="text-slate-500">Informasi saldo dan riwayat transaksi simpanan.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Simpanan Saya</h2>
+          <p className="text-slate-500">Informasi saldo dan riwayat transaksi simpanan.</p>
+        </div>
+        <WithdrawalDialog accounts={accounts || []} />
       </div>
 
       {/* Accounts List */}
@@ -117,60 +148,110 @@ export default async function MemberSavingsPage() {
         ))}
       </div>
 
-      {/* Transaction History */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Riwayat Transaksi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Jenis Transaksi</TableHead>
-                <TableHead>Jenis Simpanan</TableHead>
-                <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead className="text-right">Saldo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                    Belum ada transaksi.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                transactions?.map((tx: any) => (
-                  <TableRow key={tx.id}>
-                    <TableCell className="whitespace-nowrap text-slate-600">
-                      {new Date(tx.created_at).toLocaleDateString('id-ID', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit'
-                      })}
-                    </TableCell>
-                    <TableCell>
-                        <Badge variant="secondary" className="font-normal">
-                            {getTransactionTypeLabel(tx.type)}
-                        </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-600">
-                        {tx.account?.product?.name}
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${getTransactionColor(tx.type)}`}>
-                      {tx.type === 'deposit' || tx.type === 'interest' ? '+' : '-'}
-                      {formatCurrency(tx.amount)}
-                    </TableCell>
-                    <TableCell className="text-right text-slate-500">
-                      {formatCurrency(tx.balance_after)}
-                    </TableCell>
+      <div className="grid gap-8 lg:grid-cols-2">
+          {/* Transaction History */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Riwayat Transaksi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Ket</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {transactions?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-8 text-slate-500">
+                        Belum ada transaksi.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    transactions?.map((tx: any) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="whitespace-nowrap text-slate-600">
+                          <div className="font-medium">
+                              {new Date(tx.created_at).toLocaleDateString('id-ID', {
+                                day: 'numeric', month: 'short'
+                              })}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                              {new Date(tx.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="text-sm font-medium">{getTransactionTypeLabel(tx.type)}</div>
+                            <div className="text-xs text-slate-500 truncate max-w-[150px]">{tx.account?.product?.name}</div>
+                        </TableCell>
+                        <TableCell className={`text-right font-medium ${getTransactionColor(tx.type)}`}>
+                          {tx.type === 'deposit' || tx.type === 'interest' ? '+' : '-'}
+                          {formatCurrency(tx.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Withdrawal Requests Status */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Status Penarikan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {withdrawalRequests?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-8 text-slate-500">
+                        Belum ada pengajuan penarikan.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    withdrawalRequests?.map((req: any) => (
+                      <TableRow key={req.id}>
+                        <TableCell className="whitespace-nowrap text-slate-600">
+                            <div className="font-medium">
+                                {new Date(req.created_at).toLocaleDateString('id-ID', {
+                                    day: 'numeric', month: 'short'
+                                })}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                                {req.account?.product?.name}
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            {getStatusBadge(req.status)}
+                            {req.status === 'rejected' && req.admin_note && (
+                                <div className="text-xs text-red-600 mt-1 max-w-[150px] truncate" title={req.admin_note}>
+                                    Note: {req.admin_note}
+                                </div>
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(req.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+      </div>
     </div>
   );
 }

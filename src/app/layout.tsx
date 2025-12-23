@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
+import { PWARegister } from "@/components/pwa-register";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,6 +17,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Koperasi Kelurahan Merah Putih Duri Kosambi",
   description: "Sistem Manajemen Koperasi Digital",
+  manifest: "/manifest.json",
+  themeColor: "#10b981",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Koperasi OS",
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +36,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <PWARegister />
         {children}
         <Toaster />
       </body>

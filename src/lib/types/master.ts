@@ -20,6 +20,9 @@ export interface PaymentSource {
   method: 'cash' | 'qris' | 'va' | 'savings_balance' | 'transfer';
   provider: 'mock' | 'xendit' | 'midtrans' | 'manual' | 'internal';
   account_code?: string | null;
+  bank_name?: string | null;
+  account_number?: string | null;
+  account_holder?: string | null;
   metadata?: Record<string, unknown>;
   is_active: boolean;
   created_at: string;

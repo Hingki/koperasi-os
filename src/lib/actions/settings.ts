@@ -67,6 +67,10 @@ export async function upsertPaymentSource(formData: FormData) {
   const unitUsahaId = (formData.get('unit_usaha_id') as string) || null;
   const accountCode = (formData.get('account_code') as string) || null;
   const isActive = formData.get('is_active') === 'on';
+  
+  const bankName = (formData.get('bank_name') as string) || null;
+  const accountNumber = (formData.get('account_number') as string) || null;
+  const accountHolder = (formData.get('account_holder') as string) || null;
 
   const payload = {
     koperasi_id: koperasiId,
@@ -75,6 +79,9 @@ export async function upsertPaymentSource(formData: FormData) {
     method,
     provider,
     account_code: accountCode,
+    bank_name: bankName,
+    account_number: accountNumber,
+    account_holder: accountHolder,
     is_active: isActive
   };
 

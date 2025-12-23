@@ -19,6 +19,9 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
   const [unitUsahaId, setUnitUsahaId] = useState<string>('');
   const [accountCode, setAccountCode] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [bankName, setBankName] = useState<string>('');
+  const [accountNumber, setAccountNumber] = useState<string>('');
+  const [accountHolder, setAccountHolder] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
   async function onCreate(e: React.FormEvent) {
@@ -30,6 +33,9 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
     fd.set('provider', provider);
     if (unitUsahaId) fd.set('unit_usaha_id', unitUsahaId);
     if (accountCode) fd.set('account_code', accountCode);
+    if (bankName) fd.set('bank_name', bankName);
+    if (accountNumber) fd.set('account_number', accountNumber);
+    if (accountHolder) fd.set('account_holder', accountHolder);
     if (isActive) fd.set('is_active', 'on');
     try {
       const res = await upsertPaymentSource(fd);
@@ -39,6 +45,9 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
         setProvider('manual');
         setUnitUsahaId('');
         setAccountCode('');
+        setBankName('');
+        setAccountNumber('');
+        setAccountHolder('');
         setIsActive(true);
       }
     } finally {
@@ -75,6 +84,24 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
             <option value="transfer">Transfer</option>
           </select>
         </div>
+        
+        {method === 'transfer' && (
+          <>
+            <div className="grid grid-cols-1 gap-2">
+              <label className="text-sm font-medium">Nama Bank</label>
+              <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Contoh: BCA" />
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              <label className="text-sm font-medium">Nomor Rekening</label>
+              <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Contoh: 1234567890" />
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              <label className="text-sm font-medium">Atas Nama</label>
+              <Input value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="Contoh: Koperasi Merah Putih" />
+            </div>
+          </>
+        )}
+
         <div className="grid grid-cols-1 gap-2">
           <label className="text-sm font-medium">Provider</label>
           <select className="border rounded px-3 py-2" value={provider} onChange={(e) => setProvider(e.target.value)}>
@@ -123,7 +150,14 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
           <tbody>
             {list.map(s => (
               <tr key={s.id} className="border-t">
-                <td className="p-3">{s.name}</td>
+                <td className="p-3">
+                  <div>{s.name}</div>
+                  {s.method === 'transfer' && (
+                    <div className="text-xs text-slate-500">
+                      {s.bank_name} - {s.account_number}
+                    </div>
+                  )}
+                </td>
                 <td className="p-3">{s.method}</td>
                 <td className="p-3">{s.provider}</td>
                 <td className="p-3">{unitUsahaOptions.find(u => u.id === s.unit_usaha_id)?.nama_unit || '-'}</td>
