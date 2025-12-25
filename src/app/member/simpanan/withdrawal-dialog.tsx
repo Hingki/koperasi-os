@@ -57,10 +57,10 @@ export function WithdrawalDialog({ accounts }: { accounts: Account[] }) {
       if (typeof result.error === 'string') {
         errorMsg = result.error;
       } else if (typeof result.error === 'object') {
-        // Grab the first error message found
-        const firstKey = Object.keys(result.error)[0];
-        if (firstKey && Array.isArray(result.error[firstKey])) {
-           errorMsg = result.error[firstKey][0];
+        const firstKey = Object.keys(result.error as Record<string, unknown>)[0];
+        const errObj = result.error as Record<string, string[]>;
+        if (firstKey && Array.isArray(errObj[firstKey])) {
+           errorMsg = errObj[firstKey][0];
         }
       }
 

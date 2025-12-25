@@ -10,8 +10,18 @@ import {
   BookOpen, 
   Settings,
   ShoppingBag,
+  MessageSquare,
   LogOut,
-  Menu
+  Menu,
+  Key,
+  Package,
+  Megaphone,
+  Smartphone,
+  Stethoscope,
+  Warehouse,
+  Gavel,
+  TrendingUp,
+  UserCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -21,10 +31,20 @@ import type { User } from '@supabase/supabase-js';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Anggota', href: '/dashboard/members', icon: Users },
+  { name: 'Kepegawaian', href: '/dashboard/hrm', icon: UserCheck },
   { name: 'Simpanan', href: '/dashboard/savings', icon: Wallet },
   { name: 'Pinjaman', href: '/dashboard/pinjaman', icon: Banknote },
-  { name: 'Unit Usaha', href: '/dashboard/retail', icon: ShoppingBag },
+  { name: 'Pembiayaan', href: '/dashboard/financing', icon: Package },
+  { name: 'Investasi', href: '/dashboard/investments', icon: TrendingUp },
+  { name: 'Toko', href: '/dashboard/retail', icon: ShoppingBag },
+  { name: 'Gudang', href: '/dashboard/warehouse', icon: Warehouse },
+  { name: 'Lelang', href: '/dashboard/auction', icon: Gavel },
+  { name: 'Unit Sewa', href: '/dashboard/rental', icon: Key },
+  { name: 'Klinik', href: '/dashboard/clinic', icon: Stethoscope },
+  { name: 'PPOB', href: '/dashboard/ppob', icon: Smartphone },
   { name: 'Akuntansi', href: '/dashboard/accounting', icon: BookOpen },
+  { name: 'Pengumuman', href: '/dashboard/announcements', icon: Megaphone },
+  { name: 'Support', href: '/dashboard/support', icon: MessageSquare },
   { name: 'Pengaturan', href: '/dashboard/settings', icon: Settings },
 ];
 

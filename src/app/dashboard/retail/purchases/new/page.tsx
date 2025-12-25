@@ -50,15 +50,23 @@ export default async function NewPurchasePage() {
         .eq('koperasi_id', koperasiId)
         .limit(1)
         .single();
-        
+    
+    // Auto-generate invoice number based on settings
+    const settings = await retailService.getRetailSettings(koperasiId);
+    const invoiceNumber = `${settings.purchase_invoice_prefix}${Date.now()}`;
+    
+    const supplierRef = formData.get('invoice_number') as string; // From form (Supplier Ref)
+    const notes = formData.get('notes') as string;
+    const finalNotes = supplierRef ? `Supplier Ref: ${supplierRef}. ${notes}` : notes;
+
     await retailService.createPurchase({
         koperasi_id: koperasiId,
         unit_usaha_id: unitUsaha?.id,
         supplier_id: formData.get('supplier_id') as string,
-        invoice_number: formData.get('invoice_number') as string,
+        invoice_number: invoiceNumber,
         total_amount: Number(formData.get('total_amount')),
         payment_status: formData.get('payment_status') as 'paid' | 'debt',
-        notes: formData.get('notes') as string,
+        notes: finalNotes,
         created_by: user.id
     }, items);
 

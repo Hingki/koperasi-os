@@ -49,6 +49,31 @@ export async function createMemberPayment(formData: FormData) {
 
   const { type, referenceId, amount, paymentSourceId, senderInfo, notes } = result.data;
 
+  // Handle File Upload
+  const file = formData.get('proof') as File | null;
+  let proofPath = null;
+
+  if (file && file.size > 0) {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: 'Ukuran file maksimal 5MB' };
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${member.id}/${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('payment-proofs')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      console.error('Upload Error:', uploadError);
+      return { success: false, error: 'Gagal upload bukti transfer' };
+    }
+    
+    proofPath = fileName;
+  }
+
   // Get Payment Source details for metadata
   const { data: source } = await supabase
     .from('payment_sources')
@@ -71,13 +96,15 @@ export async function createMemberPayment(formData: FormData) {
       payment_provider: source.provider,
       payment_source_id: source.id,
       payment_status: 'pending',
-      proof_of_payment: senderInfo, // Using this for sender info/ref number for now
+      description: `Pembayaran dari ${senderInfo}`,
       metadata: {
         payment_source_id: source.id,
         bank_name: source.bank_name,
         account_number: source.account_number,
         sender_note: notes,
-        member_id: member.id // Store member_id for easier querying
+        sender_info: senderInfo,
+        proof_url: proofPath,
+        member_id: member.id
       },
       created_by: user.id
     });

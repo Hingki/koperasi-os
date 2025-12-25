@@ -51,10 +51,8 @@ export default async function BalanceSheetUnitPage() {
                 </Button>
             </Link>
             <div>
-                <h1 className="text-2xl font-bold tracking-tight">Neraca Per Unit Usaha</h1>
-                <p className="text-muted-foreground">
-                    Posisi Keuangan Berdasarkan Unit Bisnis
-                </p>
+                <h1 className="text-2xl font-bold tracking-tight">Neraca Toko</h1>
+                <p className="text-muted-foreground">Posisi Keuangan Berdasarkan Toko</p>
             </div>
         </div>
         <PrintButton />

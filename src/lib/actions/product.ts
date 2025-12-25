@@ -28,6 +28,8 @@ export async function createLoanProduct(formData: FormData) {
     provision_fee: formData.get('provision_fee'),
     penalty_late_daily: formData.get('penalty_late_daily'),
     is_active: formData.get('is_active') === 'on',
+    is_financing: formData.get('is_financing') === 'on',
+    financing_category: formData.get('financing_category') || undefined,
   };
 
   const validatedData = loanProductSchema.parse(rawData);
@@ -79,6 +81,8 @@ export async function updateLoanProduct(id: string, formData: FormData) {
     provision_fee: formData.get('provision_fee'),
     penalty_late_daily: formData.get('penalty_late_daily'),
     is_active: formData.get('is_active') === 'on',
+    is_financing: formData.get('is_financing') === 'on',
+    financing_category: formData.get('financing_category') || undefined,
   };
 
   const validatedData = loanProductSchema.parse(rawData);

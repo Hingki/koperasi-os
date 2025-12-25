@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { LedgerService } from '@/lib/services/ledger-service';
-import { LedgerTransaction } from '@/lib/types/ledger';
+import { LedgerTransaction, AccountCode } from '@/lib/types/ledger';
 
 export async function approvePayment(transactionId: string) {
   const supabase = await createClient();
@@ -101,8 +101,8 @@ export async function processSavingsDeposit(supabase: any, tx: any, ledger: Ledg
   // 4. Ledger Entry
   // Debit: Bank/Cash (Payment Source Account Code)
   // Credit: Member Savings (Product Account Code)
-  const debitCode = tx.payment_source?.account_code || '1-1001'; // Default Cash if missing
-  const creditCode = account.product?.coa_id || '2-1001'; // Default Savings Liability
+  const debitCode = (tx.payment_source?.account_code || '1-1001') as AccountCode;
+  const creditCode = (account.product?.coa_id || '2-1001') as AccountCode;
 
   // We need to resolve COA IDs from Codes or use EnsureAccount
   // LedgerService expects Codes or IDs? 
@@ -116,6 +116,8 @@ export async function processSavingsDeposit(supabase: any, tx: any, ledger: Ledg
     tx_reference: tx.id,
     tx_type: 'savings_deposit',
     description: `Setoran Simpanan ${account.account_number}`,
+    source_table: 'payment_transactions',
+    source_id: tx.id,
     created_by: userId
   };
 
@@ -175,9 +177,9 @@ export async function processLoanPayment(supabase: any, tx: any, ledger: LedgerS
   // Credit: Loan Receivable (Product COA) -> Principal
   // Credit: Interest Income (Product Interest COA) -> Interest
   
-  const debitCode = tx.payment_source?.account_code || '1-1001';
-  const creditPrincipalCode = loan.product?.coa_receivable || '1-1003'; // Loan Receivable
-  const creditInterestCode = loan.product?.coa_interest_income || '4-1001'; // Interest Income
+  const debitCode = (tx.payment_source?.account_code || '1-1001') as AccountCode;
+  const creditPrincipalCode = (loan.product?.coa_receivable || '1-1003') as AccountCode;
+  const creditInterestCode = (loan.product?.coa_interest_income || '4-1001') as AccountCode;
 
   // LedgerService currently supports Double Entry (1 Debit, 1 Credit).
   // For Split, we need 2 transactions or Multi-Leg support.
@@ -191,8 +193,10 @@ export async function processLoanPayment(supabase: any, tx: any, ledger: LedgerS
         account_debit: debitCode,
         account_credit: creditPrincipalCode,
         tx_reference: tx.id + '-P',
-        tx_type: 'loan_repayment_principal',
+        tx_type: 'loan_repayment',
         description: `Angsuran Pokok Pinjaman ${loan.id}`,
+        source_table: 'payment_transactions',
+        source_id: tx.id,
         created_by: userId
     });
   }
@@ -204,8 +208,10 @@ export async function processLoanPayment(supabase: any, tx: any, ledger: LedgerS
         account_debit: debitCode,
         account_credit: creditInterestCode,
         tx_reference: tx.id + '-I',
-        tx_type: 'loan_repayment_interest',
+        tx_type: 'loan_repayment',
         description: `Angsuran Bunga Pinjaman ${loan.id}`,
+        source_table: 'payment_transactions',
+        source_id: tx.id,
         created_by: userId
     });
   }

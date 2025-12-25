@@ -76,16 +76,16 @@ export function BalanceSheetUnitView({ accounts, entries }: BalanceSheetUnitView
       <div className="flex items-center gap-4 bg-white p-4 rounded-lg border shadow-sm print:hidden">
         <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filter Unit Usaha:</span>
+            <span className="text-sm font-medium">Filter Toko:</span>
         </div>
         <Select value={selectedUnit} onValueChange={setSelectedUnit}>
             <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Pilih Unit" />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="all">Semua Unit (Konsolidasi)</SelectItem>
-                <SelectItem value="usp">Unit Simpan Pinjam (USP)</SelectItem>
-                <SelectItem value="waserda">Unit Waserda / Toko</SelectItem>
+                <SelectItem value="all">Semua Toko (Konsolidasi)</SelectItem>
+                <SelectItem value="usp">Simpan Pinjam (USP)</SelectItem>
+                <SelectItem value="waserda">Toko (Waserda)</SelectItem>
             </SelectContent>
         </Select>
         

@@ -6,13 +6,26 @@ import { RetailService, POSTransaction, POSTransactionItem, PaymentBreakdown } f
 export async function processPosTransaction(
   transaction: Partial<POSTransaction>,
   items: Partial<POSTransactionItem>[],
-  payments: PaymentBreakdown[]
+  payments: PaymentBreakdown[],
+  originalTransactionId?: string // For resuming/replacing
 ) {
   const supabase = await createClient();
   const retailService = new RetailService(supabase);
 
   try {
+    // Auto-numbering
+    if (transaction.koperasi_id && !transaction.invoice_number) {
+        const settings = await retailService.getRetailSettings(transaction.koperasi_id);
+        transaction.invoice_number = `${settings.sales_invoice_prefix}${Date.now()}`;
+    }
+
     const result = await retailService.processTransaction(transaction, items, payments);
+
+    // If successful and there was an original transaction (e.g. Kiosk pending), cancel/delete it
+    if (originalTransactionId) {
+        await retailService.cancelPosTransaction(originalTransactionId);
+    }
+
     return { success: true, data: result };
   } catch (error: any) {
     console.error('POS Transaction Error:', error);

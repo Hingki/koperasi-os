@@ -284,6 +284,7 @@ export function calculateFinancialRatios(balances: AccountBalance[]) {
   // Solvency Ratios
   // Debt to Equity = Total Liabilities / Total Equity
   const debtToEquityRatio = totalEquity !== 0 ? totalLiabilities / totalEquity : 0;
+  const debtToAssetRatio = totalAssets !== 0 ? totalLiabilities / totalAssets : 0;
   
   // Profitability Ratios
   // Net Profit Margin = (Net Profit / Revenue) * 100
@@ -303,6 +304,7 @@ export function calculateFinancialRatios(balances: AccountBalance[]) {
     },
     solvency: {
       debtToEquityRatio,
+      debtToAssetRatio,
       totalLiabilities,
       totalEquity
     },

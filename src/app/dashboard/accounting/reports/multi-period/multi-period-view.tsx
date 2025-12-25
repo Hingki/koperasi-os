@@ -142,9 +142,11 @@ export function MultiPeriodView({ accounts, entries }: MultiPeriodViewProps) {
                     <CardTitle>Laporan {reportType === 'balance-sheet' ? 'Neraca' : 'Laba Rugi'} Multi-Periode</CardTitle>
                     <div className="flex gap-2">
                          <select 
+                            id="report_year"
                             className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             value={year}
                             onChange={(e) => setYear(parseInt(e.target.value))}
+                            title="Tahun"
                         >
                             {[2023, 2024, 2025].map(y => (
                                 <option key={y} value={y}>{y}</option>

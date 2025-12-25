@@ -20,7 +20,8 @@ export default async function PurchasesPage() {
     .select(`
         *,
         supplier:inventory_suppliers(name),
-        items:inventory_purchase_items(count)
+        items:inventory_purchase_items(count),
+        po:inventory_purchase_orders(po_number)
     `)
     .eq('koperasi_id', koperasiId)
     .order('purchase_date', { ascending: false }) : { data: [] };
@@ -90,6 +91,11 @@ export default async function PurchasesPage() {
                             </td>
                             <td className="px-6 py-4 font-medium text-slate-900">
                                 {p.invoice_number || '-'}
+                                {p.po && (
+                                    <div className="text-xs text-blue-600 mt-1">
+                                        PO: {p.po.po_number}
+                                    </div>
+                                )}
                             </td>
                             <td className="px-6 py-4 text-slate-900">
                                 {p.supplier?.name || 'Umum'}

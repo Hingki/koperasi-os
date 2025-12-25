@@ -29,7 +29,7 @@ export function PaymentActions({ transactionId }: Props) {
     if (!confirm('Apakah anda yakin menyetujui pembayaran ini?')) return;
     setLoading(true);
     try {
-      const res = await approvePayment(transactionId);
+      const res = await approvePayment(transactionId) as { success: boolean; error?: string };
       if (res.success) {
         toast({ title: 'Berhasil', description: 'Pembayaran disetujui.' });
       } else {
@@ -45,7 +45,7 @@ export function PaymentActions({ transactionId }: Props) {
   async function onReject() {
     setLoading(true);
     try {
-      const res = await rejectPayment(transactionId, rejectReason);
+      const res = await rejectPayment(transactionId, rejectReason) as { success: boolean; error?: string };
       if (res.success) {
         toast({ title: 'Berhasil', description: 'Pembayaran ditolak.' });
         setRejectOpen(false);

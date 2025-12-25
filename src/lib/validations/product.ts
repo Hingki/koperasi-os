@@ -13,6 +13,8 @@ export const loanProductSchema = z.object({
   provision_fee: z.coerce.number().min(0).default(0),
   penalty_late_daily: z.coerce.number().min(0).default(0),
   is_active: z.coerce.boolean().default(true),
+  is_financing: z.coerce.boolean().default(false),
+  financing_category: z.enum(['vehicle', 'electronics', 'furniture', 'property', 'gold', 'other']).optional(),
 }).refine(data => data.max_amount >= data.min_amount, {
   message: "Max amount must be greater than or equal to min amount",
   path: ["max_amount"],

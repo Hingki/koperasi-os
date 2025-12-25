@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LedgerService } from './ledger-service';
+import { PaymentService } from './payment-service';
 import { AccountCode } from '@/lib/types/ledger';
 import { NotificationService } from './notification-service';
 
@@ -54,9 +55,11 @@ export interface LoanRepayment {
 
 export class LoanService {
   private ledgerService: LedgerService;
+  private paymentService: PaymentService;
 
   constructor(private supabase: SupabaseClient) {
     this.ledgerService = new LedgerService(supabase);
+    this.paymentService = new PaymentService(supabase);
   }
 
   async getLoanTypes(koperasiId: string): Promise<LoanType[]> {
@@ -338,10 +341,41 @@ export class LoanService {
     if (error) throw error;
   }
 
+  async createQRISRepayment(
+    koperasiId: string,
+    scheduleId: string,
+    amount: number,
+    userId: string
+  ) {
+    // 1. Validate Schedule
+    const { data: schedule, error } = await this.supabase
+        .from('loan_repayment_schedule')
+        .select('*, loan:loans(*)')
+        .eq('id', scheduleId)
+        .single();
+    
+    if (error || !schedule) throw new Error('Jadwal angsuran tidak ditemukan');
+    if (schedule.status === 'paid') throw new Error('Angsuran sudah lunas');
+    
+    // 2. Prepare Description
+    const description = `Angsuran Pinjaman #${schedule.loan.loan_code} - Angsuran Ke-${schedule.installment_number}`;
+    
+    // 3. Create QRIS
+    return await this.paymentService.createQRISPayment(
+        koperasiId,
+        scheduleId, // reference_id
+        'loan_payment',
+        amount,
+        description,
+        userId
+    );
+  }
+
   async recordRepayment(
     scheduleId: string, 
     amountPaid: number, 
-    recorderId: string
+    recorderId: string,
+    targetAccountCode: string = AccountCode.CASH_ON_HAND
   ) {
     // 1. Get Schedule Item
     const { data: schedule, error: scheduleError } = await this.supabase
@@ -405,7 +439,7 @@ export class LoanService {
             koperasi_id: schedule.koperasi_id,
             tx_type: 'loan_repayment',
             tx_reference: scheduleId,
-            account_debit: AccountCode.CASH_ON_HAND,
+            account_debit: targetAccountCode as AccountCode,
             account_credit: AccountCode.LOAN_RECEIVABLE_FLAT,
             amount: principalPaid,
             description: `Angsuran Pokok Pinjaman #${schedule.loan.loan_code} (${schedule.installment_number})`,
@@ -421,7 +455,7 @@ export class LoanService {
             koperasi_id: schedule.koperasi_id,
             tx_type: 'loan_repayment',
             tx_reference: scheduleId,
-            account_debit: AccountCode.CASH_ON_HAND,
+            account_debit: targetAccountCode as AccountCode,
             account_credit: AccountCode.INTEREST_INCOME_LOAN,
             amount: interestPaid,
             description: `Pendapatan Bunga Pinjaman #${schedule.loan.loan_code} (${schedule.installment_number})`,
@@ -431,6 +465,56 @@ export class LoanService {
         });
     }
 
+    return true;
+  }
+
+  async processPaymentByLoanId(
+    loanId: string, 
+    totalAmount: number, 
+    recorderId: string,
+    targetAccountCode: string = AccountCode.CASH_ON_HAND
+  ) {
+    // 1. Fetch Unpaid Schedules
+    const { data: schedules, error } = await this.supabase
+        .from('loan_repayment_schedule')
+        .select('*')
+        .eq('loan_id', loanId)
+        .neq('status', 'paid')
+        .order('installment_number', { ascending: true });
+    
+    if (error) throw error;
+    if (!schedules || schedules.length === 0) {
+        throw new Error('No unpaid installments found for this loan');
+    }
+
+    let remainingMoney = totalAmount;
+
+    for (const schedule of schedules) {
+        if (remainingMoney <= 0) break;
+
+        const alreadyPaid = schedule.paid_amount || 0;
+        const totalDue = schedule.total_installment;
+        const outstandingForThisSchedule = totalDue - alreadyPaid;
+
+        let paymentForThisSchedule = 0;
+
+        if (remainingMoney >= outstandingForThisSchedule) {
+            paymentForThisSchedule = outstandingForThisSchedule;
+            remainingMoney -= outstandingForThisSchedule;
+        } else {
+            paymentForThisSchedule = remainingMoney;
+            remainingMoney = 0;
+        }
+
+        if (paymentForThisSchedule > 0) {
+            await this.recordRepayment(
+                schedule.id, 
+                paymentForThisSchedule, 
+                recorderId, 
+                targetAccountCode
+            );
+        }
+    }
     return true;
   }
 

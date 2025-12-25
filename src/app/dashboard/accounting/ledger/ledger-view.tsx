@@ -75,11 +75,13 @@ export function LedgerView({ accounts }: { accounts: Account[] }) {
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div className="space-y-2 md:col-span-2">
-            <Label>Pilih Akun</Label>
+            <Label htmlFor="account_filter">Pilih Akun</Label>
             <select 
+                id="account_filter"
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={selectedAccount}
                 onChange={(e) => setSelectedAccount(e.target.value)}
+                title="Filter Akun"
             >
                 <option value="">-- Pilih Akun --</option>
                 {accounts.map(acc => (
@@ -91,22 +93,28 @@ export function LedgerView({ accounts }: { accounts: Account[] }) {
         </div>
         
         <div className="space-y-2">
-            <Label>Dari Tanggal</Label>
+            <Label htmlFor="start_date">Dari Tanggal</Label>
             <input 
                 type="date" 
+                id="start_date"
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                title="Tanggal mulai"
+                placeholder="YYYY-MM-DD"
             />
         </div>
 
         <div className="space-y-2">
-            <Label>Sampai Tanggal</Label>
+            <Label htmlFor="end_date">Sampai Tanggal</Label>
              <input 
                 type="date" 
+                id="end_date"
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                title="Tanggal akhir"
+                placeholder="YYYY-MM-DD"
             />
         </div>
       </div>

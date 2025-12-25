@@ -53,7 +53,7 @@ export function EmailSettingsForm({ initialData }: Props) {
     <form onSubmit={onSubmit} className="space-y-4 max-w-xl">
       <div className="grid grid-cols-1 gap-3">
         <label className="text-sm font-medium">Provider</label>
-        <select className="border rounded px-3 py-2" value={provider} onChange={(e) => setProvider(e.target.value)}>
+        <select className="border rounded px-3 py-2" value={provider} onChange={(e) => setProvider(e.target.value)} title="Provider Email">
           <option value="smtp">SMTP</option>
         </select>
       </div>

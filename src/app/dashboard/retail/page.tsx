@@ -6,7 +6,8 @@ import {
   Truck, 
   BarChart3, 
   Tags,
-  Users
+  Users,
+  ClipboardList
 } from 'lucide-react';
 
 export default function RetailDashboardPage() {
@@ -24,6 +25,13 @@ export default function RetailDashboardPage() {
       href: '/dashboard/retail/products',
       icon: Package,
       color: 'bg-emerald-500',
+    },
+    {
+      name: 'Purchase Orders (PO)',
+      description: 'Pesanan pembelian ke supplier (Pre-Order)',
+      href: '/dashboard/retail/purchase-orders',
+      icon: ClipboardList,
+      color: 'bg-cyan-500',
     },
     {
       name: 'Pembelian (Stok Masuk)',
@@ -65,10 +73,8 @@ export default function RetailDashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Unit Usaha (Retail)</h1>
-        <p className="text-slate-500">
-          Manajemen toko, stok, dan penjualan (POS)
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Toko</h1>
+        <p className="text-slate-500">Manajemen toko, stok, dan penjualan (POS)</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

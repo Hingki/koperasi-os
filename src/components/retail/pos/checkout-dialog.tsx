@@ -22,7 +22,8 @@ export function CheckoutDialog({
     customer,
     customerType,
     koperasiId,
-    onSuccess
+    onSuccess,
+    originalTransactionId
 }: {
     open: boolean,
     onOpenChange: (open: boolean) => void,
@@ -30,7 +31,8 @@ export function CheckoutDialog({
     customer: any,
     customerType: 'member' | 'retail' | 'guest',
     koperasiId: string,
-    onSuccess: () => void
+    onSuccess: () => void,
+    originalTransactionId?: string
 }) {
     const total = cart.reduce((sum, item) => sum + (item.price_sell_public * item.qty), 0);
     const [cashAmount, setCashAmount] = useState('');
@@ -136,7 +138,7 @@ export function CheckoutDialog({
                 amount: total
             }];
 
-            const res = await processPosTransaction(transactionData, itemsData, paymentData as any);
+            const res = await processPosTransaction(transactionData, itemsData, paymentData as any, originalTransactionId);
 
             if (res.success) {
                 setSuccessData(res.data);

@@ -58,6 +58,7 @@ export function JournalForm({ accounts }: { accounts: Account[] }) {
                 <select 
                     id="account_debit" 
                     name="account_debit" 
+                    title="Akun Debit"
                     className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                     required
                 >
@@ -73,6 +74,7 @@ export function JournalForm({ accounts }: { accounts: Account[] }) {
                 <select 
                     id="account_credit" 
                     name="account_credit" 
+                    title="Akun Kredit"
                     className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                     required
                 >

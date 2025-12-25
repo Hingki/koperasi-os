@@ -2,7 +2,7 @@
   "name": "Koperasi OS",
   "short_name": "Koperasi",
   "description": "Sistem Manajemen Koperasi Digital",
-  "start_url": "/member/simpanan",
+  "start_url": "/member/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#10b981",

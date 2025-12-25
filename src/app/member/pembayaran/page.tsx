@@ -55,13 +55,29 @@ export default async function PaymentPage() {
 
   // 4. Get Payment History
   // We filter by created_by (user) or metadata->member_id
-  const { data: history } = await supabase
+  const { data: rawHistory } = await supabase
     .from('payment_transactions')
     .select('*')
     .eq('koperasi_id', member.koperasi_id)
     .or(`created_by.eq.${user.id},metadata->>member_id.eq.${member.id}`)
     .order('created_at', { ascending: false })
     .limit(20);
+
+  // Process history to add signed URLs for proofs
+  const history = await Promise.all((rawHistory || []).map(async (tx) => {
+    let signedUrl = null;
+    // Check metadata.proof_url first, then fallback to proof_of_payment if it looks like a file path
+    const proofPath = tx.metadata?.proof_url;
+    
+    if (proofPath) {
+      const { data } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(proofPath, 60 * 60); // 1 hour
+      signedUrl = data?.signedUrl;
+    }
+
+    return { ...tx, signedUrl };
+  }));
 
   function getStatusBadge(status: string) {
     switch (status) {
@@ -122,8 +138,17 @@ export default async function PaymentPage() {
                   <TableCell>{formatCurrency(tx.amount)}</TableCell>
                   <TableCell>{getStatusBadge(tx.payment_status)}</TableCell>
                   <TableCell className="text-sm text-slate-500">
-                    {tx.proof_of_payment && (
-                      <span title={tx.proof_of_payment}>Info: {tx.proof_of_payment}</span>
+                    {tx.signedUrl ? (
+                       <a 
+                         href={tx.signedUrl} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-blue-600 hover:underline flex items-center gap-1"
+                       >
+                         Lihat Bukti
+                       </a>
+                    ) : (
+                      <span className="text-xs">{tx.description || '-'}</span>
                     )}
                   </TableCell>
                 </TableRow>

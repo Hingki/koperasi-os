@@ -8,7 +8,9 @@ import {
   Wallet, 
   Banknote, 
   LogOut,
-  Menu
+  Menu,
+  Smartphone,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -19,6 +21,8 @@ const navigation = [
   { name: 'Dashboard', href: '/member/dashboard', icon: LayoutDashboard },
   { name: 'Simpanan', href: '/member/simpanan', icon: Wallet },
   { name: 'Pinjaman', href: '/member/pinjaman', icon: Banknote },
+  { name: 'Layanan Digital', href: '/member/ppob', icon: Smartphone },
+  { name: 'Bantuan', href: '/member/support', icon: MessageSquare },
   { name: 'Profil', href: '/member/profil', icon: User },
 ];
 

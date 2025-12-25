@@ -16,11 +16,13 @@ test.describe('RBAC - Role-Based Access Control', () => {
     // For now, we'll test the API endpoint structure
     
     // Navigate to a page that requires auth
-    const response = await page.goto('/api/auth/roles');
-    
+    const response = await page.request.get('/api/auth/roles', {
+      headers: { accept: 'application/json' }
+    });
+ 
     // Should redirect to login if not authenticated
     // Or return 401 if accessed directly
-    expect(response?.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
   test('admin routes are protected by middleware', async ({ page }) => {
@@ -33,18 +35,18 @@ test.describe('RBAC - Role-Based Access Control', () => {
 
   test('admin API routes return 403 for non-admin users', async ({ page }) => {
     // Try to access admin API without proper role
-    const response = await page.goto('/api/admin/roles/assign');
+    const response = await page.request.get('/api/admin/roles/assign', {
+      headers: { accept: 'application/json' }
+    });
     
     // Should return 401 (unauthorized) or 403 (forbidden)
-    expect(response?.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
   test('pengurus routes are protected', async ({ page }) => {
     // Try to access pengurus route
-    const response = await page.goto('/pengurus');
-    
-    // Should redirect to login or return 403
-    expect(response?.status() || 0).toBeGreaterThanOrEqual(400);
+    await page.goto('/pengurus');
+    expect(page.url()).toContain('/login');
   });
 
   test('member routes require authentication', async ({ page }) => {
@@ -66,21 +68,23 @@ test.describe('RBAC - Role Assignment', () => {
     // For now, we'll test the endpoint structure
     // Full test requires setup of test users and roles
     
-    const response = await page.goto('/api/admin/roles/assign');
+    const response = await page.request.get('/api/admin/roles/assign', {
+      headers: { accept: 'application/json' }
+    });
     
     // Should return 405 (method not allowed) for GET
     // Or 401/403 if accessed without proper auth
-    expect(response?.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
   test('non-admin cannot assign roles', async ({ page }) => {
     // This would require a logged-in non-admin user
     // For now, verify endpoint exists and is protected
     
-    const response = await page.goto('/api/admin/roles/assign');
+    const response = await page.request.get('/api/admin/roles/assign');
     
     // Should be protected
-    expect(response?.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 });
 
@@ -92,11 +96,13 @@ test.describe('RBAC - Member Approval Flow', () => {
     // 3. Valid member_id and koperasi_id
     
     // For now, verify endpoint exists
-    const response = await page.goto('/api/admin/members/approve');
+    const response = await page.request.get('/api/admin/members/approve', {
+      headers: { accept: 'application/json' }
+    });
     
     // Should return 405 (method not allowed) for GET
     // Or 401/403 if accessed without proper auth
-    expect(response?.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 });
 

@@ -1,7 +1,13 @@
 {
-  "trae.codeIndexing.enabled": true,
-  "files.autoSave": "afterDelay",
-  "[typescript]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features"
+  "files.associations": {
+    "*.sql": "postgres"
+  },
+  "sql.dialect": "postgres",
+  "sqlfluff.dialect": "postgres",
+  "sql.lint.ignorePatterns": [
+    "supabase/migrations/**"
+  ],
+  "[sql]": {
+    "editor.defaultFormatter": "mtxr.sqltools"
   }
 }

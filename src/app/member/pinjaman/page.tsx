@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
+import { DigitalPaymentDialog } from '@/components/payment/digital-payment-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,7 +146,17 @@ export default async function MemberLoansPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 flex justify-end">
+                      <div className="mt-4 flex justify-end gap-2">
+                        {loan.status === 'active' && (
+                            <DigitalPaymentDialog
+                                type="loan_payment"
+                                referenceId={loan.id}
+                                defaultAmount={loan.monthly_installment}
+                                minAmount={10000}
+                                title={`Bayar Angsuran #${loan.loan_number || loan.id.slice(0, 8)}`}
+                                trigger={<Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">Bayar Angsuran</Button>}
+                            />
+                        )}
                         <Button variant="outline" asChild size="sm">
                           <Link href={`/member/pinjaman/${loan.id}`}>
                             Lihat Detail

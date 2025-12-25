@@ -1,6 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LedgerService } from './ledger-service';
 import { AccountCode } from '@/lib/types/ledger';
+import { PaymentService } from './payment-service';
+import { SavingsService } from './savings-service';
+import { LoyaltyService } from './loyalty-service';
 
 export interface InventoryCategory {
   id: string;
@@ -57,6 +60,8 @@ export interface POSTransaction {
   payment_method: string;
   payment_status: string;
   notes?: string;
+  voucher_code?: string;
+  points_used?: number;
   items?: POSTransactionItem[];
   created_by?: string;
 }
@@ -72,27 +77,49 @@ export interface POSTransactionItem {
   product?: InventoryProduct;
 }
 
-import { PaymentService } from './payment-service';
-import { SavingsService } from './savings-service';
 
 export type PaymentBreakdown = {
   method: 'cash' | 'qris' | 'savings_balance';
   amount: number;
 };
 
+export type RetailSettings = {
+  id: string;
+  koperasi_id: string;
+  purchase_invoice_prefix: string;
+  purchase_return_prefix: string;
+  sales_invoice_prefix: string;
+  sales_return_prefix: string;
+  receipt_header?: string;
+  receipt_footer?: string;
+  receipt_width?: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export class RetailService {
   private ledgerService: LedgerService;
   private paymentService: PaymentService;
   private savingsService: SavingsService;
+  private loyaltyService: LoyaltyService;
 
   constructor(private supabase: SupabaseClient) {
     this.ledgerService = new LedgerService(supabase);
     this.paymentService = new PaymentService(supabase);
     this.savingsService = new SavingsService(supabase);
+    this.loyaltyService = new LoyaltyService(supabase);
   }
 
   // Products
-  async getProducts(koperasiId: string, search?: string) {
+  async getProducts(
+    koperasiId: string,
+    searchOrOpts?: string | { search?: string; type?: 'regular' | 'consignment' }
+  ) {
+    const opts =
+      typeof searchOrOpts === 'string'
+        ? { search: searchOrOpts }
+        : (searchOrOpts || {});
+
     let query = this.supabase
       .from('inventory_products')
       .select(`
@@ -104,8 +131,11 @@ export class RetailService {
       .eq('is_active', true)
       .order('name');
 
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%,barcode.eq.${search}`);
+    if (opts.search) {
+      query = query.or(`name.ilike.%${opts.search}%,sku.ilike.%${opts.search}%,barcode.eq.${opts.search}`);
+    }
+    if (opts.type) {
+      query = query.eq('product_type', opts.type);
     }
 
     const { data, error } = await query;
@@ -132,7 +162,10 @@ export class RetailService {
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+        console.error('Error creating product:', error);
+        throw error;
+    }
     return data;
   }
 
@@ -161,6 +194,17 @@ export class RetailService {
     return data;
   }
 
+  async createCategory(category: Partial<InventoryCategory>) {
+    const { data, error } = await this.supabase
+      .from('inventory_categories')
+      .insert(category)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
   // Suppliers
   async getSuppliers(koperasiId: string) {
     const { data, error } = await this.supabase
@@ -169,6 +213,17 @@ export class RetailService {
       .eq('koperasi_id', koperasiId)
       .eq('is_active', true)
       .order('name');
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async getSupplierById(id: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_suppliers')
+      .select('*')
+      .eq('id', id)
+      .single();
     
     if (error) throw error;
     return data;
@@ -185,7 +240,200 @@ export class RetailService {
     return data;
   }
 
+  async updateSupplier(id: string, updates: Partial<InventorySupplier>) {
+    const { data, error } = await this.supabase
+      .from('inventory_suppliers')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteSupplier(id: string) {
+    // Soft delete
+    const { data, error } = await this.supabase
+      .from('inventory_suppliers')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  // Discounts
+  async getDiscounts(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_discounts')
+      .select('*')
+      .eq('koperasi_id', koperasiId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async createDiscount(discount: {
+    koperasi_id: string;
+    unit_usaha_id?: string;
+    name: string;
+    type: 'percentage' | 'fixed_amount';
+    value: number;
+    start_date?: string;
+    end_date?: string;
+    min_purchase_amount?: number;
+    is_active: boolean;
+  }) {
+    const { data, error } = await this.supabase
+      .from('inventory_discounts')
+      .insert(discount)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async updateDiscount(id: string, updates: Partial<{
+    name: string;
+    type: 'percentage' | 'fixed_amount';
+    value: number;
+    start_date: string;
+    end_date: string;
+    min_purchase_amount: number;
+    is_active: boolean;
+  }>) {
+    const { data, error } = await this.supabase
+      .from('inventory_discounts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Retail Settings
+  async getRetailSettings(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('retail_settings')
+      .select('*')
+      .eq('koperasi_id', koperasiId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error; 
+    
+    if (!data) {
+      return {
+        purchase_invoice_prefix: 'INV-PB-',
+        purchase_return_prefix: 'RET-PB-',
+        sales_invoice_prefix: 'INV-PJ-',
+        sales_return_prefix: 'RET-PJ-',
+        receipt_width: 80
+      };
+    }
+    
+    return data;
+  }
+
+  async updateRetailSettings(koperasiId: string, settings: Partial<Omit<RetailSettings, 'id' | 'koperasi_id' | 'created_at' | 'updated_at'>>) {
+    const { data: existing } = await this.supabase
+      .from('retail_settings')
+      .select('id')
+      .eq('koperasi_id', koperasiId)
+      .single();
+
+    if (existing) {
+      const { data, error } = await this.supabase
+        .from('retail_settings')
+        .update(settings)
+        .eq('koperasi_id', koperasiId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } else {
+      const { data, error } = await this.supabase
+        .from('retail_settings')
+        .insert({
+          ...settings,
+          koperasi_id: koperasiId
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    }
+  }
+
+
+  async getStockOpnameById(id: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_stock_opname')
+      .select('*, items:inventory_stock_opname_items(*, product:inventory_products(name))')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
   // Purchases (Stock In)
+  async getPurchases(koperasiId: string, limit = 50) {
+    const { data, error } = await this.supabase
+      .from('inventory_purchases')
+      .select(`
+        *,
+        supplier:inventory_suppliers(name)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .order('purchase_date', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getPurchaseById(id: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_purchases')
+      .select(`
+        *,
+        supplier:inventory_suppliers(name),
+        items:inventory_purchase_items(
+          *,
+          product:inventory_products(name, sku, unit)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getUnpaidPurchases(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_purchases')
+      .select(`
+        *,
+        supplier:inventory_suppliers(name)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .eq('payment_status', 'debt')
+      .order('purchase_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
   async createPurchase(
     purchase: {
       koperasi_id: string;
@@ -193,9 +441,11 @@ export class RetailService {
       supplier_id: string;
       invoice_number: string;
       total_amount: number;
+      tax_amount?: number;
       payment_status: 'paid' | 'debt';
       notes?: string;
       created_by: string;
+      po_id?: string;
     },
     items: {
       product_id: string;
@@ -205,9 +455,10 @@ export class RetailService {
     }[]
   ) {
     // 1. Create Purchase Header
+    const { tax_amount, ...purchasePayload } = purchase;
     const { data: purchaseData, error: purchaseError } = await this.supabase
       .from('inventory_purchases')
-      .insert(purchase)
+      .insert(purchasePayload)
       .select()
       .single();
 
@@ -227,7 +478,6 @@ export class RetailService {
 
     // 3. Update Product Stock & Average Cost
     for (const item of items) {
-      // Get current product state
       const { data: product } = await this.supabase
         .from('inventory_products')
         .select('stock_quantity, price_cost')
@@ -235,12 +485,10 @@ export class RetailService {
         .single();
 
       if (product) {
-        // Calculate new weighted average cost
         const currentTotalValue = product.stock_quantity * product.price_cost;
         const newStockValue = item.quantity * item.cost_per_item;
         const newTotalStock = product.stock_quantity + item.quantity;
         
-        // Avoid division by zero
         const newAverageCost = newTotalStock > 0 
           ? (currentTotalValue + newStockValue) / newTotalStock 
           : item.cost_per_item;
@@ -249,30 +497,477 @@ export class RetailService {
           .from('inventory_products')
           .update({
             stock_quantity: newTotalStock,
-            price_cost: Math.round(newAverageCost) // Round to nearest integer for IDR
+            price_cost: Math.round(newAverageCost) 
           })
           .eq('id', item.product_id);
       }
     }
 
     // 4. Record to Ledger (Accounting)
+    const tax = tax_amount || 0;
+    const netAmount = purchase.total_amount - tax;
+
     await this.ledgerService.recordTransaction({
       koperasi_id: purchase.koperasi_id,
       tx_type: 'retail_purchase',
       tx_reference: purchaseData.invoice_number,
       account_debit: AccountCode.INVENTORY_MERCHANDISE,
       account_credit: purchase.payment_status === 'paid' ? AccountCode.CASH_ON_HAND : AccountCode.ACCOUNTS_PAYABLE,
-      amount: purchase.total_amount,
+      amount: netAmount,
       description: `Pembelian Stok ${purchaseData.invoice_number}`,
       source_table: 'inventory_purchases',
       source_id: purchaseData.id,
       created_by: purchase.created_by
     });
 
+    if (tax > 0) {
+      await this.ledgerService.recordTransaction({
+        koperasi_id: purchase.koperasi_id,
+        tx_type: 'retail_purchase',
+        tx_reference: purchaseData.invoice_number,
+        account_debit: AccountCode.VAT_IN,
+        account_credit: purchase.payment_status === 'paid' ? AccountCode.CASH_ON_HAND : AccountCode.ACCOUNTS_PAYABLE,
+        amount: tax,
+        description: `PPN Masukan ${purchaseData.invoice_number}`,
+        source_table: 'inventory_purchases',
+        source_id: purchaseData.id,
+        created_by: purchase.created_by
+      });
+    }
+
     return purchaseData;
   }
 
+  // Purchase Orders (PO)
+  async getPurchaseOrders(koperasiId: string, limit = 50) {
+    const { data, error } = await this.supabase
+      .from('inventory_purchase_orders')
+      .select(`
+        *,
+        supplier:inventory_suppliers(name)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .order('order_date', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getPurchaseOrderById(id: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_purchase_orders')
+      .select(`
+        *,
+        supplier:inventory_suppliers(name),
+        items:inventory_purchase_order_items(
+          *,
+          product:inventory_products(name, sku, unit)
+        )
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async createPurchaseOrder(
+    po: {
+      koperasi_id: string;
+      unit_usaha_id?: string;
+      supplier_id: string;
+      po_number: string;
+      status: 'draft' | 'ordered';
+      total_amount: number;
+      notes?: string;
+      created_by: string;
+    },
+    items: {
+      product_id: string;
+      quantity_ordered: number;
+      cost_per_item: number;
+      subtotal: number;
+    }[]
+  ) {
+    const { data: poData, error: poError } = await this.supabase
+      .from('inventory_purchase_orders')
+      .insert(po)
+      .select()
+      .single();
+
+    if (poError) throw poError;
+
+    const itemsWithId = items.map(item => ({
+      ...item,
+      po_id: poData.id
+    }));
+
+    const { error: itemsError } = await this.supabase
+      .from('inventory_purchase_order_items')
+      .insert(itemsWithId);
+
+    if (itemsError) throw itemsError;
+
+    return poData;
+  }
+
+  async updatePurchaseOrderStatus(id: string, status: string, approvedBy?: string) {
+    const updates: any = { status, updated_at: new Date().toISOString() };
+    if (approvedBy && status === 'approved') {
+        updates.approved_by = approvedBy;
+    }
+    
+    const { data, error } = await this.supabase
+        .from('inventory_purchase_orders')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+        
+    if (error) throw error;
+    return data;
+  }
+
+  async receivePurchaseOrder(
+    poId: string, 
+    receivedItems: { product_id: string; quantity: number }[],
+    invoiceNumber: string,
+    userId: string
+  ) {
+    const po = await this.getPurchaseOrderById(poId);
+    if (!po) throw new Error('PO not found');
+
+    if (po.status === 'received') {
+        throw new Error('Purchase Order already received');
+    }
+
+    let totalAmount = 0;
+    const purchaseItems = receivedItems.map(ri => {
+        const poItem = po.items.find((i: any) => i.product_id === ri.product_id);
+        const cost = poItem ? poItem.cost_per_item : 0; 
+        const subtotal = cost * ri.quantity;
+        totalAmount += subtotal;
+        
+        return {
+            product_id: ri.product_id,
+            quantity: ri.quantity,
+            cost_per_item: cost,
+            subtotal: subtotal
+        };
+    });
+
+    const purchase = await this.createPurchase({
+        koperasi_id: po.koperasi_id,
+        unit_usaha_id: po.unit_usaha_id,
+        supplier_id: po.supplier_id,
+        invoice_number: invoiceNumber,
+        total_amount: totalAmount,
+        payment_status: 'debt',
+        notes: `Received from PO ${po.po_number}`,
+        created_by: userId,
+        po_id: po.id
+    }, purchaseItems);
+
+    await this.updatePurchaseOrderStatus(poId, 'received');
+
+    return purchase;
+  }
+
+  // Purchase Returns
+  async getPurchaseReturns(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_purchase_returns')
+      .select(`
+        *,
+        supplier:inventory_suppliers(name),
+        purchase:inventory_purchases(invoice_number)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .order('return_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async createPurchaseReturn(
+    returnHeader: {
+      koperasi_id: string;
+      unit_usaha_id?: string;
+      purchase_id: string;
+      supplier_id: string;
+      return_number: string;
+      reason?: string;
+      status: 'pending' | 'completed';
+      total_refund_amount: number;
+      created_by: string;
+    },
+    items: {
+      product_id: string;
+      quantity: number;
+      refund_amount_per_item: number;
+      subtotal: number;
+    }[]
+  ) {
+    const { data: returnData, error: returnError } = await this.supabase
+      .from('inventory_purchase_returns')
+      .insert(returnHeader)
+      .select()
+      .single();
+
+    if (returnError) throw returnError;
+
+    const itemsWithId = items.map(item => ({
+      ...item,
+      return_id: returnData.id
+    }));
+
+    const { error: itemsError } = await this.supabase
+      .from('inventory_purchase_return_items')
+      .insert(itemsWithId);
+
+    if (itemsError) throw itemsError;
+
+    if (returnHeader.status === 'completed') {
+      for (const item of items) {
+        const { error: stockError } = await this.supabase.rpc('decrement_stock', {
+            p_product_id: item.product_id,
+            p_quantity: item.quantity
+        });
+        
+        if (stockError) {
+             const { data: product } = await this.supabase
+               .from('inventory_products')
+               .select('stock_quantity')
+               .eq('id', item.product_id)
+               .single();
+               
+             if (product) {
+               await this.supabase
+                 .from('inventory_products')
+                 .update({ stock_quantity: Math.max(0, product.stock_quantity - item.quantity) })
+                 .eq('id', item.product_id);
+             }
+        }
+      }
+
+      await this.ledgerService.recordTransaction({
+        koperasi_id: returnHeader.koperasi_id,
+        tx_type: 'retail_purchase_return',
+        tx_reference: returnHeader.return_number,
+        account_debit: AccountCode.CASH_ON_HAND, 
+        account_credit: AccountCode.INVENTORY_MERCHANDISE,
+        amount: returnHeader.total_refund_amount,
+        description: `Retur Pembelian ${returnHeader.return_number}`,
+        source_table: 'inventory_purchase_returns',
+        source_id: returnData.id,
+        created_by: returnHeader.created_by
+      });
+    }
+
+    return returnData;
+  }
+
+  // Sales Returns
+  async getSalesReturns(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('pos_returns')
+      .select(`
+        *,
+        transaction:pos_transactions(invoice_number, customer_name)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .order('return_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async createSalesReturn(
+    returnHeader: {
+      koperasi_id: string;
+      unit_usaha_id?: string;
+      transaction_id: string;
+      return_number: string;
+      reason?: string;
+      status: 'pending' | 'completed';
+      total_refund_amount: number;
+      created_by: string;
+    },
+    items: {
+      product_id: string;
+      quantity: number;
+      refund_amount_per_item: number;
+      subtotal: number;
+    }[]
+  ) {
+    const { data: returnData, error: returnError } = await this.supabase
+      .from('pos_returns')
+      .insert(returnHeader)
+      .select()
+      .single();
+
+    if (returnError) throw returnError;
+
+    const itemsWithId = items.map(item => ({
+      ...item,
+      return_id: returnData.id
+    }));
+
+    const { error: itemsError } = await this.supabase
+      .from('pos_return_items')
+      .insert(itemsWithId);
+
+    if (itemsError) throw itemsError;
+
+    if (returnHeader.status === 'completed') {
+      for (const item of items) {
+        const { data: product } = await this.supabase
+          .from('inventory_products')
+          .select('stock_quantity')
+          .eq('id', item.product_id)
+          .single();
+          
+        if (product) {
+          await this.supabase
+            .from('inventory_products')
+            .update({ stock_quantity: product.stock_quantity + item.quantity })
+            .eq('id', item.product_id);
+        }
+      }
+
+      await this.ledgerService.recordTransaction({
+        koperasi_id: returnHeader.koperasi_id,
+        tx_type: 'retail_sales_return',
+        tx_reference: returnHeader.return_number,
+        account_debit: AccountCode.SALES_REVENUE,
+        account_credit: AccountCode.CASH_ON_HAND, 
+        amount: returnHeader.total_refund_amount,
+        description: `Retur Penjualan ${returnHeader.return_number}`,
+        source_table: 'pos_returns',
+        source_id: returnData.id,
+        created_by: returnHeader.created_by
+      });
+
+      let totalReturnCOGS = 0;
+      for (const item of items) {
+          const { data: product } = await this.supabase
+            .from('inventory_products')
+            .select('price_cost')
+            .eq('id', item.product_id)
+            .single();
+          
+          if (product) {
+              totalReturnCOGS += (product.price_cost * item.quantity);
+          }
+      }
+
+      if (totalReturnCOGS > 0) {
+          await this.ledgerService.recordTransaction({
+            koperasi_id: returnHeader.koperasi_id,
+            tx_type: 'retail_sales_return_cogs',
+            tx_reference: returnHeader.return_number,
+            account_debit: AccountCode.INVENTORY_MERCHANDISE,
+            account_credit: AccountCode.COGS,
+            amount: totalReturnCOGS,
+            description: `Reversal HPP Retur ${returnHeader.return_number}`,
+            source_table: 'pos_returns',
+            source_id: returnData.id,
+            created_by: returnHeader.created_by
+          });
+      }
+    }
+
+    return returnData;
+  }
+
+  async getReceivables(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('pos_transactions')
+      .select(`
+        *,
+        member:member(name, member_number)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .eq('payment_status', 'debt')
+      .order('transaction_date', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
   // POS Transaction
+  async getPosTransactions(koperasiId: string, limit = 50, status?: string) {
+    let query = this.supabase
+      .from('pos_transactions')
+      .select('*')
+      .eq('koperasi_id', koperasiId)
+      .order('transaction_date', { ascending: false })
+      .limit(limit);
+
+    if (status) {
+      if (status === 'kiosk_pending') {
+        query = query.eq('payment_status', 'pending').ilike('notes', '%[KIOSK]%');
+      } else {
+        query = query.eq('payment_status', status);
+      }
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getPosTransactionById(id: string) {
+    const { data, error } = await this.supabase
+      .from('pos_transactions')
+      .select(`
+        *,
+        items:pos_transaction_items(
+          *,
+          product:inventory_products(*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async cancelPosTransaction(id: string) {
+    const { data: tx, error } = await this.supabase
+      .from('pos_transactions')
+      .select(`
+        *,
+        items:pos_transaction_items(*)
+      `)
+      .eq('id', id)
+      .single();
+      
+    if (error || !tx) return;
+
+    if (tx.items) {
+      for (const item of tx.items) {
+        const { data: product } = await this.supabase
+          .from('inventory_products')
+          .select('stock_quantity')
+          .eq('id', item.product_id)
+          .single();
+          
+        if (product) {
+          await this.supabase
+            .from('inventory_products')
+            .update({ stock_quantity: product.stock_quantity + item.quantity })
+            .eq('id', item.product_id);
+        }
+      }
+    }
+
+    await this.supabase.from('pos_transactions').delete().eq('id', id);
+  }
+
   async processTransaction(transaction: Partial<POSTransaction>, items: Partial<POSTransactionItem>[], payments?: PaymentBreakdown[]) {
     // 0. Pre-flight Checks
     const paymentMethod = transaction.payment_method || 'cash';
@@ -281,7 +976,6 @@ export class RetailService {
 
     if (paymentMethod === 'savings_balance' && (!payments || payments.length === 0)) {
         if (!memberId) throw new Error('Member ID is required for savings payment');
-        // Check Balance
         const balance = await this.savingsService.getBalance(memberId, 'sukarela');
         if (balance < finalAmount) {
             throw new Error('Saldo simpanan sukarela tidak mencukupi');
@@ -289,17 +983,24 @@ export class RetailService {
     }
 
     // 1. Create Transaction Header
+    console.log('Creating POS Transaction Header...');
     const { data: txData, error: txError } = await this.supabase
       .from('pos_transactions')
       .insert({
         ...transaction,
-        invoice_number: `INV-${Date.now()}`,
-        payment_status: (payments && payments.some(p => p.method === 'qris')) || paymentMethod === 'qris' ? 'pending' : 'paid'
+        invoice_number: transaction.invoice_number || `INV-${Date.now()}`,
+        payment_status: transaction.payment_status || ((payments && payments.some(p => p.method === 'qris')) || paymentMethod === 'qris' ? 'pending' : 'paid')
       })
       .select()
       .single();
     
-    if (txError) throw txError;
+    if (txError) {
+        console.error('Error creating POS Transaction:', txError);
+        throw txError;
+    }
+    if (!txData) {
+        throw new Error('POS Transaction created but no data returned');
+    }
 
     // 2. Create Transaction Items
     const itemsWithTxId = items.map(item => ({
@@ -313,15 +1014,37 @@ export class RetailService {
     
     if (itemsError) throw itemsError;
 
-    // 3. Update Stock & Calculate COGS
+    // 3. Update Stock & Calculate COGS / Consignment
     let totalCOGS = 0;
+    let totalConsignmentPayable = 0;
 
     for (const item of items) {
       if (!item.product_id || !item.quantity) continue;
       
-      // Calculate COGS for this item
-      if (item.cost_at_sale) {
-        totalCOGS += (item.quantity * item.cost_at_sale);
+      // Fetch product details for Consignment check
+      const { data: product } = await this.supabase
+        .from('inventory_products')
+        .select('is_consignment, consignment_fee_percent, price_cost, stock_quantity')
+        .eq('id', item.product_id)
+        .single();
+
+      if (product?.is_consignment) {
+          // Consignment Logic
+          let payable = 0;
+          if (product.consignment_fee_percent && product.consignment_fee_percent > 0) {
+              const salePrice = item.price_at_sale || 0;
+              payable = salePrice * ((100 - product.consignment_fee_percent) / 100);
+          } else {
+              payable = product.price_cost || 0;
+          }
+          totalConsignmentPayable += (payable * item.quantity);
+      } else {
+          // Regular Logic
+          if (item.cost_at_sale) {
+            totalCOGS += (item.quantity * item.cost_at_sale);
+          } else if (product) {
+            totalCOGS += (item.quantity * product.price_cost);
+          }
       }
 
       // Decrement stock
@@ -330,21 +1053,12 @@ export class RetailService {
         p_quantity: item.quantity
       });
       
-      // Fallback if RPC doesn't exist (though it's safer to use RPC for concurrency)
-      if (stockError) {
-         // simplistic fallback
-         const { data: product } = await this.supabase
+      // Fallback if RPC doesn't exist
+      if (stockError && product) {
+         await this.supabase
            .from('inventory_products')
-           .select('stock_quantity')
-           .eq('id', item.product_id)
-           .single();
-         
-         if (product) {
-           await this.supabase
-             .from('inventory_products')
-             .update({ stock_quantity: product.stock_quantity - item.quantity })
-             .eq('id', item.product_id);
-         }
+           .update({ stock_quantity: product.stock_quantity - item.quantity })
+           .eq('id', item.product_id);
       }
     }
 
@@ -352,6 +1066,43 @@ export class RetailService {
     let paymentResult: any = {};
     const paymentsToProcess: PaymentBreakdown[] = payments && payments.length > 0 ? payments : [{ method: paymentMethod as PaymentBreakdown['method'], amount: finalAmount }];
     
+    // --- NEW: Handle Loyalty & Vouchers ---
+    if (transaction.voucher_code) {
+        const { data: voucher } = await this.supabase.from('vouchers').select('id, usage_count').eq('code', transaction.voucher_code).single();
+        if (voucher) {
+            await this.supabase.from('vouchers').update({ usage_count: (voucher.usage_count || 0) + 1 }).eq('id', voucher.id);
+            await this.supabase.from('voucher_usages').insert({
+                voucher_id: voucher.id,
+                member_id: memberId,
+                transaction_id: txData.id,
+                discount_amount: transaction.discount_amount || 0
+            });
+        }
+    }
+
+    if (transaction['points_used'] && transaction['points_used'] > 0 && memberId) {
+        await this.loyaltyService.redeemPoints(
+            transaction.koperasi_id!,
+            memberId,
+            transaction['points_used'],
+            `Redeem Points for Invoice #${txData.invoice_number}`,
+            txData.id
+        );
+    }
+
+    if (memberId && finalAmount > 0) {
+        const pointsToEarn = Math.floor(finalAmount / 10000);
+        if (pointsToEarn > 0) {
+            await this.loyaltyService.addPoints(
+                transaction.koperasi_id!,
+                memberId,
+                pointsToEarn,
+                `Points earned from Invoice #${txData.invoice_number}`,
+                txData.id
+            );
+        }
+    }
+
     if (transaction.created_by) {
       const qrisResults: { qr_code_url: string; payment_transaction_id: string; amount: number }[] = [];
       for (const p of paymentsToProcess) {
@@ -426,6 +1177,332 @@ export class RetailService {
         });
     }
 
+    if (totalConsignmentPayable > 0) {
+        await this.ledgerService.recordTransaction({
+            koperasi_id: transaction.koperasi_id!,
+            tx_type: 'retail_sale',
+            tx_reference: txData.invoice_number,
+            account_debit: AccountCode.COGS,
+            account_credit: AccountCode.CONSIGNMENT_PAYABLE,
+            amount: totalConsignmentPayable,
+            description: `Hutang Konsinyasi ${txData.invoice_number}`,
+            source_table: 'pos_transactions',
+            source_id: txData.id,
+            created_by: transaction.created_by || '00000000-0000-0000-0000-000000000000'
+        });
+    }
+
+    // 6. Record VAT Out (Adjustment)
+    const taxAmount = transaction.tax_amount || 0;
+    if (taxAmount > 0) {
+        await this.ledgerService.recordTransaction({
+            koperasi_id: transaction.koperasi_id!,
+            tx_type: 'retail_sale',
+            tx_reference: txData.invoice_number,
+            account_debit: AccountCode.SALES_REVENUE,
+            account_credit: AccountCode.VAT_OUT,
+            amount: taxAmount,
+            description: `PPN Keluaran ${txData.invoice_number}`,
+            source_table: 'pos_transactions',
+            source_id: txData.id,
+            created_by: transaction.created_by || '00000000-0000-0000-0000-000000000000'
+        });
+    }
+
     return { ...txData, ...paymentResult };
+  }
+
+  // Stock Opname
+  async getStockOpnames(koperasiId: string) {
+    const { data, error } = await this.supabase
+      .from('inventory_stock_opname')
+      .select(`
+        *,
+        creator:created_by(email)
+      `)
+      .eq('koperasi_id', koperasiId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+
+  async createStockOpname(
+    opname: {
+      koperasi_id: string;
+      unit_usaha_id?: string;
+      notes?: string;
+      status: 'draft' | 'final';
+      created_by: string;
+    },
+    items: {
+      product_id: string;
+      system_qty: number;
+      actual_qty: number;
+      notes?: string;
+    }[]
+  ) {
+    const { data: opnameData, error: opnameError } = await this.supabase
+      .from('inventory_stock_opname')
+      .insert(opname)
+      .select()
+      .single();
+
+    if (opnameError) throw opnameError;
+
+    const itemsWithId = items.map(item => ({
+      ...item,
+      opname_id: opnameData.id
+    }));
+
+    const { error: itemsError } = await this.supabase
+      .from('inventory_stock_opname_items')
+      .insert(itemsWithId);
+
+    if (itemsError) throw itemsError;
+
+    if (opname.status === 'final') {
+      for (const item of items) {
+        if (item.actual_qty !== item.system_qty) {
+          await this.supabase
+            .from('inventory_products')
+            .update({ stock_quantity: item.actual_qty })
+            .eq('id', item.product_id);
+        }
+      }
+    }
+
+    return opnameData;
+  }
+
+  async getDailyReport(koperasiId: string, date: Date = new Date()) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const { data: sales, error: salesError } = await this.supabase
+      .from('pos_transactions')
+      .select('final_amount, payment_method')
+      .eq('koperasi_id', koperasiId)
+      .gte('transaction_date', startOfDay.toISOString())
+      .lte('transaction_date', endOfDay.toISOString());
+
+    if (salesError) throw salesError;
+
+    const { data: purchases, error: purchasesError } = await this.supabase
+      .from('inventory_purchases')
+      .select('total_amount, payment_status')
+      .eq('koperasi_id', koperasiId)
+      .gte('purchase_date', startOfDay.toISOString())
+      .lte('purchase_date', endOfDay.toISOString());
+
+    if (purchasesError) throw purchasesError;
+
+    const totalSales = sales?.reduce((acc, curr) => acc + (curr.final_amount || 0), 0) || 0;
+    const totalPurchases = purchases?.reduce((acc, curr) => acc + (curr.total_amount || 0), 0) || 0;
+    const transactionCount = sales?.length || 0;
+
+    return {
+      date: startOfDay,
+      totalSales,
+      totalPurchases,
+      transactionCount,
+      sales,
+      purchases
+    };
+  }
+
+  async getSalesSummary(koperasiId: string, startDate: Date, endDate: Date) {
+    const { data: sales, error } = await this.supabase
+      .from('pos_transactions')
+      .select('*')
+      .eq('koperasi_id', koperasiId)
+      .gte('transaction_date', startDate.toISOString())
+      .lte('transaction_date', endDate.toISOString());
+
+    if (error) throw error;
+
+    const byPaymentMethod = sales?.reduce((acc: any, curr) => {
+      const method = curr.payment_method || 'unknown';
+      if (!acc[method]) acc[method] = 0;
+      acc[method] += curr.final_amount;
+      return acc;
+    }, {});
+
+    const byDate = sales?.reduce((acc: any, curr) => {
+      const date = new Date(curr.transaction_date).toISOString().split('T')[0];
+      if (!acc[date]) acc[date] = 0;
+      acc[date] += curr.final_amount;
+      return acc;
+    }, {});
+
+    return {
+      total_sales: sales?.reduce((acc, curr) => acc + curr.final_amount, 0) || 0,
+      transaction_count: sales?.length || 0,
+      average_transaction: sales && sales.length > 0 ? (sales.reduce((acc, curr) => acc + curr.final_amount, 0) / sales.length) : 0,
+      by_payment_method: byPaymentMethod,
+      by_date: byDate,
+      raw_data: sales
+    };
+  }
+
+  async getSoldItemsReport(koperasiId: string, startDate: Date, endDate: Date) {
+    const { data: items, error } = await this.supabase
+      .from('pos_transaction_items')
+      .select(`
+        *,
+        product:inventory_products(name, category_id, sku, barcode),
+        transaction:pos_transactions!inner(transaction_date, koperasi_id, payment_status)
+      `)
+      .eq('transaction.koperasi_id', koperasiId)
+      .gte('transaction.transaction_date', startDate.toISOString())
+      .lte('transaction.transaction_date', endDate.toISOString())
+      .neq('transaction.payment_status', 'cancelled');
+
+    if (error) throw error;
+
+    const grouped = items?.reduce((acc: any, curr: any) => {
+      const productId = curr.product_id;
+      if (!acc[productId]) {
+        acc[productId] = {
+          product_id: productId,
+          product_name: curr.product?.name || 'Unknown',
+          sku: curr.product?.sku,
+          barcode: curr.product?.barcode,
+          quantity_sold: 0,
+          total_revenue: 0,
+          total_cogs: 0
+        };
+      }
+      acc[productId].quantity_sold += curr.quantity;
+      acc[productId].total_revenue += curr.subtotal;
+      acc[productId].total_cogs += (curr.cost_at_sale || 0) * curr.quantity;
+      return acc;
+    }, {});
+
+    return grouped;
+  }
+
+  async getConsignmentReport(koperasiId: string, startDate: Date, endDate: Date) {
+    const { data: items, error } = await this.supabase
+      .from('pos_transaction_items')
+      .select(`
+        *,
+        product:inventory_products!inner(name, sku, is_consignment, consignment_fee_percent, consignment_supplier_id),
+        transaction:pos_transactions!inner(transaction_date, koperasi_id, payment_status, invoice_number)
+      `)
+      .eq('transaction.koperasi_id', koperasiId)
+      .eq('product.is_consignment', true)
+      .gte('transaction.transaction_date', startDate.toISOString())
+      .lte('transaction.transaction_date', endDate.toISOString())
+      .neq('transaction.payment_status', 'cancelled');
+    
+    if (error) throw error;
+    
+    const bySupplier = items?.reduce((acc: any, curr: any) => {
+       const supplierId = curr.product.consignment_supplier_id || 'unknown';
+       if (!acc[supplierId]) {
+           acc[supplierId] = {
+               supplier_id: supplierId,
+               total_sales: 0,
+               total_payable: 0,
+               total_commission: 0,
+               items: []
+           };
+       }
+       
+       const saleAmount = curr.subtotal;
+       let payable = 0;
+       if (curr.product.consignment_fee_percent > 0) {
+           payable = saleAmount * ((100 - curr.product.consignment_fee_percent) / 100);
+       } else {
+           payable = (curr.cost_at_sale || 0) * curr.quantity; 
+       }
+       
+       const commission = saleAmount - payable;
+       
+       acc[supplierId].total_sales += saleAmount;
+       acc[supplierId].total_payable += payable;
+       acc[supplierId].total_commission += commission;
+       acc[supplierId].items.push(curr);
+       
+       return acc;
+    }, {});
+    
+    return bySupplier;
+  }
+
+  async getSalesConsolidationReport(koperasiId: string, startDate: Date, endDate: Date) {
+    // 1. Get all transactions with items and products
+    const { data: transactions, error } = await this.supabase
+      .from('pos_transactions')
+      .select(`
+        *,
+        items:pos_transaction_items(
+            *,
+            product:inventory_products(
+              category:inventory_categories(name)
+            )
+        )
+      `)
+      .eq('koperasi_id', koperasiId)
+      .gte('transaction_date', startDate.toISOString())
+      .lte('transaction_date', endDate.toISOString())
+      .neq('payment_status', 'cancelled');
+
+    if (error) throw error;
+
+    // 2. Aggregate Data
+    let totalSales = 0;
+    let totalTax = 0;
+    let totalCOGS = 0;
+    let totalDiscounts = 0;
+    const byCategory: Record<string, number> = {};
+    const byPaymentMethod: Record<string, number> = {};
+
+    transactions?.forEach(tx => {
+        totalSales += tx.final_amount;
+        totalTax += tx.tax_amount || 0;
+        totalDiscounts += tx.discount_amount || 0;
+        
+        // Payment Method
+        const method = tx.payment_method || 'cash';
+        byPaymentMethod[method] = (byPaymentMethod[method] || 0) + tx.final_amount;
+
+        // COGS and Category from items
+        if (tx.items) {
+          tx.items.forEach((item: any) => {
+              // COGS
+              const cogs = (item.cost_at_sale || 0) * item.quantity;
+              totalCOGS += cogs;
+
+              // Category
+              // Note: Supabase response structure for nested relation might vary (array or object)
+              // Assuming 1:1 relation from product to category
+              const categoryName = item.product?.category?.name || 'Uncategorized';
+              byCategory[categoryName] = (byCategory[categoryName] || 0) + item.subtotal;
+          });
+        }
+    });
+
+    const netSales = totalSales - totalTax;
+    const grossProfit = netSales - totalCOGS;
+
+    return {
+        period: { start: startDate, end: endDate },
+        summary: {
+            total_sales_gross: totalSales,
+            total_tax: totalTax,
+            total_discounts: totalDiscounts,
+            net_sales: netSales,
+            total_cogs: totalCOGS,
+            gross_profit: grossProfit,
+            gross_margin_percent: netSales > 0 ? (grossProfit / netSales) * 100 : 0
+        },
+        by_category: byCategory,
+        by_payment_method: byPaymentMethod,
+        transaction_count: transactions?.length || 0
+    };
   }
 }

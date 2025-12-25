@@ -12,6 +12,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { WithdrawalDialog } from './withdrawal-dialog';
+import { DigitalPaymentDialog } from '@/components/payment/digital-payment-dialog';
 
 export default async function MemberSavingsPage() {
   const supabase = await createClient();
@@ -121,7 +122,17 @@ export default async function MemberSavingsPage() {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Simpanan Saya</h2>
           <p className="text-slate-500">Informasi saldo dan riwayat transaksi simpanan.</p>
         </div>
-        <WithdrawalDialog accounts={accounts || []} />
+        <WithdrawalDialog
+          accounts={(accounts || []).map((a: any) => ({
+            id: a.id,
+            account_number: a.account_number,
+            balance: a.balance,
+            product: {
+              name: a.product?.name,
+              is_withdrawal_allowed: a.product?.is_withdrawal_allowed,
+            },
+          }))}
+        />
       </div>
 
       {/* Accounts List */}
@@ -139,9 +150,21 @@ export default async function MemberSavingsPage() {
               </div>
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>{account.account_number}</span>
-                <Badge variant="outline" className="capitalize bg-emerald-50 text-emerald-700 border-emerald-200">
-                  {account.product.type}
-                </Badge>
+                <div className="flex gap-2 items-center">
+                  <DigitalPaymentDialog 
+                    type="savings_deposit" 
+                    referenceId={account.id} 
+                    title={`Top Up ${account.product.name}`}
+                    trigger={
+                      <button className="px-2 py-0.5 rounded text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
+                        Top Up
+                      </button>
+                    }
+                  />
+                  <Badge variant="outline" className="capitalize bg-emerald-50 text-emerald-700 border-emerald-200">
+                    {account.product.type}
+                  </Badge>
+                </div>
               </div>
             </CardContent>
           </Card>

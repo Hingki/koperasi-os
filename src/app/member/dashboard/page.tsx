@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet, Banknote, Calendar, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Wallet, Banknote, Calendar, ArrowUpRight, ArrowDownLeft, MessageSquare } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { redirect } from 'next/navigation';
+import { AnnouncementBanner } from '@/components/member/announcement-banner';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default async function MemberDashboardPage() {
   const supabase = await createClient();
@@ -48,8 +51,8 @@ export default async function MemberDashboardPage() {
 
     // Next Installment (This Month)
     supabase
-      .from('loan_installments')
-      .select('amount_due, due_date')
+      .from('loan_repayment_schedule')
+      .select('total_installment, due_date')
       .eq('member_id', member.id)
       .eq('status', 'pending')
       .order('due_date', { ascending: true })
@@ -69,17 +72,27 @@ export default async function MemberDashboardPage() {
   const totalLoans = loansResult.data?.reduce((sum, loan) => sum + loan.remaining_principal, 0) || 0;
   
   const nextInstallment = installmentsResult.data?.[0];
-  const nextInstallmentAmount = nextInstallment?.amount_due || 0;
+  const nextInstallmentAmount = nextInstallment?.total_installment || 0;
   const nextInstallmentDate = nextInstallment?.due_date 
     ? new Date(nextInstallment.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })
     : '-';
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Anggota</h2>
-        <p className="text-slate-500">Selamat datang kembali, {member.nama_lengkap}</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Anggota</h2>
+          <p className="text-slate-500">Selamat datang kembali, {member.nama_lengkap}</p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/member/support">
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Pusat Bantuan
+          </Link>
+        </Button>
       </div>
+
+      <AnnouncementBanner />
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">

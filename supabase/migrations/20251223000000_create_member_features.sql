@@ -22,6 +22,7 @@ create table if not exists support_tickets (
     subject text not null,
     message text not null,
     status text default 'open' check (status in ('open', 'in_progress', 'closed')),
+    admin_response text,
     created_at timestamptz default now(),
     updated_at timestamptz default now()
 );
@@ -30,44 +31,28 @@ create table if not exists support_tickets (
 alter table savings_withdrawal_requests enable row level security;
 alter table support_tickets enable row level security;
 
--- Policies for Withdrawal Requests
-create policy "Members can view own requests" on savings_withdrawal_requests
-    for select to authenticated using (
-        member_id in (select id from member where user_id = auth.uid())
-    );
+-- 4. Policy untuk Withdrawal Requests
+drop policy if exists "Members can view own requests" on savings_withdrawal_requests;
+create policy "Members can view own requests" on savings_withdrawal_requests for select to authenticated using (member_id in (select id from member where user_id = auth.uid()));
 
-create policy "Members can insert own requests" on savings_withdrawal_requests
-    for insert to authenticated with check (
-        member_id in (select id from member where user_id = auth.uid())
-    );
+drop policy if exists "Members can insert own requests" on savings_withdrawal_requests;
+create policy "Members can insert own requests" on savings_withdrawal_requests for insert to authenticated with check (member_id in (select id from member where user_id = auth.uid()));
 
-create policy "Admins can view all requests" on savings_withdrawal_requests
-    for select to authenticated using (
-        exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'chairman', 'manager', 'teller'))
-    );
+drop policy if exists "Admins can view all requests" on savings_withdrawal_requests;
+create policy "Admins can view all requests" on savings_withdrawal_requests for select to authenticated using (exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'ketua', 'pengurus', 'bendahara', 'staff')));
 
-create policy "Admins can update requests" on savings_withdrawal_requests
-    for update to authenticated using (
-        exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'chairman', 'manager', 'teller'))
-    );
+drop policy if exists "Admins can update requests" on savings_withdrawal_requests;
+create policy "Admins can update requests" on savings_withdrawal_requests for update to authenticated using (exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'ketua', 'pengurus', 'bendahara', 'staff')));
 
--- Policies for Support Tickets
-create policy "Members can view own tickets" on support_tickets
-    for select to authenticated using (
-        member_id in (select id from member where user_id = auth.uid())
-    );
+-- 5. Policy untuk Support Tickets
+drop policy if exists "Members can view own tickets" on support_tickets;
+create policy "Members can view own tickets" on support_tickets for select to authenticated using (member_id in (select id from member where user_id = auth.uid()));
 
-create policy "Members can insert own tickets" on support_tickets
-    for insert to authenticated with check (
-        member_id in (select id from member where user_id = auth.uid())
-    );
+drop policy if exists "Members can insert own tickets" on support_tickets;
+create policy "Members can insert own tickets" on support_tickets for insert to authenticated with check (member_id in (select id from member where user_id = auth.uid()));
 
-create policy "Admins can view all tickets" on support_tickets
-    for select to authenticated using (
-        exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'chairman', 'manager', 'teller'))
-    );
+drop policy if exists "Admins can view all tickets" on support_tickets;
+create policy "Admins can view all tickets" on support_tickets for select to authenticated using (exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'ketua', 'pengurus', 'bendahara', 'staff')));
 
-create policy "Admins can update tickets" on support_tickets
-    for update to authenticated using (
-        exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'chairman', 'manager', 'teller'))
-    );
+drop policy if exists "Admins can update tickets" on support_tickets;
+create policy "Admins can update tickets" on support_tickets for update to authenticated using (exists (select 1 from user_role where user_id = auth.uid() and role in ('admin', 'ketua', 'pengurus', 'bendahara', 'staff')));

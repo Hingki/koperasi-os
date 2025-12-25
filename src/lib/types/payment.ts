@@ -1,4 +1,4 @@
-export type PaymentTransactionType = 'retail_sale' | 'loan_payment' | 'savings_deposit';
+export type PaymentTransactionType = 'retail_sale' | 'loan_payment' | 'savings_deposit' | 'rental_payment';
 export type PaymentMethod = 'cash' | 'qris' | 'va' | 'savings_balance' | 'transfer';
 export type PaymentProviderType = 'mock' | 'xendit' | 'midtrans' | 'manual' | 'internal';
 export type PaymentStatus = 'pending' | 'success' | 'failed' | 'expired' | 'refunded';

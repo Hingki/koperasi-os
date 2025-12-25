@@ -76,7 +76,7 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
         </div>
         <div className="grid grid-cols-1 gap-2">
           <label className="text-sm font-medium">Metode</label>
-          <select className="border rounded px-3 py-2" value={method} onChange={(e) => setMethod(e.target.value)}>
+          <select className="border rounded px-3 py-2" value={method} onChange={(e) => setMethod(e.target.value)} title="Metode Pembayaran">
             <option value="cash">Tunai</option>
             <option value="qris">QRIS</option>
             <option value="va">VA</option>
@@ -104,7 +104,7 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
 
         <div className="grid grid-cols-1 gap-2">
           <label className="text-sm font-medium">Provider</label>
-          <select className="border rounded px-3 py-2" value={provider} onChange={(e) => setProvider(e.target.value)}>
+          <select className="border rounded px-3 py-2" value={provider} onChange={(e) => setProvider(e.target.value)} title="Provider Pembayaran">
             <option value="manual">Manual</option>
             <option value="mock">Mock</option>
             <option value="xendit">Xendit</option>
@@ -114,7 +114,7 @@ export function PaymentSourcesManager({ sources, unitUsahaOptions }: Props) {
         </div>
         <div className="grid grid-cols-1 gap-2">
           <label className="text-sm font-medium">Unit Usaha</label>
-          <select className="border rounded px-3 py-2" value={unitUsahaId} onChange={(e) => setUnitUsahaId(e.target.value)}>
+          <select className="border rounded px-3 py-2" value={unitUsahaId} onChange={(e) => setUnitUsahaId(e.target.value)} title="Unit Usaha">
             <option value="">Semua</option>
             {unitUsahaOptions.map(u => (
               <option key={u.id} value={u.id}>{u.nama_unit}</option>

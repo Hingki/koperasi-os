@@ -11,6 +11,7 @@ import {
 } from '@/lib/types/payment';
 import { LedgerService } from '@/lib/services/ledger-service';
 import { AccountCode } from '@/lib/types/ledger';
+import { SavingsService } from '@/lib/services/savings-service';
 
 // --- Abstract Provider ---
 export abstract class PaymentProvider {
@@ -134,12 +135,18 @@ export class MidtransProvider extends PaymentProvider {
 export class PaymentService {
   private provider: PaymentProvider;
   private ledgerService: LedgerService;
+  private savingsService: SavingsService;
+  private agentUrl?: string;
+  private agentToken?: string;
   
   constructor(
     private supabase: SupabaseClient,
     providerType: PaymentProviderType = 'mock'
   ) {
     this.ledgerService = new LedgerService(supabase);
+    this.savingsService = new SavingsService(supabase);
+    this.agentUrl = process.env.AGENT_WEBHOOK_URL;
+    this.agentToken = process.env.AGENT_TOKEN;
     // Factory for providers
     switch (providerType) {
       case 'xendit':
@@ -164,7 +171,7 @@ export class PaymentService {
   async createQRISPayment(
     koperasiId: string, 
     referenceId: string, 
-    transactionType: 'retail_sale' | 'loan_payment' | 'savings_deposit',
+    transactionType: 'retail_sale' | 'loan_payment' | 'savings_deposit' | 'rental_payment',
     amount: number,
     description?: string,
     createdBy?: string
@@ -213,6 +220,8 @@ export class PaymentService {
 
       if (updateError) throw new Error(`Failed to update payment with QRIS data: ${updateError.message}`);
       
+      await this.notifyAgent('qris_generated', { transaction: updatedTrx });
+      
       return updatedTrx;
 
     } catch (err: any) {
@@ -252,15 +261,81 @@ export class PaymentService {
     if (trx.status !== callbackData.status) {
         const updatedTrx = await this.updatePaymentStatus(trx.id, callbackData.status, callbackData.raw_payload);
         
-        // 4. Create Journal Entry if Success
+        // 4. Handle Post Payment Logic (Journal, Business Logic)
         if (callbackData.status === 'success') {
-            await this.createJournalEntry(updatedTrx);
+            await this.handlePostPaymentSuccess(updatedTrx);
         }
         
         return updatedTrx;
     }
 
     return trx;
+  }
+
+  /**
+   * Handles business logic after successful payment
+   */
+  async handlePostPaymentSuccess(transaction: PaymentTransaction) {
+    // 1. Savings Deposit
+    if (transaction.transaction_type === 'savings_deposit') {
+       const { data: account } = await this.supabase
+         .from('savings_accounts')
+         .select('balance, member_id, koperasi_id')
+         .eq('id', transaction.reference_id)
+         .single();
+         
+       if (account) {
+         const newBalance = (account.balance || 0) + transaction.amount;
+         await this.supabase.from('savings_accounts').update({ balance: newBalance }).eq('id', transaction.reference_id);
+         
+         await this.supabase.from('savings_transactions').insert({
+             koperasi_id: account.koperasi_id,
+             member_id: account.member_id,
+             account_id: transaction.reference_id,
+             type: 'deposit',
+             amount: transaction.amount,
+             balance_after: newBalance,
+             description: `Setoran via ${transaction.payment_method.toUpperCase()}`,
+             created_by: transaction.created_by
+         });
+         
+         await this.createJournalEntry(transaction);
+       }
+    } 
+    // 2. Loan Payment
+    else if (transaction.transaction_type === 'loan_payment') {
+        const { LoanService } = await import('@/lib/services/loan-service');
+        const loanService = new LoanService(this.supabase);
+        
+        let sourceAccount = AccountCode.CASH_ON_HAND;
+        if (['qris', 'va', 'transfer'].includes(transaction.payment_method)) {
+            sourceAccount = AccountCode.BANK_BCA;
+        }
+        
+        await loanService.processPaymentByLoanId(
+            transaction.reference_id,
+            transaction.amount,
+            transaction.created_by || 'system',
+            sourceAccount
+        );
+    } 
+    // 3. Retail Sale
+    else if (transaction.transaction_type === 'retail_sale') {
+         if (transaction.reference_id) {
+             await this.supabase.from('pos_transactions')
+                .update({ payment_status: 'paid' })
+                .eq('id', transaction.reference_id);
+         await this.createJournalEntry(transaction);
+       }
+    } 
+    // 4. Rental Payment
+    else if (transaction.transaction_type === 'rental_payment') {
+         await this.supabase.from('rental_bookings')
+            .update({ payment_status: 'paid' })
+            .eq('id', transaction.reference_id);
+         await this.createJournalEntry(transaction);
+    }
+    await this.notifyAgent(transaction.transaction_type, { transaction });
   }
 
   /**
@@ -290,12 +365,44 @@ export class PaymentService {
   }
 
   /**
+   * Processes a payment via the Koperasi Mobile App (using Savings Balance)
+   */
+  async processAppPayment(
+    koperasiId: string,
+    memberId: string,
+    amount: number,
+    transactionType: 'retail_sale' | 'loan_payment' | 'savings_deposit' | 'rental_payment',
+    referenceId: string,
+    description?: string,
+    userId?: string
+  ): Promise<PaymentTransaction> {
+    // 1. Deduct Balance (Simpanan Sukarela)
+    await this.savingsService.deductBalance(
+        memberId, 
+        amount, 
+        description || `App Payment for ${transactionType}`, 
+        userId
+    );
+
+    // 2. Record Payment & Ledger
+    return await this.recordManualPayment(
+        koperasiId,
+        referenceId,
+        transactionType,
+        amount,
+        'savings_balance',
+        description || `App Payment for ${transactionType}`,
+        userId
+    );
+  }
+
+  /**
    * Records a manual payment (Cash, Savings, etc)
    */
   async recordManualPayment(
     koperasiId: string,
     referenceId: string,
-    transactionType: 'retail_sale' | 'loan_payment' | 'savings_deposit',
+    transactionType: 'retail_sale' | 'loan_payment' | 'savings_deposit' | 'rental_payment',
     amount: number,
     paymentMethod: 'cash' | 'savings_balance' | 'transfer',
     description?: string,
@@ -323,6 +430,7 @@ export class PaymentService {
 
     // 2. Create Journal Entry
     await this.createJournalEntry(trx);
+    await this.notifyAgent('payment_success', { transaction: trx });
 
     return trx;
   }
@@ -362,7 +470,8 @@ export class PaymentService {
       koperasi_id,
       tx_type: transaction_type === 'retail_sale' ? 'retail_sale' 
              : transaction_type === 'loan_payment' ? 'loan_repayment'
-             : 'savings_deposit',
+             : transaction_type === 'savings_deposit' ? 'savings_deposit'
+             : 'rental_payment', // Fallback or explicit
       tx_reference: reference_id,
       account_debit: debitAccount,
       account_credit: creditAccount,
@@ -376,14 +485,24 @@ export class PaymentService {
 
   private getRevenueAccount(type: string): AccountCode {
     switch (type) {
-      case 'retail_sale':
-        return AccountCode.SALES_REVENUE;
-      case 'loan_payment':
-        return AccountCode.LOAN_RECEIVABLE_FLAT; // Simplifying: assume principal payment
-      case 'savings_deposit':
-        return AccountCode.SAVINGS_VOLUNTARY; // Liability Increases (Credit)
-      default:
-        throw new Error(`Unknown transaction type for revenue mapping: ${type}`);
+      case 'retail_sale': return AccountCode.SALES_REVENUE;
+      case 'loan_payment': return AccountCode.LOAN_RECEIVABLE_FLAT; // Principal part usually, simplified
+      case 'savings_deposit': return AccountCode.SAVINGS_VOLUNTARY; // Liability
+      case 'rental_payment': return AccountCode.RENTAL_REVENUE;
+      default: return AccountCode.SALES_REVENUE;
     }
+  }
+
+  private async notifyAgent(event: string, data: any) {
+    if (!this.agentUrl) return;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.agentToken) headers['Authorization'] = `Bearer ${this.agentToken}`;
+      await fetch(this.agentUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ event, data })
+      });
+    } catch {}
   }
 }

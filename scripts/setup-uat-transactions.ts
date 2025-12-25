@@ -52,7 +52,7 @@ async function run() {
     if (error) throw error;
     savings = newSavings;
   }
-  console.log('Savings ID:', savings.id);
+  console.log('Savings ID:', savings?.id ?? 'N/A');
 
   // 4. Get Payment Source
   const { data: sources } = await supabase.from('payment_sources').select('*');
@@ -64,10 +64,12 @@ async function run() {
 
   // 5. Create PENDING Transaction (Scenario 1)
   console.log('Creating Pending Savings Deposit...');
+  const savingsId = savings?.id;
+  if (!savingsId) throw new Error('Failed to initialize savings account for UAT');
   const { data: tx1, error: err1 } = await supabase.from('payment_transactions').insert({
     koperasi_id: koperasi.id,
     transaction_type: 'savings_deposit',
-    reference_id: savings.id,
+    reference_id: savingsId,
     amount: 50000,
     payment_method: 'transfer',
     payment_provider: 'manual',

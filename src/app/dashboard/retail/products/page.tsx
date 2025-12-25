@@ -5,7 +5,7 @@ import { Plus, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export default async function RetailProductsPage() {
+export default async function RetailProductsPage({ searchParams }: { searchParams?: { type?: 'regular' | 'consignment' } }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,7 +18,7 @@ export default async function RetailProductsPage() {
   const isValidUUID = koperasiId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(koperasiId);
   
   const products = isValidUUID 
-    ? await retailService.getProducts(koperasiId) 
+    ? await retailService.getProducts(koperasiId, { type: searchParams?.type })
     : [];
 
   return (
@@ -48,9 +48,26 @@ export default async function RetailProductsPage() {
             className="pl-9"
           />
         </div>
-        <Button variant="outline" size="icon">
-          <Filter className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard/retail/products">
+            <Button variant={!searchParams?.type ? 'default' : 'outline'} size="sm">
+              Semua
+            </Button>
+          </Link>
+          <Link href="/dashboard/retail/products?type=regular">
+            <Button variant={searchParams?.type === 'regular' ? 'default' : 'outline'} size="sm">
+              Barang Reguler
+            </Button>
+          </Link>
+          <Link href="/dashboard/retail/products?type=consignment">
+            <Button variant={searchParams?.type === 'consignment' ? 'default' : 'outline'} size="sm">
+              Barang Konsinyasi
+            </Button>
+          </Link>
+          <Button variant="outline" size="icon" aria-label="Filter lainnya">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Products Table */}

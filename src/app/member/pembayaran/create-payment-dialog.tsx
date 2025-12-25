@@ -37,6 +37,7 @@ export function CreatePaymentDialog({ savingsAccounts, loans, paymentSources }: 
   const [paymentSourceId, setPaymentSourceId] = useState<string>('');
   const [senderInfo, setSenderInfo] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [file, setFile] = useState<File | null>(null);
 
   const selectedSource = paymentSources.find(s => s.id === paymentSourceId);
 
@@ -55,6 +56,7 @@ export function CreatePaymentDialog({ savingsAccounts, loans, paymentSources }: 
     fd.set('paymentSourceId', paymentSourceId);
     fd.set('senderInfo', senderInfo);
     if (notes) fd.set('notes', notes);
+    if (file) fd.set('proof', file);
 
     try {
       const res = await createMemberPayment(fd);
@@ -79,6 +81,7 @@ export function CreatePaymentDialog({ savingsAccounts, loans, paymentSources }: 
     setPaymentSourceId('');
     setSenderInfo('');
     setNotes('');
+    setFile(null);
   }
 
   return (
@@ -187,6 +190,16 @@ export function CreatePaymentDialog({ savingsAccounts, loans, paymentSources }: 
                 onChange={(e) => setSenderInfo(e.target.value)}
                 className="col-span-3"
                 placeholder="Nama Pengirim / No Ref"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Bukti Transfer</Label>
+              <Input
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="col-span-3"
+                accept="image/*,application/pdf"
               />
             </div>
 

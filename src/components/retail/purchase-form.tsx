@@ -86,8 +86,8 @@ export default function PurchaseForm({ suppliers, products, onSubmit }: Purchase
         {/* Header Info */}
         <div className="bg-white p-6 rounded-lg border shadow-sm grid md:grid-cols-3 gap-6">
             <div className="space-y-2">
-                <label htmlFor="invoice_number" className="text-sm font-medium">No. Faktur / Invoice</label>
-                <Input id="invoice_number" name="invoice_number" required placeholder="INV-001" />
+                <label htmlFor="invoice_number" className="text-sm font-medium">No. Referensi Supplier (Opsional)</label>
+                <Input id="invoice_number" name="invoice_number" placeholder="Contoh: INV-SUP-001" />
             </div>
             <div className="space-y-2">
                 <label htmlFor="supplier_id" className="text-sm font-medium">Supplier</label>

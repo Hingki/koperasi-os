@@ -10,10 +10,23 @@ export interface CartItem extends InventoryProduct {
     qty: number;
 }
 
-export function PosLayout({ koperasiId, initialProducts }: { koperasiId: string, initialProducts: any[] }) {
-    const [cart, setCart] = useState<CartItem[]>([]);
-    const [selectedCustomer, setSelectedCustomer] = useState<any>(null); // Member or RetailCustomer
-    const [customerType, setCustomerType] = useState<'member' | 'retail' | 'guest'>('guest');
+export function PosLayout({ koperasiId, initialProducts, initialTransaction }: { koperasiId: string, initialProducts: InventoryProduct[], initialTransaction?: any }) {
+    const [cart, setCart] = useState<CartItem[]>(() => {
+        if (initialTransaction?.items) {
+            return initialTransaction.items.map((item: any) => ({
+                ...item.product,
+                qty: item.quantity,
+                // If we want to preserve the price at the time of order:
+                // price_sell_public: item.price_at_sale 
+                // But for now, let's use product details which are freshest, 
+                // unless we want to honor the kiosk price.
+                // Given it's "Pending", maybe we should honor the cart.
+            }));
+        }
+        return [];
+    });
+    const [selectedCustomer, setSelectedCustomer] = useState<any>(initialTransaction?.member_id ? { id: initialTransaction.member_id, name: initialTransaction.customer_name } : null); 
+    const [customerType, setCustomerType] = useState<'member' | 'retail' | 'guest'>(initialTransaction?.member_id ? 'member' : 'guest');
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
     const addToCart = (product: InventoryProduct) => {
@@ -93,6 +106,7 @@ export function PosLayout({ koperasiId, initialProducts }: { koperasiId: string,
                 customerType={customerType}
                 koperasiId={koperasiId}
                 onSuccess={clearCart}
+                originalTransactionId={initialTransaction?.id}
             />
         </div>
     );

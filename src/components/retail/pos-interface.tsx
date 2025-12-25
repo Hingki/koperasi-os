@@ -21,6 +21,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { processPosTransaction, searchProductByBarcode } from '@/lib/actions/retail';
+import { getMemberPointsAction, validateVoucherAction } from '@/lib/actions/loyalty';
 import { QRISPaymentModal } from '@/components/pos/qris-payment-modal';
 import { BarcodeScannerModal } from '@/components/pos/barcode-scanner-modal';
 
@@ -50,6 +51,8 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
 
   // Member State
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [pointsBalance, setPointsBalance] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [isSearchingMember, setIsSearchingMember] = useState(false);
 
@@ -62,8 +65,24 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
   
   // Barcode Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [discountType, setDiscountType] = useState<'percent' | 'nominal'>('nominal');
   const [discountInput, setDiscountInput] = useState('');
+  const [discountType, setDiscountType] = useState<'percent' | 'nominal'>('percent');
+  
+  const [donationAmount, setDonationAmount] = useState(0);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
+  const [voucherMessage, setVoucherMessage] = useState('');
+
+  // Effect: Fetch Points when member selected
+  useEffect(() => {
+    if (selectedMember) {
+      getMemberPointsAction(selectedMember.id).then(setPointsBalance);
+    } else {
+      setPointsBalance(0);
+      setUsePoints(false);
+    }
+  }, [selectedMember]);
+
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [splitGroups, setSplitGroups] = useState<{ id: string; name: string; method: 'cash' | 'qris' | 'savings_balance'; cashGiven?: string }[]>([{ id: 'g1', name: 'Grup 1', method: 'cash' }]);
   const [itemGroupMap, setItemGroupMap] = useState<Record<string, string>>({});
@@ -124,11 +143,28 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
     const price = selectedMember ? item.price_sell_member : item.price_sell_public;
     return sum + (price * item.qty);
   }, 0);
+
+  // Effect: Validate Voucher when code changes (debounced ideally, but button for now)
+  const handleCheckVoucher = async () => {
+    if (!voucherCode) return;
+    setVoucherMessage('Memeriksa...');
+    const res = await validateVoucherAction(voucherCode, subtotal, user.user_metadata.koperasi_id);
+    if (res.valid) {
+      setVoucherDiscount(res.discountAmount || 0);
+      setVoucherMessage(`Sukses: Hemat Rp ${(res.discountAmount || 0).toLocaleString('id-ID')}`);
+    } else {
+      setVoucherDiscount(0);
+      setVoucherMessage(`Error: ${res.message}`);
+    }
+  };
   
   const tax = 0; 
   const discountValueNum = Number(discountInput) || 0;
   const discountAmount = discountType === 'percent' ? Math.min(subtotal * (discountValueNum / 100), subtotal) : Math.min(discountValueNum, subtotal);
-  const total = Math.max(0, subtotal - discountAmount + tax);
+  
+  const pointsValue = usePoints ? Math.min(pointsBalance, Math.max(0, subtotal - discountAmount - voucherDiscount)) : 0;
+  const total = Math.max(0, subtotal - discountAmount - voucherDiscount - pointsValue + donationAmount + tax);
+  
   const change = (Number(cashGiven) || 0) - total;
 
   const addGroup = () => {
@@ -250,11 +286,18 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
           member_id: selectedMember?.id || null,
           customer_name: selectedMember ? selectedMember.name : 'General Customer',
           total_amount: subtotal,
-          discount_amount: discountAmount,
+          discount_amount: discountAmount + voucherDiscount,
           tax_amount: tax,
           final_amount: total,
           payment_method: method,
-          payment_status: method === 'qris' ? 'pending' : 'paid'
+          payment_status: method === 'qris' ? 'pending' : 'paid',
+          // New Fields (Cast to any to bypass type check if interface not updated yet)
+          ...({
+             donation_amount: donationAmount,
+             voucher_code: voucherCode || null,
+             points_used: pointsValue > 0 ? pointsValue : 0, // 1 point = 1 rupiah
+             points_value: pointsValue
+          } as any)
         },
         items
       );
@@ -329,7 +372,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
           {
             koperasi_id: user.user_metadata.koperasi_id,
             unit_usaha_id: products[0]?.unit_usaha_id || user.user_metadata.unit_usaha_id,
-            member_id: selectedMember?.id || null,
+            member_id: selectedMember?.id || undefined,
             customer_name: selectedMember ? selectedMember.name : 'General Customer',
             total_amount: totals.subtotal,
             discount_amount: totals.discount,
@@ -526,6 +569,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                              const val = e.target.value as 'cash' | 'qris' | 'savings_balance';
                              setSplitGroups(prev => prev.map(x => x.id === g.id ? { ...x, method: val } : x));
                            }}
+                           title="Metode grup"
                          >
                            <option value="cash">Tunai</option>
                            <option value="qris">QRIS</option>
@@ -577,6 +621,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                         className="text-xs border rounded px-2 py-1 bg-white"
                         value={itemGroupMap[item.id] || 'g1'}
                         onChange={(e) => setItemGroup(item.id, e.target.value)}
+                        title="Kelompok item"
                       >
                         {splitGroups.map(g => (
                           <option key={g.id} value={g.id}>{g.name}</option>
@@ -641,6 +686,63 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
               <span>Rp {discountAmount.toLocaleString('id-ID')}</span>
             </div>
           </div>
+
+          {/* Donation */}
+          <div className="flex items-center justify-between gap-2">
+             <span className="text-sm text-slate-500">Donasi</span>
+             <div className="relative">
+                <span className="absolute left-3 top-2 text-xs">Rp</span>
+                <Input 
+                   type="number" 
+                   className="h-8 w-32 pl-8 text-right text-sm" 
+                   value={donationAmount || ''}
+                   onChange={e => setDonationAmount(Number(e.target.value))}
+                   placeholder="0"
+                />
+             </div>
+          </div>
+
+          {/* Voucher */}
+          <div className="space-y-1">
+             <div className="flex gap-2">
+                <Input 
+                   placeholder="Kode Voucher" 
+                   className="h-8 text-sm uppercase" 
+                   value={voucherCode}
+                   onChange={e => setVoucherCode(e.target.value.toUpperCase())}
+                />
+                <Button variant="outline" size="sm" className="h-8" onClick={handleCheckVoucher}>Cek</Button>
+             </div>
+             {voucherMessage && <p className={`text-[10px] ${voucherDiscount > 0 ? 'text-green-600' : 'text-red-500'}`}>{voucherMessage}</p>}
+             {voucherDiscount > 0 && (
+                <div className="flex justify-between text-xs text-green-600">
+                   <span>Voucher</span>
+                   <span>-Rp {voucherDiscount.toLocaleString('id-ID')}</span>
+                </div>
+             )}
+          </div>
+
+          {/* Points */}
+          {selectedMember && pointsBalance > 0 && (
+             <div className="flex items-center justify-between bg-amber-50 p-2 rounded border border-amber-100">
+                <div className="text-xs text-amber-800">
+                   <p className="font-medium">Poin: {pointsBalance}</p>
+                   <p>Tukar Poin?</p>
+                </div>
+                <div className="flex items-center gap-2">
+                   <span className="text-xs font-bold text-amber-700">
+                      {usePoints ? `-Rp ${pointsValue.toLocaleString('id-ID')}` : ''}
+                   </span>
+                   <input 
+                      type="checkbox" 
+                      className="toggle toggle-sm toggle-warning" 
+                      checked={usePoints}
+                      onChange={e => setUsePoints(e.target.checked)}
+                   />
+                </div>
+             </div>
+          )}
+
           <div className="flex justify-between text-lg font-bold text-slate-900 border-t pt-2">
             <span>Total</span>
             <span>Rp {total.toLocaleString('id-ID')}</span>

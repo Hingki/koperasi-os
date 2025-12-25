@@ -123,11 +123,13 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
           <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="UUID pengguna" />
         </div>
         <div className="grid grid-cols-1 gap-2">
-          <label className="text-sm font-medium">Peran</label>
+          <label className="text-sm font-medium" htmlFor="role_select">Peran</label>
           <select
+            id="role_select"
             className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 capitalize"
             value={role}
             onChange={(e) => setRole(e.target.value as UserRoleType)}
+            title="Peran pengguna"
           >
             <option value="staff">Staff</option>
             <option value="ketua">Ketua</option>
@@ -138,8 +140,8 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
           </select>
         </div>
         <div className="grid grid-cols-1 gap-2">
-          <label className="text-sm font-medium">Anggota Terkait (opsional)</label>
-          <select className="border rounded px-3 py-2" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+          <label className="text-sm font-medium" htmlFor="member_select">Anggota Terkait (opsional)</label>
+          <select id="member_select" className="border rounded px-3 py-2" value={memberId} onChange={(e) => setMemberId(e.target.value)} title="Anggota terkait">
             <option value="">Tidak terkait</option>
             {memberOptions.map(m => (
               <option key={m.id} value={m.id}>
@@ -149,12 +151,15 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
           </select>
         </div>
         <div className="grid grid-cols-1 gap-2">
-          <label className="text-sm font-medium">Masa Berlaku Hingga</label>
+          <label className="text-sm font-medium" htmlFor="valid_until_input">Masa Berlaku Hingga</label>
           <input
             type="date"
+            id="valid_until_input"
             className="border rounded px-3 py-2"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
+            title="Tanggal masa berlaku"
+            placeholder="YYYY-MM-DD"
           />
         </div>
         <div className="flex items-center gap-3">
@@ -190,6 +195,8 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
                       updateRole(r.id, { valid_until: e.target.value ? new Date(e.target.value).toISOString() : null } as Partial<UserRole>)
                     }
                     disabled={loading}
+                    title="Tanggal masa berlaku"
+                    placeholder="YYYY-MM-DD"
                   />
                 </td>
                 <td className="p-3">
@@ -198,6 +205,7 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
                     checked={r.is_active}
                     onChange={(e) => updateRole(r.id, { is_active: e.target.checked } as Partial<UserRole>)}
                     disabled={loading}
+                    title="Aktif"
                   />
                 </td>
                 <td className="p-3">
@@ -218,4 +226,3 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
     </div>
   );
 }
-

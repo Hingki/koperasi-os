@@ -72,7 +72,8 @@ export class SavingsService {
     amount: number,
     type: 'deposit' | 'withdrawal',
     userId: string,
-    description?: string
+    description?: string,
+    skipLedger: boolean = false
   ) {
     // 1. Validate Amount
     if (amount <= 0) throw new Error('Amount must be positive');
@@ -167,25 +168,143 @@ export class SavingsService {
     }
 
     // C. Trigger Ledger
-    try {
-      await this.ledgerService.recordTransaction({
-        koperasi_id: account.koperasi_id,
-        tx_type: ledgerTxType,
-        tx_reference: tx.id, // Use transaction ID as ref
-        account_debit: debitAccount,
-        account_credit: creditAccount,
-        amount: amount,
-        description: description || `${type} for Account ${account.account_number}`,
-        source_table: 'savings_transactions',
-        source_id: tx.id,
-        created_by: userId
-      });
-    } catch (ledgerError) {
-        console.error("Ledger Recording Failed:", ledgerError);
-        // Critical error, but balance is updated.
+    if (!skipLedger) {
+      try {
+        await this.ledgerService.recordTransaction({
+          koperasi_id: account.koperasi_id,
+          tx_type: ledgerTxType,
+          tx_reference: tx.id, // Use transaction ID as ref
+          account_debit: debitAccount,
+          account_credit: creditAccount,
+          amount: amount,
+          description: description || `${type} for Account ${account.account_number}`,
+          source_table: 'savings_transactions',
+          source_id: tx.id,
+          created_by: userId
+        });
+      } catch (ledgerError) {
+          console.error("Ledger Recording Failed:", ledgerError);
+          // Critical error, but balance is updated.
+      }
     }
 
     return { transaction: tx, newBalance };
+  }
+
+  async processMonthlyMandatorySavingsDeduction(
+    koperasiId: string,
+    amount: number,
+    userId: string
+  ) {
+    // 1. Get all active members with both Voluntary and Mandatory accounts
+    // We need to fetch members who have ACTIVE Mandatory Savings Product
+    // And have enough balance in Voluntary Savings.
+
+    // A. Get Mandatory Product for this Koperasi
+    const { data: mandatoryProduct } = await this.supabase
+        .from('savings_products')
+        .select('id, name')
+        .eq('koperasi_id', koperasiId)
+        .eq('type', 'wajib')
+        .eq('is_active', true)
+        .single();
+
+    if (!mandatoryProduct) throw new Error("No active Mandatory Savings product found");
+
+    // B. Get Voluntary Product
+    const { data: voluntaryProduct } = await this.supabase
+        .from('savings_products')
+        .select('id')
+        .eq('koperasi_id', koperasiId)
+        .eq('type', 'sukarela')
+        .eq('is_active', true)
+        .single();
+
+    if (!voluntaryProduct) throw new Error("No active Voluntary Savings product found for source of funds");
+
+    // C. Get Accounts
+    // We want accounts where member has both.
+    // This query is complex in Supabase JS. Let's fetch all Voluntary with balance >= amount.
+    const { data: sourceAccounts, error: sourceError } = await this.supabase
+        .from('savings_accounts')
+        .select('id, member_id, balance, account_number')
+        .eq('product_id', voluntaryProduct.id)
+        .gte('balance', amount)
+        .eq('status', 'active');
+
+    if (sourceError) throw sourceError;
+    if (!sourceAccounts || sourceAccounts.length === 0) return { processed: 0, failed: 0, message: "No eligible accounts found" };
+
+    let processed = 0;
+    let failed = 0;
+
+    // Process each member
+    for (const sourceAcc of sourceAccounts) {
+        try {
+            // Find destination account (Mandatory) for this member
+            const { data: destAcc } = await this.supabase
+                .from('savings_accounts')
+                .select('id, account_number')
+                .eq('member_id', sourceAcc.member_id)
+                .eq('product_id', mandatoryProduct.id)
+                .eq('status', 'active')
+                .single();
+
+            if (!destAcc) {
+                // Skip if member doesn't have mandatory account open
+                continue; 
+            }
+
+            // Perform Transfer
+            // 1. Withdraw from Voluntary
+            await this.processTransaction(
+                sourceAcc.id,
+                amount,
+                'withdrawal',
+                userId,
+                `Autodebet Simpanan Wajib to ${destAcc.account_number}`,
+                true // Skip ledger here, we will do a combined or separate ledger entry? 
+                     // Actually processTransaction does ledger. 
+                     // If we skip, we can do a cleaner "Transfer" ledger entry (Dr Vol, Cr Man).
+                     // If we don't skip, we get (Dr Vol, Cr Cash) and (Dr Cash, Cr Man). Net effect is same but Cash wash.
+                     // Better to skip ledger in individual steps and do one Transfer entry?
+                     // Or just let it wash through Cash (easier for reconciliation if cash actually moved conceptually).
+                     // But here it's internal transfer.
+                     // Let's use `skipLedger=true` and record a Journal Adjustment or Transfer.
+            );
+
+            // 2. Deposit to Mandatory
+            await this.processTransaction(
+                destAcc.id,
+                amount,
+                'deposit',
+                userId,
+                `Autodebet Simpanan Wajib from ${sourceAcc.account_number}`,
+                true
+            );
+
+            // 3. Record Ledger: Debit Voluntary (Liability -), Credit Mandatory (Liability +)
+            await this.ledgerService.recordTransaction({
+                koperasi_id: koperasiId,
+                tx_type: 'journal_adjustment', // Or specific type
+                tx_reference: `AUTODEBET-${sourceAcc.member_id}-${Date.now()}`,
+                account_debit: AccountCode.SAVINGS_VOLUNTARY,
+                account_credit: AccountCode.SAVINGS_MANDATORY,
+                amount: amount,
+                description: `Autodebet Simpanan Wajib Member ${sourceAcc.member_id}`,
+                source_table: 'savings_accounts',
+                source_id: destAcc.id,
+                created_by: userId
+            });
+
+            processed++;
+        } catch (err) {
+            console.error(`Failed autodebet for member ${sourceAcc.member_id}:`, err);
+            failed++;
+        }
+    }
+
+    return { processed, failed };
   }
 
   private mapProductToLiabilityAccount(type: string): AccountCode {
@@ -193,6 +312,8 @@ export class SavingsService {
           case 'pokok': return AccountCode.SAVINGS_PRINCIPAL;
           case 'wajib': return AccountCode.SAVINGS_MANDATORY;
           case 'sukarela': return AccountCode.SAVINGS_VOLUNTARY;
+          case 'rencana': return AccountCode.SAVINGS_PLANNED;
+          case 'berjangka': return AccountCode.SAVINGS_TIME;
           default: return AccountCode.SAVINGS_VOLUNTARY; // Fallback
       }
   }

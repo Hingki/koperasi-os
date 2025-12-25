@@ -496,24 +496,28 @@ export class ReportService {
     // 4. Build Hierarchy
     const buildHierarchy = (type: string): BalanceSheetSection => {
         const typeAccounts = accounts.filter(a => a.account_type === type);
-        const rootAccounts = typeAccounts.filter(a => a.level === 1); // Or top level for that type
-        
-        // Since our COA structure has Headers and Parents, we need to be careful.
-        // We will build a tree.
-        
+        if (type === 'equity') {
+            const retainedEarningsAccount = typeAccounts.find(a => a.account_code === '3-1400' || a.account_name.includes('Tahun Berjalan'));
+            if (retainedEarningsAccount) {
+                const currentBalance = accountBalances.get(retainedEarningsAccount.account_code) || 0;
+                accountBalances.set(retainedEarningsAccount.account_code, currentBalance + netIncome);
+            } else {
+                const reAccount = typeAccounts.find(a => a.account_code === '3-1001');
+                if (reAccount) {
+                    const currentBalance = accountBalances.get(reAccount.account_code) || 0;
+                    accountBalances.set(reAccount.account_code, currentBalance + netIncome);
+                }
+            }
+        }
+
         const buildNode = (parent: any): BalanceSheetItem => {
             const children = typeAccounts
-                .filter(a => a.parent_code === parent.account_code)
-                .map(child => buildNode(child));
-            
-            // Calculate total for this node
-            // If it's a header, sum children. If it's a leaf, use ledger balance.
-            let myBalance = 0;
-            if (parent.is_header) {
-                myBalance = children.reduce((sum, child) => sum + child.balance, 0);
-            } else {
-                myBalance = accountBalances.get(parent.account_code) || 0;
-            }
+                .filter((a: any) => a.parent_code === parent.account_code)
+                .map((child: any) => buildNode(child));
+
+            const myBalance = parent.is_header
+                ? children.reduce((sum: number, child: BalanceSheetItem) => sum + child.balance, 0)
+                : (accountBalances.get(parent.account_code) || 0);
 
             return {
                 account_code: parent.account_code,
@@ -524,14 +528,9 @@ export class ReportService {
             };
         };
 
-        // If no root level 1 found (e.g. Assets starts at 1-0000), use that.
-        // Actually our COA has 1-0000 ASSETS.
-        // But we want to return the Section.
-        
-        // Let's just grab the top-most nodes for this type.
-        const topNodes = typeAccounts.filter(a => !a.parent_code || !typeAccounts.find(p => p.account_code === a.parent_code));
-        const items = topNodes.map(node => buildNode(node));
-        const total = items.reduce((sum, item) => sum + item.balance, 0);
+        const topNodes = typeAccounts.filter((a: any) => !a.parent_code || !typeAccounts.find((p: any) => p.account_code === a.parent_code));
+        const items = topNodes.map((node: any) => buildNode(node));
+        const total = items.reduce((sum: number, item: BalanceSheetItem) => sum + item.balance, 0);
 
         return { total, items };
     };
@@ -551,26 +550,6 @@ export class ReportService {
     
     // Find the SHU node in the tree and update it?
     // Or just add it to the total.
-    
-    const updateSHU = (items: BalanceSheetItem[]): boolean => {
-        for (const item of items) {
-            if (item.account_code === shuAccountCode) {
-                item.balance = netIncome;
-                return true;
-            }
-            if (item.children.length > 0) {
-                const found = updateSHU(item.children);
-                if (found) {
-                    // Update parent totals up the stack? 
-                    // Our recursive builder calculated totals bottom-up based on initial values.
-                    // If we change a leaf, we need to recalculate.
-                    // This is getting complicated.
-                    return true;
-                }
-            }
-        }
-        return false;
-    };
     
     // Re-run equity build?
     // Better approach: Set the SHU balance in accountBalances map BEFORE building hierarchy.

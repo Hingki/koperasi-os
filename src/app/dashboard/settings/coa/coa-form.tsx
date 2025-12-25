@@ -66,6 +66,7 @@ export function CoaForm({ initialData }: { initialData?: Account }) {
             <select 
                 id="account_type" 
                 name="account_type" 
+                title="Tipe Akun"
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 defaultValue={initialData?.account_type || 'asset'}
                 required
@@ -83,6 +84,7 @@ export function CoaForm({ initialData }: { initialData?: Account }) {
             <select 
                 id="normal_balance" 
                 name="normal_balance" 
+                title="Saldo Normal"
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 defaultValue={initialData?.normal_balance || 'debit'}
                 required

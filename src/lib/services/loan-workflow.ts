@@ -65,7 +65,7 @@ export class LoanWorkflowService {
   }
 
   private validateTransition(currentStatus: string, action: LoanAction) {
-    const valid = {
+    const valid: Record<string, LoanAction[]> = {
       'draft': ['submit'],
       'submitted': ['approve', 'reject'],
       'approved': [], // Cannot change after approval (must go to disburse via LoanService)
@@ -74,7 +74,6 @@ export class LoanWorkflowService {
       'paid': []
     };
 
-    // @ts-ignore
     const allowed = valid[currentStatus] || [];
     if (!allowed.includes(action)) {
       throw new Error(`Invalid action '${action}' for status '${currentStatus}'`);

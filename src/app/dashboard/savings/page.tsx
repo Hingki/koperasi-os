@@ -62,7 +62,7 @@ export default async function SavingsDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Link href="/dashboard/savings/arrears" className="p-4 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex items-center justify-between">
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-100 rounded-full text-orange-600">
@@ -87,6 +87,19 @@ export default async function SavingsDashboardPage() {
                 </div>
             </div>
             <ArrowUpRight className="h-5 w-5 text-blue-400" />
+        </Link>
+
+        <Link href="/dashboard/savings/requests" className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 rounded-full text-emerald-600">
+                    <ArrowDownLeft className="h-5 w-5" />
+                </div>
+                <div>
+                    <h3 className="font-semibold text-emerald-900">Permohonan Penarikan</h3>
+                    <p className="text-sm text-emerald-700">Setujui permintaan online</p>
+                </div>
+            </div>
+            <ArrowUpRight className="h-5 w-5 text-emerald-400" />
         </Link>
       </div>
 

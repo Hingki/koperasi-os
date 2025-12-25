@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { LedgerService } from '@/lib/services/ledger-service';
+import { createHash, randomUUID } from 'crypto';
 // import { AccountCode } from '@/lib/types/ledger'; // Not used here as we pass raw IDs
 
 export async function createAccount(formData: FormData) {
@@ -137,8 +138,6 @@ export async function createManualJournal(formData: FormData) {
   
   // PLAN: Implement Hashing here.
   
-  const crypto = require('crypto');
-  
   // 1. Get Period
   const today = new Date(entry_date);
   // (Simplified period logic from service)
@@ -173,13 +172,13 @@ export async function createManualJournal(formData: FormData) {
   // Timestamp use Date.now() or created_at? Service uses Date.now().
   const timestamp = Date.now();
   const entryData = `${previousHash}|${amount}|${account_debit}|${account_credit}|${reference}|${timestamp}`;
-  const currentHash = crypto.createHash('sha256').update(entryData).digest('hex');
+  const currentHash = createHash('sha256').update(entryData).digest('hex');
 
   // 4. Insert
   const { error } = await supabase.from('ledger_entry').insert({
     koperasi_id: koperasiId,
     period_id: periodId,
-    tx_id: crypto.randomUUID(),
+    tx_id: randomUUID(),
     tx_type: 'journal_adjustment', // Manual
     tx_reference: reference || `MAN-${timestamp}`,
     account_debit: account_debit,

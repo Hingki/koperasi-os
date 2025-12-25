@@ -43,6 +43,7 @@ export default function RegisterPage() {
     // Client-side validation with Zod
     const validation = safeValidateMemberRegistration(memberData);
     if (!validation.success) {
+      console.log('Validation failed:', validation.error);
       const formErrors: FormErrors = {};
       validation.error.errors.forEach((err) => {
         const field = err.path[0] as string;
@@ -54,9 +55,10 @@ export default function RegisterPage() {
       return;
     }
 
-    const supabase = createClient();
-
     try {
+      console.log('Starting Supabase SignUp...');
+      const supabase = createClient();
+
       // Step 1: Register user to Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -67,6 +69,8 @@ export default function RegisterPage() {
           },
         },
       });
+
+      console.log('SignUp result:', { authData, authError });
 
       if (authError) {
         setMessage(`Error: ${authError.message}`);

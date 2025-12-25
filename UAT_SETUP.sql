@@ -55,6 +55,14 @@ LIMIT 1;
 
 -- 4. Update Products with COA Codes
 -- Savings: Liability (2-1001)
+DO $$ 
+BEGIN
+    ALTER TABLE savings_products ADD COLUMN IF NOT EXISTS coa_id TEXT;
+    ALTER TABLE loan_products ADD COLUMN IF NOT EXISTS coa_receivable TEXT;
+    ALTER TABLE loan_products ADD COLUMN IF NOT EXISTS coa_interest_income TEXT;
+EXCEPTION
+    WHEN duplicate_column THEN NULL;
+END $$;
 UPDATE savings_products SET coa_id = '2-1001' WHERE coa_id IS NULL;
 -- Loans: Receivable (1-1003) & Interest Income (4-1001)
 UPDATE loan_products SET coa_receivable = '1-1003', coa_interest_income = '4-1001' WHERE coa_receivable IS NULL;
@@ -65,3 +73,17 @@ ALTER TABLE payment_sources ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read payment sources" ON payment_sources;
 CREATE POLICY "Public read payment sources" ON payment_sources FOR SELECT TO authenticated USING (true);
 
+-- 6. Ensure RAT Documents policy is idempotent (if table exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'rat_documents'
+  ) THEN
+    DROP POLICY IF EXISTS "Allow read access for authenticated users" ON rat_documents;
+    CREATE POLICY "Allow read access for authenticated users"
+      ON rat_documents FOR SELECT TO authenticated
+      USING (true);
+  END IF;
+END
+$$;

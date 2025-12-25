@@ -92,12 +92,20 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute = PUBLIC_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
+  const isApiRoute = pathname.startsWith('/api');
 
   // If route requires auth but user is not authenticated
   if (requiresAuth && (!user || authError)) {
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(redirectUrl);
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please login first.' },
+        { status: 401 }
+      );
+    } else {
+      const redirectUrl = new URL('/login', request.url);
+      redirectUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   // If route is public, allow access

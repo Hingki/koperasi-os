@@ -29,8 +29,11 @@ export default function LoginPage() {
 
       // Determine redirect based on role
       const redirectPath = await getUserRoleRedirectPath();
-      router.push(redirectPath);
+      
+      // Refresh first to update root layout (auth state)
       router.refresh();
+      // Then navigate
+      router.replace(redirectPath);
     } catch (err: any) {
       setError(err.message);
     } finally {

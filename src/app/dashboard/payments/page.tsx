@@ -21,7 +21,7 @@ export default async function AdminPaymentsPage() {
   const koperasiId = user.user_metadata?.koperasi_id;
 
   // Fetch Pending Transactions
-  const { data: transactions } = await supabase
+  const { data: rawTransactions } = await supabase
     .from('payment_transactions')
     .select(`
       *,
@@ -30,6 +30,25 @@ export default async function AdminPaymentsPage() {
     .eq('koperasi_id', koperasiId)
     .eq('payment_status', 'pending')
     .order('created_at', { ascending: false });
+
+  // Process transactions to add signed URLs for proofs
+  const transactions = await Promise.all((rawTransactions || []).map(async (tx) => {
+    let signedUrl = null;
+    const proofPath = tx.metadata?.proof_url; // New format
+    // Fallback to proof_of_payment if it looks like a path (contains '/') and not just text
+    // But be careful, old data might have 'Nama Pengirim' in proof_of_payment.
+    // The new code stores path in metadata.proof_url AND proof_of_payment (if not null in DB schema).
+    // Let's rely on metadata.proof_url first.
+    
+    if (proofPath) {
+      const { data } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(proofPath, 60 * 60);
+      signedUrl = data?.signedUrl;
+    }
+
+    return { ...tx, signedUrl };
+  }));
 
   // Helper to fetch member name (could be optimized with join if relationship exists)
   // Currently payment_transactions doesn't have direct FK to member, but has metadata->member_id or created_by
@@ -91,9 +110,19 @@ export default async function AdminPaymentsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span>{tx.proof_of_payment}</span>
+                      <span className="font-medium">{tx.metadata?.sender_info || '-'}</span>
+                      {tx.signedUrl && (
+                        <a 
+                          href={tx.signedUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                        >
+                          Lihat Bukti
+                        </a>
+                      )}
                       {tx.metadata?.sender_note && (
-                        <span className="text-xs text-slate-500 italic">"{tx.metadata.sender_note}"</span>
+                        <span className="text-xs text-slate-500 italic mt-1">"{tx.metadata.sender_note}"</span>
                       )}
                     </div>
                   </TableCell>

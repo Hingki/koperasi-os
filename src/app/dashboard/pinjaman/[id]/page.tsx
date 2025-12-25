@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, CreditCard, Clock, AlertTriangle, Printer } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, Clock, AlertTriangle, Printer, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LoanActionButtons } from '../action-buttons';
@@ -33,6 +33,10 @@ export default async function LoanDetailPage(props: { params: Promise<{ id: stri
             loans(
                 *,
                 repayments:loan_repayment_schedule(*)
+            ),
+            financing_object:financing_objects(
+                *,
+                supplier:inventory_suppliers(*)
             )
         `)
         .eq('id', params.id)
@@ -135,6 +139,76 @@ export default async function LoanDetailPage(props: { params: Promise<{ id: stri
                             </div>
                         </div>
                     </Card>
+
+                    {/* Financing Object Details (If applicable) */}
+                    {loan.financing_object && loan.financing_object.length > 0 && (
+                        <Card className="p-6">
+                            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                <ShoppingBag className="h-5 w-5 text-slate-500" />
+                                Informasi Objek Pembiayaan
+                            </h3>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="text-xs text-slate-500 font-medium uppercase">Nama Barang</label>
+                                    <p className="font-medium text-slate-900">{loan.financing_object[0].name}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-500 font-medium uppercase">Kategori</label>
+                                    <Badge variant="outline" className="capitalize">
+                                        {loan.financing_object[0].category}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-500 font-medium uppercase">Kondisi</label>
+                                    <p className="text-slate-900 capitalize">{loan.financing_object[0].condition}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-500 font-medium uppercase">Supplier/Vendor</label>
+                                    <p className="text-slate-900">{loan.financing_object[0].supplier?.name || '-'}</p>
+                                </div>
+                                
+                                <div className="col-span-2 border-t pt-4 mt-2">
+                                    <h4 className="text-sm font-medium text-slate-900 mb-3">Struktur Pembiayaan</h4>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="text-xs text-slate-500 font-medium uppercase">Harga OTR/Cash</label>
+                                            <p className="font-medium text-slate-900">
+                                                {formatCurrency(loan.financing_object[0].price_otr)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 font-medium uppercase">Uang Muka (DP)</label>
+                                            <p className="font-medium text-slate-900">
+                                                {formatCurrency(loan.financing_object[0].down_payment)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 font-medium uppercase">Pokok Pembiayaan</label>
+                                            <p className="font-bold text-blue-600">
+                                                {formatCurrency(loan.financing_object[0].financing_amount)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {loan.financing_object[0].attributes && Object.keys(loan.financing_object[0].attributes).length > 0 && (
+                                    <div className="col-span-2 border-t pt-4 mt-2">
+                                        <h4 className="text-sm font-medium text-slate-900 mb-3">Spesifikasi Detail</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {Object.entries(loan.financing_object[0].attributes).map(([key, value]) => (
+                                                <div key={key}>
+                                                    <label className="text-xs text-slate-500 font-medium uppercase capitalize">
+                                                        {key.replace(/_/g, ' ')}
+                                                    </label>
+                                                    <p className="text-slate-900">{String(value)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    )}
 
                     {/* Repayment Schedule */}
                     {sortedRepayments.length > 0 && (
