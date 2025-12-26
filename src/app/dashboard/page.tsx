@@ -7,6 +7,8 @@ import { Suspense } from 'react';
 import { DashboardStats } from './dashboard-stats';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { grantAdminAccess } from './actions';
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -57,6 +59,19 @@ export default async function DashboardPage() {
             Lengkapi Data Koperasi
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
+        )}
+
+        {/* Dev Helper: Claim Admin Access */}
+        {!isAdmin && process.env.NODE_ENV === 'development' && (
+          <form action={grantAdminAccess}>
+            <button 
+              type="submit"
+              className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shadow-sm transition-colors"
+            >
+              <Key className="mr-2 h-4 w-4" />
+              Claim Admin Access (Dev)
+            </button>
+          </form>
         )}
       </div>
       

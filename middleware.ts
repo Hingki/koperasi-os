@@ -16,7 +16,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 
 // Routes that require authentication (any role)
-const AUTH_REQUIRED_ROUTES = ['/member', '/api/members'];
+const AUTH_REQUIRED_ROUTES = ['/member', '/api/members', '/dashboard'];
 
 // Routes that require admin role
 const ADMIN_ROUTES = ['/admin', '/api/admin'];
