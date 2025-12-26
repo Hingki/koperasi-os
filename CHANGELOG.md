@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix: sanitize env vars to strip quotes and whitespace
+
+## [Unreleased]
 - fix: explicit env var checks in supabase clients and fix a11y issue
 
 ## [Unreleased]
@@ -63,6 +66,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
