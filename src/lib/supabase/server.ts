@@ -4,8 +4,9 @@ import { cookies } from 'next/headers'
 export async function createClient() {
   const cookieStore = await cookies()
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Sanitize environment variables to remove accidental quotes or whitespace
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/['"`\s]/g, '');
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.replace(/['"`\s]/g, '');
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
