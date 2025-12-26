@@ -60,7 +60,7 @@ export default async function DailyReportPage() {
             <CardTitle className="text-sm font-medium">Net Cash Flow</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${report.totalSales - report.totalPurchases >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+            <div className={`text-2xl font-bold ${report.totalSales - report.totalPurchases >= 0 ? 'text-teal-600' : 'text-orange-600'}`}>
               Rp {(report.totalSales - report.totalPurchases).toLocaleString('id-ID')}
             </div>
             <p className="text-xs text-muted-foreground">

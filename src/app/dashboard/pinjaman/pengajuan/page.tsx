@@ -24,7 +24,7 @@ export default async function LoanApplicationPage() {
                 <p className="text-slate-500 max-w-md mx-auto mb-6">
                     ID Koperasi tidak ditemukan atau tidak valid.
                 </p>
-                <Link href="/dashboard" className="text-blue-600 hover:underline">
+                <Link href="/dashboard" className="text-red-600 hover:underline">
                     Kembali ke Dashboard
                 </Link>
             </div>

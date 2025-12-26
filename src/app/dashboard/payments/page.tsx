@@ -116,7 +116,7 @@ export default async function AdminPaymentsPage() {
                           href={tx.signedUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                          className="text-xs text-red-600 hover:underline flex items-center gap-1 mt-1"
                         >
                           Lihat Bukti
                         </a>

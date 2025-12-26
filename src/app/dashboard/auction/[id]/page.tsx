@@ -40,9 +40,9 @@ export default async function AuctionDetailPage({ params }: { params: { id: stri
                 </div>
             </div>
 
-            <div className="p-6 bg-blue-50 rounded-xl text-center space-y-2">
-                <p className="text-sm text-blue-600 font-medium">Harga Saat Ini</p>
-                <p className="text-4xl font-bold text-blue-900">{formatCurrency(auction.current_price)}</p>
+            <div className="p-6 bg-red-50 rounded-xl text-center space-y-2">
+              <p className="text-sm text-red-600 font-medium">Harga Saat Ini</p>
+              <p className="text-4xl font-bold text-red-900">{formatCurrency(auction.current_price)}</p>
             </div>
 
             <BidForm auction={auction} minBid={minBid} />

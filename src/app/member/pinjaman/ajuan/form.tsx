@@ -226,7 +226,7 @@ export function MemberLoanApplicationForm({ products }: MemberLoanApplicationFor
               <span>Dana Diterima Bersih:</span>
               <span>{formatCurrency(receivedAmount)}</span>
             </div>
-            <div className="flex justify-between text-blue-700 border-t pt-2 mt-2">
+            <div className="flex justify-between text-teal-700 border-t pt-2 mt-2">
               <span>Estimasi Angsuran / Bulan:</span>
               <span className="font-bold">{formatCurrency(monthlyInstallment)}</span>
             </div>

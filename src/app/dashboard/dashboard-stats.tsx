@@ -19,24 +19,29 @@ export async function DashboardStats({ koperasiId, isAdmin }: DashboardStatsProp
   const isValidUUID = koperasiId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(koperasiId);
   
   if (isValidUUID && koperasiId) {
-    // Run parallel queries
-    const [
-      membersResult,
-      loansResult,
-      activeLoansResult
-    ] = await Promise.all([
-      supabase.from('member').select('*', { count: 'exact', head: true }).eq('koperasi_id', koperasiId).eq('status', 'active'),
-      supabase.from('loans').select('*', { count: 'exact', head: true }).eq('koperasi_id', koperasiId).eq('status', 'active'),
-      supabase.from('loans').select('remaining_principal').eq('koperasi_id', koperasiId).eq('status', 'active')
-    ]);
-    
-    memberCount = membersResult.count || 0;
-    loanCount = loansResult.count || 0;
-    
-    // Calculate total outstanding
-    // Note: For large datasets, this should be moved to an RPC call
-    const activeLoans = activeLoansResult.data as { remaining_principal: number }[] | null;
-    totalOutstanding = activeLoans?.reduce((sum, loan) => sum + Number(loan.remaining_principal), 0) || 0;
+    try {
+        // Run parallel queries
+        const [
+            membersResult,
+            loansResult,
+            activeLoansResult
+        ] = await Promise.all([
+            supabase.from('member').select('*', { count: 'exact', head: true }).eq('koperasi_id', koperasiId).eq('status', 'active'),
+            supabase.from('loans').select('*', { count: 'exact', head: true }).eq('koperasi_id', koperasiId).eq('status', 'active'),
+            supabase.from('loans').select('remaining_principal').eq('koperasi_id', koperasiId).eq('status', 'active')
+        ]);
+        
+        memberCount = membersResult.count || 0;
+        loanCount = loansResult.count || 0;
+        
+        // Calculate total outstanding
+        // Note: For large datasets, this should be moved to an RPC call
+        const activeLoans = activeLoansResult.data as { remaining_principal: number }[] | null;
+        totalOutstanding = activeLoans?.reduce((sum, loan) => sum + (Number(loan.remaining_principal) || 0), 0) || 0;
+    } catch (e) {
+        console.error("Error loading dashboard stats:", e);
+        // Fallback to 0 is already set by default values
+    }
   }
 
   return (
@@ -45,8 +50,8 @@ export async function DashboardStats({ koperasiId, isAdmin }: DashboardStatsProp
             <div className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between space-y-0 pb-2">
                     <h3 className="tracking-tight text-sm font-medium text-slate-500">Total Anggota</h3>
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Users className="h-4 w-4 text-blue-600" />
+                    <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                        <Users className="h-4 w-4 text-red-600" />
                     </div>
                 </div>
                 <div className="text-2xl font-bold text-slate-900 mt-2">{memberCount}</div>
@@ -59,8 +64,8 @@ export async function DashboardStats({ koperasiId, isAdmin }: DashboardStatsProp
                 <h3 className="tracking-tight text-sm font-medium text-slate-500">
                     {isAdmin ? 'Pinjaman Aktif' : 'Pinjaman Saya'}
                 </h3>
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <Banknote className="h-4 w-4 text-indigo-600" />
+                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Banknote className="h-4 w-4 text-orange-600" />
                 </div>
             </div>
             <div className="text-2xl font-bold text-slate-900 mt-2">{loanCount}</div>

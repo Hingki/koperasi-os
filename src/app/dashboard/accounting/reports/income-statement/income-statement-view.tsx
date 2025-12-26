@@ -105,7 +105,7 @@ export function IncomeStatementView({ data }: { data: IncomeStatementData }) {
       {/* Summary */}
       <Card>
         <CardHeader className="bg-slate-50 py-3">
-            <CardTitle className="text-lg text-blue-700">RINGKASAN (SUMMARY)</CardTitle>
+            <CardTitle className="text-lg text-red-700">RINGKASAN (SUMMARY)</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
             <SectionTotal title="Laba/Rugi Operasional" total={data.operatingProfit} isMain isSuccess={data.operatingProfit > 0} isDanger={data.operatingProfit < 0} />

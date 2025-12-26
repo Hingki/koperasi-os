@@ -157,10 +157,10 @@ export function VirtualAccountManager({ accounts, loans, existingVAs }: VAProps)
             <h3 className="text-lg font-semibold mt-8">Daftar Virtual Account Aktif</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {existingVAs.map((va) => (
-                    <Card key={va.id} className={`border-l-4 ${va.type === 'loan' ? 'border-l-amber-500' : 'border-l-blue-500'}`}>
+                    <Card key={va.id} className={`border-l-4 ${va.type === 'loan' ? 'border-l-amber-500' : 'border-l-red-500'}`}>
                         <CardContent className="pt-6">
                             <div className="flex justify-between items-start mb-4">
-                                <div className={`p-2 rounded-lg ${va.type === 'loan' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
+                                <div className={`p-2 rounded-lg ${va.type === 'loan' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
                                     {va.type === 'loan' ? <Banknote className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />}
                                 </div>
                                 <span className="px-2 py-1 text-xs font-semibold bg-slate-100 rounded text-slate-600">

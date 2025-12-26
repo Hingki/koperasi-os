@@ -61,19 +61,19 @@ export default async function WarehouseDashboard() {
                   <CardTitle>Operasional Gudang</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2">
-                  <Link href="/dashboard/warehouse/check-in">
+                  <Link href="/dashboard/warehouse/check-in" prefetch={false}>
                     <Button className="w-full justify-start" variant="outline">
                         <Scale className="mr-2 h-4 w-4" />
                         Penerimaan & Penimbangan
                     </Button>
                   </Link>
-                  <Link href="/dashboard/retail/stock-opname">
+                  <Link href="/dashboard/retail/stock-opname" prefetch={false}>
                     <Button className="w-full justify-start" variant="outline">
                         <ClipboardList className="mr-2 h-4 w-4" />
                         Stock Opname
                     </Button>
                   </Link>
-                   <Link href="/dashboard/warehouse/delivery">
+                   <Link href="/dashboard/warehouse/delivery" prefetch={false}>
                     <Button className="w-full justify-start" variant="outline">
                         <Truck className="mr-2 h-4 w-4" />
                         Delivery Order

@@ -198,7 +198,7 @@ export function SavingsTransactionForms({ accounts }: Props) {
     <div className="grid gap-4 md:grid-cols-2">
       <div className="p-6 bg-white rounded-lg border shadow-sm space-y-4">
         <div className="flex items-center gap-2">
-          <ArrowUpRight className="h-4 w-4 text-blue-600" />
+          <ArrowUpRight className="h-4 w-4 text-red-600" />
           <h3 className="font-bold">Setoran</h3>
         </div>
         <Form {...depositForm}>

@@ -66,7 +66,7 @@ export function InvestmentForm({ product }: { product: any }) {
         </div>
 
         <div className="pt-4">
-            <div className="flex justify-between text-sm mb-4 p-3 bg-blue-50 text-blue-800 rounded">
+            <div className="flex justify-between text-sm mb-4 p-3 bg-red-50 text-red-800 rounded">
                 <span>Estimasi Bagi Hasil ({product.profit_share_percent}%)</span>
                 <span className="font-bold">Sesuai Kinerja Unit Usaha</span>
             </div>

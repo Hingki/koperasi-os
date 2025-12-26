@@ -84,7 +84,7 @@ export default async function MemberLoansPage() {
                     {/* Status Strip */}
                     <div className={`w-full sm:w-2 h-2 sm:h-auto ${
                       loan.status === 'active' ? 'bg-emerald-500' :
-                      loan.status === 'paid' ? 'bg-blue-500' :
+                      loan.status === 'paid' ? 'bg-slate-500' :
                       'bg-slate-300'
                     }`} />
                     
@@ -100,7 +100,7 @@ export default async function MemberLoansPage() {
                               loan.status === 'paid' ? 'secondary' : 'outline'
                             } className={
                               loan.status === 'active' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' :
-                              loan.status === 'paid' ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' : ''
+                              loan.status === 'paid' ? 'bg-teal-100 text-teal-700 hover:bg-teal-100' : ''
                             }>
                               {loan.status === 'active' ? 'Aktif' :
                                loan.status === 'paid' ? 'Lunas' : loan.status}

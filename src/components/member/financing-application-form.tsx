@@ -257,14 +257,14 @@ export function FinancingApplicationForm({ products, suppliers }: Props) {
                         )}
                     </div>
                     
-                    <Card className="bg-blue-50 border-blue-100">
+                    <Card className="bg-red-50 border-red-100">
                         <CardContent className="pt-6">
                             <div className="flex items-start gap-3">
-                                <Calculator className="w-6 h-6 text-blue-600 mt-1" />
+                                <Calculator className="w-6 h-6 text-red-600 mt-1" />
                                 <div>
-                                    <p className="text-sm text-blue-600 font-medium">Estimasi Angsuran per Bulan</p>
-                                    <h4 className="text-2xl font-bold text-blue-700">{formatCurrency(monthlyInstallment)}</h4>
-                                    <p className="text-xs text-blue-500 mt-1">
+                                    <p className="text-sm text-red-600 font-medium">Estimasi Angsuran per Bulan</p>
+                                    <h4 className="text-2xl font-bold text-red-700">{formatCurrency(monthlyInstallment)}</h4>
+                                    <p className="text-xs text-red-500 mt-1">
                                         *Belum termasuk biaya admin & asuransi jika ada.
                                     </p>
                                 </div>

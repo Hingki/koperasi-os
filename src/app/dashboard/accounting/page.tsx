@@ -14,8 +14,8 @@ const features = [
     description: 'Kelola daftar akun akuntansi, tipe akun, dan saldo normal.',
     href: '/dashboard/accounting/coa',
     icon: Book,
-    color: 'text-blue-600',
-    bg: 'bg-blue-100'
+    color: 'text-red-600',
+    bg: 'bg-red-100'
   },
   {
     title: 'Jurnal Umum',
@@ -30,16 +30,16 @@ const features = [
     description: 'Lihat detail transaksi dan mutasi per akun (Ledger).',
     href: '/dashboard/accounting/ledger',
     icon: Book,
-    color: 'text-indigo-600',
-    bg: 'bg-indigo-100'
+    color: 'text-teal-600',
+    bg: 'bg-teal-100'
   },
   {
     title: 'Laporan Keuangan',
     description: 'Lihat Neraca, Laba Rugi, dan Neraca Saldo.',
     href: '/dashboard/accounting/reports',
     icon: BarChart3,
-    color: 'text-purple-600',
-    bg: 'bg-purple-100'
+    color: 'text-rose-600',
+    bg: 'bg-rose-100'
   },
   {
     title: 'Periode Pembukuan',
@@ -74,20 +74,21 @@ export default function AccountingPage() {
           <Link
             key={feature.title}
             href={feature.href}
+            prefetch={false}
             className="group relative flex flex-col gap-4 rounded-xl border p-6 hover:shadow-lg transition-all"
           >
             <div className="flex items-center gap-4">
               <div className={`p-3 rounded-lg ${feature.bg}`}>
                 <feature.icon className={`h-6 w-6 ${feature.color}`} />
               </div>
-              <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
+              <h3 className="font-semibold text-lg group-hover:text-red-600 transition-colors">
                 {feature.title}
               </h3>
             </div>
             <p className="text-slate-600 text-sm flex-1">
               {feature.description}
             </p>
-            <div className="flex items-center text-sm font-medium text-blue-600 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+            <div className="flex items-center text-sm font-medium text-red-600 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
               Buka Fitur <ArrowRight className="ml-1 h-4 w-4" />
             </div>
           </Link>

@@ -39,8 +39,8 @@ export default async function MemberLoanApplicationPage() {
         <p className="text-slate-500">Pilih produk pinjaman dan isi formulir pengajuan.</p>
       </div>
 
-      <Alert className="bg-blue-50 text-blue-800 border-blue-200">
-        <Info className="h-4 w-4" />
+      <Alert className="bg-teal-50 text-teal-800 border-teal-200">
+        <Info className="h-4 w-4 text-teal-600" />
         <AlertTitle>Informasi</AlertTitle>
         <AlertDescription>
           Pengajuan pinjaman akan ditinjau oleh pengurus koperasi. Pastikan data yang Anda masukkan benar.

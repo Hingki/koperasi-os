@@ -30,7 +30,7 @@ export default async function RetailProductsPage({ searchParams }: { searchParam
             Daftar barang dagangan dan stok
           </p>
         </div>
-        <Link href="/dashboard/retail/products/new">
+        <Link href="/dashboard/retail/products/new" prefetch={false}>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Tambah Produk
@@ -49,17 +49,17 @@ export default async function RetailProductsPage({ searchParams }: { searchParam
           />
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/dashboard/retail/products">
+          <Link href="/dashboard/retail/products" prefetch={false}>
             <Button variant={!searchParams?.type ? 'default' : 'outline'} size="sm">
               Semua
             </Button>
           </Link>
-          <Link href="/dashboard/retail/products?type=regular">
+          <Link href="/dashboard/retail/products?type=regular" prefetch={false}>
             <Button variant={searchParams?.type === 'regular' ? 'default' : 'outline'} size="sm">
               Barang Reguler
             </Button>
           </Link>
-          <Link href="/dashboard/retail/products?type=consignment">
+          <Link href="/dashboard/retail/products?type=consignment" prefetch={false}>
             <Button variant={searchParams?.type === 'consignment' ? 'default' : 'outline'} size="sm">
               Barang Konsinyasi
             </Button>
@@ -105,7 +105,7 @@ export default async function RetailProductsPage({ searchParams }: { searchParam
                     <td className="px-6 py-4 text-right font-medium text-slate-900">
                       Rp {product.price_sell_public.toLocaleString('id-ID')}
                     </td>
-                    <td className="px-6 py-4 text-right font-medium text-blue-600">
+                    <td className="px-6 py-4 text-right font-medium text-red-600">
                       Rp {product.price_sell_member.toLocaleString('id-ID')}
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -123,7 +123,8 @@ export default async function RetailProductsPage({ searchParams }: { searchParam
                     <td className="px-6 py-4 text-right">
                       <Link 
                         href={`/dashboard/retail/products/${product.id}/edit`}
-                        className="text-blue-600 hover:text-blue-700 font-medium text-xs"
+                        prefetch={false}
+                        className="text-red-600 hover:text-red-700 font-medium text-xs"
                       >
                         Edit
                       </Link>

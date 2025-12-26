@@ -41,7 +41,7 @@ export default function MockBankPaymentPage() {
     return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
             <Card className="w-full max-w-md">
-                <CardHeader className="bg-blue-600 text-white rounded-t-lg">
+                <CardHeader className="bg-red-600 text-white rounded-t-lg">
                     <CardTitle className="flex items-center gap-2">
                         <span>🏦</span> Simulator M-Banking
                     </CardTitle>
@@ -65,7 +65,7 @@ export default function MockBankPaymentPage() {
                         />
                     </div>
                     <Button 
-                        className="w-full bg-blue-600 hover:bg-blue-700" 
+                        className="w-full bg-red-600 hover:bg-red-700" 
                         onClick={handlePay}
                         disabled={loading || !vaNumber || !amount}
                     >

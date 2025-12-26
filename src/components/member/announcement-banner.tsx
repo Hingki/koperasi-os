@@ -39,10 +39,10 @@ export function AnnouncementBanner() {
             {promos.length > 0 && (
                 <div className="grid gap-4 md:grid-cols-2">
                     {promos.map((promo) => (
-                        <div key={promo.id} className="relative overflow-hidden rounded-lg border bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
+                        <div key={promo.id} className="relative overflow-hidden rounded-lg border bg-gradient-to-r from-red-600 to-red-800 text-white shadow-lg">
                             <div className="p-6">
                                 <h3 className="text-lg font-bold mb-2">{promo.title}</h3>
-                                <div className="text-blue-100 text-sm mb-4" dangerouslySetInnerHTML={{ __html: promo.content || '' }} />
+                                <div className="text-red-100 text-sm mb-4" dangerouslySetInnerHTML={{ __html: promo.content || '' }} />
                                 {promo.image_url && (
                                     <img 
                                         src={promo.image_url} 

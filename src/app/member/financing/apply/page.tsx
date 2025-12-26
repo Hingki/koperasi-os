@@ -29,7 +29,7 @@ export default async function FinancingApplyPage() {
                 <p className="text-slate-500">Isi formulir untuk mengajukan pembiayaan barang/kendaraan.</p>
             </div>
 
-            <Alert className="bg-blue-50 text-blue-800 border-blue-200">
+            <Alert className="bg-red-50 text-red-800 border-red-200">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Persyaratan</AlertTitle>
                 <AlertDescription>

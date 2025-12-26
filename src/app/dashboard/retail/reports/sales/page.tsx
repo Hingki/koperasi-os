@@ -68,7 +68,7 @@ export default async function SalesReportPage({ searchParams }: { searchParams: 
             <CardTitle className="text-sm font-medium">Rata-rata Transaksi</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-teal-600">
               Rp {Math.round(summary.average_transaction).toLocaleString('id-ID')}
             </div>
           </CardContent>

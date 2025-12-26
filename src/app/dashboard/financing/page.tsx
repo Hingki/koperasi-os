@@ -29,7 +29,7 @@ export default async function AdminFinancingPage() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'submitted': return 'bg-yellow-100 text-yellow-800';
-            case 'approved': return 'bg-blue-100 text-blue-800';
+            case 'approved': return 'bg-teal-100 text-teal-800';
             case 'active': return 'bg-green-100 text-green-800';
             case 'rejected': return 'bg-red-100 text-red-800';
             case 'paid': return 'bg-slate-100 text-slate-800';
@@ -46,10 +46,10 @@ export default async function AdminFinancingPage() {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" asChild>
-                        <Link href="/dashboard/financing/products">Produk</Link>
+                        <Link href="/dashboard/financing/products" prefetch={false}>Produk</Link>
                     </Button>
                     <Button variant="outline" asChild>
-                        <Link href="/dashboard/financing/vendors">Vendor</Link>
+                        <Link href="/dashboard/financing/vendors" prefetch={false}>Vendor</Link>
                     </Button>
                 </div>
             </div>
@@ -101,7 +101,7 @@ export default async function AdminFinancingPage() {
                                             </td>
                                             <td className="p-4">
                                                 <Button size="sm" variant="outline" asChild>
-                                                    <Link href={`/dashboard/pinjaman/${app.id}`}>Detail</Link>
+                                                    <Link href={`/dashboard/pinjaman/${app.id}`} prefetch={false}>Detail</Link>
                                                 </Button>
                                             </td>
                                         </tr>

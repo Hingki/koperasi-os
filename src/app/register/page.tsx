@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
   memberRegistrationSchema,
@@ -13,12 +13,14 @@ interface FormErrors {
   [key: string]: string;
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('error');
   const [errors, setErrors] = useState<FormErrors>({});
+  const isDemo = (searchParams.get('mode') || '').toLowerCase() === 'demo';
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -149,11 +151,16 @@ export default function RegisterPage() {
       <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-md">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Registrasi Anggota Koperasi
+            {isDemo ? 'Registrasi Demo' : 'Registrasi Anggota Koperasi'}
           </h2>
           <p className="mt-2 text-center text-sm font-medium text-gray-800">
-            Lengkapi data diri Anda untuk menjadi anggota koperasi
+            {isDemo ? 'Pendaftaran untuk keperluan uji coba (demo)' : 'Lengkapi data diri Anda untuk menjadi anggota koperasi'}
           </p>
+          {isDemo && (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-center text-sm text-amber-900">
+              Data yang didaftarkan akan digunakan sebagai data uji. Gunakan email uji.
+            </div>
+          )}
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
@@ -170,7 +177,7 @@ export default function RegisterPage() {
                 type="text"
                 required
                 disabled={loading}
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm text-gray-900 ${
                   errors.nama_lengkap ? 'border-red-500' : ''
                 }`}
               />
@@ -194,7 +201,7 @@ export default function RegisterPage() {
                 maxLength={16}
                 disabled={loading}
                 placeholder="16 digit angka"
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm text-gray-900 ${
                   errors.nik ? 'border-red-500' : ''
                 }`}
               />
@@ -217,7 +224,7 @@ export default function RegisterPage() {
                 required
                 disabled={loading}
                 placeholder="08xx-xxxx-xxxx"
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm text-gray-900 ${
                   errors.phone ? 'border-red-500' : ''
                 }`}
               />
@@ -239,7 +246,7 @@ export default function RegisterPage() {
                 rows={3}
                 required
                 disabled={loading}
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm text-gray-900 ${
                   errors.alamat_lengkap ? 'border-red-500' : ''
                 }`}
               />
@@ -262,7 +269,7 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 disabled={loading}
-                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900 ${
+                className={`mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm text-gray-900 ${
                   errors.email ? 'border-red-500' : ''
                 }`}
               />
@@ -286,7 +293,7 @@ export default function RegisterPage() {
                 required
                 minLength={8}
                 disabled={loading}
-                className="mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-gray-900"
+                className="mt-1 block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm text-gray-900"
               />
               <p className="mt-1 text-xs text-gray-700 font-medium">
                 Minimal 8 karakter
@@ -298,7 +305,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-bold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative flex w-full justify-center rounded-md border border-transparent bg-red-600 py-2 px-4 text-sm font-bold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Mendaftar...' : 'Daftar'}
             </button>
@@ -317,5 +324,13 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

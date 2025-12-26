@@ -5,12 +5,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   User, 
+  Users,
   Wallet, 
   Banknote, 
   LogOut,
   Menu,
   Smartphone,
-  MessageSquare
+  MessageSquare,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -21,8 +23,11 @@ const navigation = [
   { name: 'Dashboard', href: '/member/dashboard', icon: LayoutDashboard },
   { name: 'Simpanan', href: '/member/simpanan', icon: Wallet },
   { name: 'Pinjaman', href: '/member/pinjaman', icon: Banknote },
+  { name: 'Estimasi SHU', href: '/member/shu', icon: Banknote },
+  { name: 'RAT Online', href: '/member/rat', icon: Users },
   { name: 'Layanan Digital', href: '/member/ppob', icon: Smartphone },
   { name: 'Bantuan', href: '/member/support', icon: MessageSquare },
+  { name: 'Lapor Masalah', href: '/member/support/create', icon: AlertCircle },
   { name: 'Profil', href: '/member/profil', icon: User },
 ];
 
@@ -72,7 +77,7 @@ export function MemberSidebar({ user }: MemberSidebarProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex h-16 items-center gap-2 px-6 border-b">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600">
               <span className="text-white font-bold text-lg">M</span>
             </div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight">
@@ -88,10 +93,11 @@ export function MemberSidebar({ user }: MemberSidebarProps) {
                 <Link
                   key={item.name}
                   href={item.href}
+                  prefetch={false}
                   className={cn(
                     "flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors",
                     isActive
-                      ? "bg-emerald-50 text-emerald-700"
+                      ? "bg-red-50 text-red-700"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   )}
                   onClick={() => setIsOpen(false)}

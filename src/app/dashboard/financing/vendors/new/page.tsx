@@ -10,7 +10,7 @@ export default function NewVendorPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <Link href="/dashboard/financing/vendors" className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
+        <Link href="/dashboard/financing/vendors" prefetch={false} className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
             <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Tambah Vendor Baru</h1>
@@ -46,12 +46,20 @@ export default function NewVendorPage() {
             </div>
 
             <div className="flex items-center space-x-2">
-                <input type="checkbox" id="is_active" name="is_active" defaultChecked className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  name="is_active"
+                  defaultChecked
+                  aria-label="Status Aktif"
+                  title="Status Aktif"
+                  className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                />
                 <Label htmlFor="is_active">Status Aktif</Label>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4 border-t">
-                <Link href="/dashboard/financing/vendors">
+                <Link href="/dashboard/financing/vendors" prefetch={false}>
                     <Button variant="outline" type="button">Batal</Button>
                 </Link>
                 <Button type="submit">Simpan Vendor</Button>

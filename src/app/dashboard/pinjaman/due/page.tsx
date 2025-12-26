@@ -79,7 +79,7 @@ export default async function LoanDuePage() {
                                 <div className="text-xs text-slate-500">{item.loan?.application?.member?.nomor_anggota}</div>
                             </td>
                             <td className="p-4 font-mono text-xs">
-                                <Link href={`/dashboard/pinjaman/${item.loan?.application?.id}`} className="hover:underline text-blue-600">
+                                <Link href={`/dashboard/pinjaman/${item.loan?.application?.id}`} className="hover:underline text-red-600">
                                     {item.loan?.account_number}
                                 </Link>
                             </td>

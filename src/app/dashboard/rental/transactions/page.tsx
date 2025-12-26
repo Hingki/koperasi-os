@@ -97,7 +97,7 @@ export default async function RentalTransactionsPage() {
                     <td className="px-6 py-4 text-center">
                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         tx.status === 'active'
-                          ? 'bg-blue-100 text-blue-800'
+                          ? 'bg-teal-100 text-teal-800'
                           : tx.status === 'returned'
                           ? 'bg-green-100 text-green-800'
                           : tx.status === 'overdue'

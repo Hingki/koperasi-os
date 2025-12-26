@@ -230,7 +230,7 @@ export function FinancingForm({ products, suppliers }: Props) {
                             </div>
                         </div>
 
-                        <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                        <div className="bg-red-50 p-4 rounded-lg space-y-3">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-slate-600">Nilai Pembiayaan:</span>
                                 <span className="font-semibold">{formatCurrency(financingAmount)}</span>
@@ -239,16 +239,16 @@ export function FinancingForm({ products, suppliers }: Props) {
                                 <span className="text-slate-600">Bunga ({selectedProduct?.interest_rate || 0}% p.a):</span>
                                 <span className="font-semibold">Flat / Tetap</span>
                             </div>
-                            <div className="pt-3 border-t border-blue-200">
+                            <div className="pt-3 border-t border-red-200">
                                 <div className="flex justify-between items-center">
                                     <span className="text-slate-700 font-medium">Estimasi Angsuran:</span>
-                                    <span className="text-xl font-bold text-blue-700">
+                                    <span className="text-xl font-bold text-red-700">
                                         {formatCurrency(estimatedInstallment)}
                                         <span className="text-xs font-normal text-slate-500 ml-1">/bln</span>
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex items-start gap-2 text-xs text-blue-600 mt-2">
+                            <div className="flex items-start gap-2 text-xs text-red-600 mt-2">
                                 <Info className="w-4 h-4 mt-0.5" />
                                 <p>Simulasi ini adalah estimasi. Nilai angsuran final akan ditentukan setelah persetujuan.</p>
                             </div>
@@ -257,7 +257,7 @@ export function FinancingForm({ products, suppliers }: Props) {
 
                     <Button 
                         type="submit" 
-                        className="w-full bg-blue-600 hover:bg-blue-700" 
+                        className="w-full bg-red-600 hover:bg-red-700" 
                         size="lg"
                         disabled={loading || !productId || financingAmount <= 0}
                     >

@@ -9,7 +9,7 @@ export default function NewMemberPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <Link href="/dashboard/members" className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
+        <Link href="/dashboard/members" prefetch={false} className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
             <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Daftarkan Anggota Baru</h1>
@@ -25,7 +25,7 @@ export default function NewMemberPage() {
                         type="text" 
                         name="nama_lengkap" 
                         required 
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                 </div>
                 
@@ -37,7 +37,7 @@ export default function NewMemberPage() {
                         name="nik" 
                         required 
                         maxLength={16}
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                 </div>
 
@@ -48,7 +48,7 @@ export default function NewMemberPage() {
                         type="tel" 
                         name="phone" 
                         required 
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                 </div>
 
@@ -58,7 +58,7 @@ export default function NewMemberPage() {
                         id="pekerjaan"
                         type="text" 
                         name="pekerjaan" 
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                 </div>
             </div>
@@ -70,7 +70,7 @@ export default function NewMemberPage() {
                     name="alamat_lengkap" 
                     required 
                     rows={3}
-                    className="flex w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
             </div>
 
@@ -81,7 +81,7 @@ export default function NewMemberPage() {
                         id="tempat_lahir"
                         type="text" 
                         name="tempat_lahir" 
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                 </div>
                 <div className="space-y-2">
@@ -90,7 +90,7 @@ export default function NewMemberPage() {
                         id="tanggal_lahir"
                         type="date" 
                         name="tanggal_lahir" 
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                 </div>
             </div>
@@ -101,7 +101,7 @@ export default function NewMemberPage() {
                     id="nama_ibu_kandung"
                     type="text" 
                     name="nama_ibu_kandung" 
-                    className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
             </div>
 
@@ -109,7 +109,7 @@ export default function NewMemberPage() {
                 <Button variant="outline" asChild>
                   <Link href="/dashboard/members">Batal</Link>
                 </Button>
-                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
                     Simpan Anggota
                 </button>
             </div>

@@ -121,7 +121,7 @@ export default async function LoanDetailPage(props: { params: Promise<{ id: stri
                             </div>
                             <div>
                                 <label className="text-xs text-slate-500 font-medium uppercase">Jumlah Pinjaman</label>
-                                <p className="font-bold text-slate-900 text-xl text-blue-600">
+                                <p className="font-bold text-slate-900 text-xl text-red-600">
                                     {formatCurrency(loan.amount)}
                                 </p>
                             </div>
@@ -184,7 +184,7 @@ export default async function LoanDetailPage(props: { params: Promise<{ id: stri
                                         </div>
                                         <div>
                                             <label className="text-xs text-slate-500 font-medium uppercase">Pokok Pembiayaan</label>
-                                            <p className="font-bold text-blue-600">
+                                            <p className="font-bold text-red-600">
                                                 {formatCurrency(loan.financing_object[0].financing_amount)}
                                             </p>
                                         </div>
@@ -266,7 +266,7 @@ export default async function LoanDetailPage(props: { params: Promise<{ id: stri
                         <div className="space-y-4">
                             <div className="flex gap-3">
                                 <div className="mt-1">
-                                    <div className="h-2 w-2 rounded-full bg-blue-500 ring-4 ring-blue-50"></div>
+                                    <div className="h-2 w-2 rounded-full bg-red-500 ring-4 ring-red-50"></div>
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-slate-900">Pengajuan Dibuat</p>
@@ -328,10 +328,10 @@ function StatusBadge({ status }: { status: string }) {
     const colors: Record<string, string> = {
         draft: 'text-slate-600 bg-slate-100',
         submitted: 'text-amber-600 bg-amber-100',
-        approved: 'text-blue-600 bg-blue-100',
+        approved: 'text-teal-600 bg-teal-100',
         rejected: 'text-red-600 bg-red-100',
         disbursed: 'text-green-600 bg-green-100',
-        paid_off: 'text-purple-600 bg-purple-100',
+        paid_off: 'text-emerald-600 bg-emerald-100',
         defaulted: 'text-white bg-red-600'
     };
 

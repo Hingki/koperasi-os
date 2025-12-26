@@ -186,20 +186,50 @@ export class LoanService {
     if (tenor > product.max_tenor_months) throw new Error(`Tenor melebihi batas maksimal ${product.max_tenor_months} bulan`);
 
     // 2. Insert Application
-    const { data: application, error } = await this.supabase
-      .from('loan_applications')
-      .insert({
-        koperasi_id: data.koperasi_id,
-        member_id: data.member_id,
-        product_id: data.loan_type_id, // Map to product_id
-        amount: data.amount,
-        tenor_months: tenor,
-        purpose: data.purpose,
-        status: 'submitted', // Map 'draft' -> 'submitted' directly for now
-        created_by: data.created_by
-      })
-      .select()
-      .single();
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+
+    let application: any | null = null;
+    let error: any | null = null;
+    try {
+      const res = await this.supabase
+        .from('loan_applications')
+        .insert({
+          koperasi_id: data.koperasi_id,
+          member_id: data.member_id,
+          product_id: data.loan_type_id, // Map to product_id
+          amount: data.amount,
+          tenor_months: tenor,
+          purpose: data.purpose,
+          status: 'submitted', // Map 'draft' -> 'submitted' directly for now
+          created_by: data.created_by,
+          is_test_transaction: isDemoMode
+        })
+        .select()
+        .single();
+      application = res.data;
+      error = res.error;
+    } catch (err: any) {
+      if (String(err?.message || '').includes('column "is_test_transaction"')) {
+        const res = await this.supabase
+          .from('loan_applications')
+          .insert({
+            koperasi_id: data.koperasi_id,
+            member_id: data.member_id,
+            product_id: data.loan_type_id, // Map to product_id
+            amount: data.amount,
+            tenor_months: tenor,
+            purpose: data.purpose,
+            status: 'submitted',
+            created_by: data.created_by
+          })
+          .select()
+          .single();
+        application = res.data;
+        error = res.error;
+      } else {
+        throw err;
+      }
+    }
 
     if (error) throw error;
     return application;
@@ -254,17 +284,48 @@ export class LoanService {
     const dueDate = new Date(startDate);
     dueDate.setMonth(dueDate.getMonth() + tenorMonths);
 
-    const { data: loan, error: loanError } = await this.supabase
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+
+    let loan: any | null = null;
+    let loanError: any | null = null;
+    try {
+      const res = await this.supabase
         .from('loans')
         .insert({
+          koperasi_id: application.koperasi_id,
+          application_id: application.id,
+          member_id: application.member_id,
+          product_id: application.product_id,
+          loan_code: `L-${Date.now()}`,
+          principal_amount: amount,
+          interest_rate: interestRate,
+          interest_type: 'flat',
+          total_interest: interestTotal,
+          total_amount_repayable: amount + interestTotal,
+          remaining_principal: amount,
+          status: 'active',
+          start_date: startDate.toISOString().split('T')[0],
+          due_date: dueDate.toISOString().split('T')[0],
+          created_by: disburserId,
+          is_test_transaction: isDemoMode
+        })
+        .select()
+        .single();
+      loan = res.data;
+      loanError = res.error;
+    } catch (err: any) {
+      if (String(err?.message || '').includes('column "is_test_transaction"')) {
+        const res = await this.supabase
+          .from('loans')
+          .insert({
             koperasi_id: application.koperasi_id,
             application_id: application.id,
             member_id: application.member_id,
             product_id: application.product_id,
-            loan_code: `L-${Date.now()}`, // Simple code generation
+            loan_code: `L-${Date.now()}`,
             principal_amount: amount,
             interest_rate: interestRate,
-            interest_type: 'flat', // Default from product or hardcoded
+            interest_type: 'flat',
             total_interest: interestTotal,
             total_amount_repayable: amount + interestTotal,
             remaining_principal: amount,
@@ -272,9 +333,15 @@ export class LoanService {
             start_date: startDate.toISOString().split('T')[0],
             due_date: dueDate.toISOString().split('T')[0],
             created_by: disburserId
-        })
-        .select()
-        .single();
+          })
+          .select()
+          .single();
+        loan = res.data;
+        loanError = res.error;
+      } else {
+        throw err;
+      }
+    }
 
     if (loanError) throw loanError;
 
@@ -319,6 +386,8 @@ export class LoanService {
     const schedule = [];
     let currentDate = new Date(loan.start_date);
 
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+
     for (let i = 1; i <= months; i++) {
         currentDate.setMonth(currentDate.getMonth() + 1);
         schedule.push({
@@ -330,15 +399,30 @@ export class LoanService {
             principal_portion: principalPerMonth,
             interest_portion: interestPerMonth,
             total_installment: totalPerMonth,
-            status: 'pending'
+            status: 'pending',
+            is_test_transaction: isDemoMode
         });
     }
 
-    const { error } = await this.supabase
+    try {
+      const { error } = await this.supabase
         .from('loan_repayment_schedule')
         .insert(schedule);
-    
-    if (error) throw error;
+      if (error) throw error;
+    } catch (err: any) {
+      if (String(err?.message || '').includes('column "is_test_transaction"')) {
+        const scheduleNoFlag = schedule.map((s: any) => {
+          const { is_test_transaction, ...rest } = s;
+          return rest;
+        });
+        const { error } = await this.supabase
+          .from('loan_repayment_schedule')
+          .insert(scheduleNoFlag);
+        if (error) throw error;
+      } else {
+        throw err;
+      }
+    }
   }
 
   async createQRISRepayment(

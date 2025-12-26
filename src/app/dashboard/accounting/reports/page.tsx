@@ -82,7 +82,7 @@ export default async function ReportsPage() {
 
       {/* Report Navigation Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Link href="/dashboard/accounting/reports/consolidated">
+        <Link href="/dashboard/accounting/reports/consolidated" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Laporan Konsolidasi</CardTitle>
@@ -93,7 +93,7 @@ export default async function ReportsPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/dashboard/accounting/reports/daily">
+        <Link href="/dashboard/accounting/reports/daily" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Laporan Harian</CardTitle>
@@ -105,7 +105,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/billing">
+        <Link href="/dashboard/accounting/reports/billing" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Rekap Tagihan</CardTitle>
@@ -117,7 +117,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/rat">
+        <Link href="/dashboard/accounting/reports/rat" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Arsip Dokumen RAT</CardTitle>
@@ -129,7 +129,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/balance-sheet">
+        <Link href="/dashboard/accounting/reports/balance-sheet" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Neraca</CardTitle>
@@ -141,7 +141,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/balance-sheet-unit">
+        <Link href="/dashboard/accounting/reports/balance-sheet-unit" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Neraca Per Unit</CardTitle>
@@ -153,7 +153,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/income-statement">
+        <Link href="/dashboard/accounting/reports/income-statement" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Laba Rugi</CardTitle>
@@ -165,7 +165,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/cash-flow">
+        <Link href="/dashboard/accounting/reports/cash-flow" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Arus Kas</CardTitle>
@@ -177,7 +177,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/equity">
+        <Link href="/dashboard/accounting/reports/equity" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Perubahan Ekuitas</CardTitle>
@@ -189,7 +189,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/shu">
+        <Link href="/dashboard/accounting/reports/shu" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pembagian SHU</CardTitle>
@@ -201,7 +201,7 @@ export default async function ReportsPage() {
           </Card>
         </Link>
 
-        <Link href="/dashboard/accounting/reports/ratios">
+        <Link href="/dashboard/accounting/reports/ratios" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Analisis Rasio</CardTitle>

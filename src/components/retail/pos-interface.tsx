@@ -440,7 +440,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
         {/* Sale Type Indicator */}
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium text-slate-600">
-            Mode Penjualan: <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${selectedMember ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'}`}>
+            Mode Penjualan: <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${selectedMember ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-700'}`}>
               {selectedMember ? 'Anggota' : 'Umum'}
             </span>
           </div>
@@ -465,7 +465,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                 className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between group h-[160px]"
                 >
                 <div>
-                    <h3 className="font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600">
+                    <h3 className="font-semibold text-slate-900 line-clamp-2 group-hover:text-red-600">
                     {product.name}
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">{product.sku}</p>
@@ -474,7 +474,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                     )}
                 </div>
                 <div className="mt-2">
-                    <div className="text-lg font-bold text-blue-600">
+                    <div className="text-lg font-bold text-red-600">
                       Rp {selectedMember ? product.price_sell_member.toLocaleString('id-ID') : product.price_sell_public.toLocaleString('id-ID')}
                     </div>
                     <div className="text-[10px] text-slate-500">
@@ -505,16 +505,16 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
            </div>
            
            {selectedMember ? (
-             <div className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-blue-100">
+             <div className="flex items-center justify-between bg-red-50 p-2 rounded-lg border border-red-100">
                <div className="flex items-center gap-2">
-                 <User className="h-4 w-4 text-blue-600" />
+                 <User className="h-4 w-4 text-red-600" />
                  <div>
-                   <p className="text-sm font-bold text-blue-900">{selectedMember.name}</p>
-                   <p className="text-xs text-blue-700">{selectedMember.member_no}</p>
+                   <p className="text-sm font-bold text-red-900">{selectedMember.name}</p>
+                   <p className="text-xs text-red-700">{selectedMember.member_no}</p>
                  </div>
                </div>
-               <button type="button" title="Hapus anggota" aria-label="Hapus anggota" onClick={() => setSelectedMember(null)} className="p-1 hover:bg-blue-100 rounded">
-                 <X className="h-4 w-4 text-blue-500" />
+               <button type="button" title="Hapus anggota" aria-label="Hapus anggota" onClick={() => setSelectedMember(null)} className="p-1 hover:bg-red-100 rounded">
+                 <X className="h-4 w-4 text-red-500" />
                </button>
              </div>
            ) : (
@@ -550,7 +550,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
              <div className="mt-2 space-y-2">
                <div className="flex items-center justify-between">
                  <span className="text-xs font-medium text-slate-700">Grup Pembayaran</span>
-                 <button type="button" className="text-xs text-blue-600 hover:underline" onClick={addGroup}>Tambah Grup</button>
+                 <button type="button" className="text-xs text-red-600 hover:underline" onClick={addGroup}>Tambah Grup</button>
                </div>
                <div className="space-y-2">
                  {splitGroups.map(g => {
@@ -613,7 +613,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                 <div key={item.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
                   <div className="flex-1">
                     <h4 className="font-medium text-sm text-slate-900 line-clamp-1">{item.name}</h4>
-                    <p className="text-xs text-blue-600 font-medium">Rp {price.toLocaleString('id-ID')}</p>
+                    <p className="text-xs text-red-600 font-medium">Rp {price.toLocaleString('id-ID')}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     {isSplitMode && (
@@ -759,10 +759,10 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
                 <span className="text-xs">TUNAI</span>
               </Button>
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 h-12 flex flex-col items-center justify-center gap-0 leading-tight"
-                onClick={() => processCheckout('qris')}
-                disabled={cart.length === 0 || loading}
-              >
+            className="bg-red-600 hover:bg-red-700 h-12 flex flex-col items-center justify-center gap-0 leading-tight"
+            onClick={() => processCheckout('qris')}
+            disabled={cart.length === 0 || loading}
+          >
                 <QrCode className="h-5 w-5 mb-1" />
                 <span className="text-xs">QRIS</span>
               </Button>
@@ -828,7 +828,7 @@ export default function POSInterface({ initialProducts, members, user }: POSInte
             <div className="p-6 space-y-6">
               <div className="text-center">
                 <p className="text-slate-500 text-sm">Total Tagihan</p>
-                <h2 className="text-4xl font-bold text-blue-600">Rp {total.toLocaleString('id-ID')}</h2>
+                <h2 className="text-4xl font-bold text-red-600">Rp {total.toLocaleString('id-ID')}</h2>
               </div>
 
               <div className="space-y-2">

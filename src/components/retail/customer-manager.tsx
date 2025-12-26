@@ -196,7 +196,7 @@ export function CustomerManager({ initialCustomers, koperasiId }: Props) {
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(customer)}>
-                        <Pencil className="h-4 w-4 text-blue-600" />
+                        <Pencil className="h-4 w-4 text-red-600" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(customer.id)}>
                         <Trash2 className="h-4 w-4 text-red-600" />

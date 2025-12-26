@@ -136,7 +136,7 @@ export default async function ConsolidatedReportPage({ searchParams }: PageProps
     <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/accounting/reports">
+          <Link href="/dashboard/accounting/reports" prefetch={false}>
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -273,7 +273,7 @@ export default async function ConsolidatedReportPage({ searchParams }: PageProps
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/dashboard/accounting/reports/income-statement">
+        <Link href="/dashboard/accounting/reports/income-statement" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer">
             <CardHeader>
               <CardTitle>Detail Laba Rugi</CardTitle>
@@ -283,7 +283,7 @@ export default async function ConsolidatedReportPage({ searchParams }: PageProps
             </CardContent>
           </Card>
         </Link>
-        <Link href="/dashboard/accounting/reports/balance-sheet">
+        <Link href="/dashboard/accounting/reports/balance-sheet" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer">
             <CardHeader>
               <CardTitle>Detail Neraca</CardTitle>
@@ -293,7 +293,7 @@ export default async function ConsolidatedReportPage({ searchParams }: PageProps
             </CardContent>
           </Card>
         </Link>
-        <Link href="/dashboard/accounting/reports/balance-sheet-unit">
+        <Link href="/dashboard/accounting/reports/balance-sheet-unit" prefetch={false}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer">
             <CardHeader>
               <CardTitle>Per Unit (USP vs Waserda)</CardTitle>

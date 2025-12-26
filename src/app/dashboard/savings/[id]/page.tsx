@@ -68,7 +68,7 @@ export default async function SavingsAccountDetailPage({ params }: { params: Pro
                 <div className="font-medium">{account.product?.name}</div>
                 
                 <div className="text-slate-500">Saldo Saat Ini</div>
-                <div className="font-medium text-lg text-blue-600">
+                <div className="font-medium text-lg text-red-600">
                     {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(account.balance)}
                 </div>
 
@@ -135,7 +135,7 @@ export default async function SavingsAccountDetailPage({ params }: { params: Pro
                         <td className="p-4">{tx.description || '-'}</td>
                         <td className="p-4">
                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                tx.type === 'deposit' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                                tx.type === 'deposit' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'
                             }`}>
                                 {tx.type === 'deposit' ? 'Setoran' : 'Penarikan'}
                             </span>

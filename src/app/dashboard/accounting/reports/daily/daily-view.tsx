@@ -68,16 +68,16 @@ export function DailyView({ date, transactions, accountsMap }: DailyViewProps) {
             </div>
             <div className="flex flex-col items-end">
                 <span className="text-muted-foreground">Total Volume</span>
-                <span className="font-bold text-lg text-blue-600">{formatCurrency(totalVolume)}</span>
+                <span className="font-bold text-lg text-red-600">{formatCurrency(totalVolume)}</span>
             </div>
         </div>
       </div>
 
       {/* Transaction List */}
       <Card>
-        <CardHeader className="pb-3 border-b bg-slate-50/50">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4 text-slate-500" />
+        <CardHeader className="pb-3 border-b bg-red-50/50">
+            <CardTitle className="text-base font-medium flex items-center gap-2 text-red-700">
+                <ArrowRightLeft className="h-4 w-4 text-red-500" />
                 Jurnal Transaksi Harian
             </CardTitle>
         </CardHeader>

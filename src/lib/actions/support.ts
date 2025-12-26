@@ -7,9 +7,10 @@ import { redirect } from 'next/navigation';
 
 const createTicketSchema = z.object({
     subject: z.string().min(5, "Subjek minimal 5 karakter"),
-    category: z.enum(['question', 'suggestion', 'criticism', 'other']),
-    message: z.string().min(10, "Pesan minimal 10 karakter"),
+    category: z.enum(['ui_ux', 'bug', 'feature_request', 'question', 'suggestion', 'criticism', 'other']),
+    message: z.string().optional(),
     priority: z.enum(['low', 'medium', 'high']).default('medium'),
+    screenshot_url: z.string().optional(),
 });
 
 const replySchema = z.object({
@@ -32,6 +33,7 @@ export async function createTicketAction(formData: FormData) {
         category: formData.get('category'),
         message: formData.get('message'),
         priority: formData.get('priority') || 'medium',
+        screenshot_url: formData.get('screenshot_url'),
     };
 
     const validatedData = createTicketSchema.parse(rawData);
@@ -45,24 +47,27 @@ export async function createTicketAction(formData: FormData) {
             subject: validatedData.subject,
             category: validatedData.category,
             priority: validatedData.priority,
-            status: 'open'
+            status: 'open',
+            screenshot_url: validatedData.screenshot_url
         })
         .select()
         .single();
 
     if (ticketError) throw new Error(ticketError.message);
 
-    // 2. Create Initial Message
-    const { error: msgError } = await supabase
-        .from('support_ticket_messages')
-        .insert({
-            ticket_id: ticket.id,
-            sender_id: user.id,
-            sender_type: 'member',
-            message: validatedData.message
-        });
+    // 2. Create Initial Message (only if message provided)
+    if (validatedData.message) {
+        const { error: msgError } = await supabase
+            .from('support_ticket_messages')
+            .insert({
+                ticket_id: ticket.id,
+                sender_id: user.id,
+                sender_type: 'member',
+                message: validatedData.message
+            });
 
-    if (msgError) throw new Error(msgError.message);
+        if (msgError) throw new Error(msgError.message);
+    }
 
     revalidatePath('/member/support');
     redirect('/member/support');
@@ -149,9 +154,6 @@ export async function replyTicketAction(ticketId: string, message: string, sende
             .update({ updated_at: new Date().toISOString() })
             .eq('id', ticketId);
         
-        // If admin replies, maybe update status to 'in_progress' or 'resolved'? 
-        // For now let's just update timestamp.
-
         revalidatePath(`/member/support/${ticketId}`);
         revalidatePath(`/dashboard/support/${ticketId}`);
         return { success: true };

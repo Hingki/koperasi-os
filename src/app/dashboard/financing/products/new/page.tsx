@@ -11,7 +11,7 @@ export default function NewFinancingProductPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <Link href="/dashboard/financing/products" className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
+        <Link href="/dashboard/financing/products" prefetch={false} className="p-2 hover:bg-slate-100 rounded-full" aria-label="Kembali">
             <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Tambah Produk Pembiayaan</h1>
@@ -107,12 +107,20 @@ export default function NewFinancingProductPage() {
             </div>
 
             <div className="flex items-center space-x-2">
-                <input type="checkbox" id="is_active" name="is_active" defaultChecked className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  name="is_active"
+                  defaultChecked
+                  aria-label="Aktifkan Produk Ini"
+                  title="Aktifkan Produk Ini"
+                  className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                />
                 <Label htmlFor="is_active">Aktifkan Produk Ini</Label>
             </div>
 
             <div className="flex justify-end space-x-2">
-                <Link href="/dashboard/financing/products">
+                <Link href="/dashboard/financing/products" prefetch={false}>
                     <Button variant="outline" type="button">Batal</Button>
                 </Link>
                 <Button type="submit">Simpan Produk</Button>

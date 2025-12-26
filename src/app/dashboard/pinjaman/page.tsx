@@ -10,6 +10,7 @@ import { Eye, CheckCircle, Banknote, Clock, AlertCircle, AlertTriangle, FileText
 import { reviewLoanApplication, disburseLoan } from '@/lib/actions/loan';
 import ExportLoansButton from '@/components/loans/export-loans-button';
 import { LoanActionButtons } from './action-buttons';
+import { ReminderButton } from '@/components/loans/reminder-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,14 +57,15 @@ export default async function LoanManagementPage() {
           <p className="text-slate-500">Kelola pengajuan dan pencairan pinjaman anggota</p>
         </div>
         <div className="flex space-x-2">
+            <ReminderButton />
             <ExportLoansButton loans={loans} />
-            <Link href="/dashboard/pinjaman/due">
+            <Link href="/dashboard/pinjaman/due" prefetch={false}>
                 <Button variant="secondary">
                     <AlertTriangle className="w-4 h-4 mr-2" />
                     Jatuh Tempo
                 </Button>
             </Link>
-            <Link href="/dashboard/settings/loan-products">
+            <Link href="/dashboard/settings/loan-products" prefetch={false}>
                 <Button variant="outline">
                     Produk Pinjaman
                 </Button>
@@ -75,7 +77,7 @@ export default async function LoanManagementPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-6">
             <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
                     <Banknote className="h-6 w-6" />
                 </div>
                 <div>
@@ -155,7 +157,7 @@ export default async function LoanManagementPage() {
                                             amount={loan.amount}
                                         />
                                     )}
-                                    <Link href={`/dashboard/pinjaman/${loan.id}`}>
+                                    <Link href={`/dashboard/pinjaman/${loan.id}`} prefetch={false}>
                                         <Button variant="outline" size="sm">
                                             <Eye className="h-4 w-4 mr-1" />
                                             Detail
@@ -177,10 +179,10 @@ function StatusBadge({ status }: { status: string }) {
     const styles: Record<string, string> = {
         draft: 'bg-slate-100 text-slate-700',
         submitted: 'bg-amber-100 text-amber-700',
-        approved: 'bg-blue-100 text-blue-700',
+        approved: 'bg-teal-100 text-teal-700',
         rejected: 'bg-red-100 text-red-700',
         disbursed: 'bg-green-100 text-green-700',
-        paid_off: 'bg-purple-100 text-purple-700',
+        paid_off: 'bg-emerald-100 text-emerald-700',
         defaulted: 'bg-red-900 text-white'
     };
     

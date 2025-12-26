@@ -35,7 +35,7 @@ export default function NewSavingsProductPage() {
             <div className="space-y-2">
                 <Label htmlFor="type">Jenis Simpanan</Label>
                 <select id="type" name="type" required 
-                    className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
                     title="Jenis Simpanan"
                 >
                     <option value="pokok">Simpanan Pokok</option>
@@ -67,12 +67,12 @@ export default function NewSavingsProductPage() {
 
             <div className="flex flex-col space-y-4">
                 <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="is_withdrawal_allowed" name="is_withdrawal_allowed" defaultChecked className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" title="Izinkan penarikan" />
+                    <input type="checkbox" id="is_withdrawal_allowed" name="is_withdrawal_allowed" defaultChecked className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded" title="Izinkan penarikan" />
                     <Label htmlFor="is_withdrawal_allowed">Izinkan Penarikan Sewaktu-waktu</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                    <input type="checkbox" id="is_active" name="is_active" defaultChecked className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" title="Aktifkan produk" />
+                    <input type="checkbox" id="is_active" name="is_active" defaultChecked className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded" title="Aktifkan produk" />
                     <Label htmlFor="is_active">Aktifkan Produk Ini</Label>
                 </div>
             </div>

@@ -120,7 +120,7 @@ export function LedgerView({ accounts }: { accounts: Account[] }) {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleSearch} disabled={!selectedAccount || loading}>
+        <Button onClick={handleSearch} disabled={!selectedAccount || loading} className="bg-red-600 hover:bg-red-700">
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Tampilkan Data
         </Button>

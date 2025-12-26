@@ -41,7 +41,7 @@ export default async function DashboardPage() {
             {isAdmin ? 'Ringkasan Dashboard' : 'Dashboard Saya'}
           </h1>
           <p className="text-slate-500">
-            Selamat datang di Sistem Manajemen <span className="font-semibold text-blue-600">{koperasiName}</span>
+            Selamat datang di Sistem Manajemen <span className="font-semibold text-red-600">{koperasiName}</span>
           </p>
         </div>
         
@@ -49,6 +49,7 @@ export default async function DashboardPage() {
         {isAdmin && (!koperasi?.nomor_badan_hukum || !koperasi?.alamat) && (
           <Link 
             href="/dashboard/settings"
+            prefetch={false}
             className="inline-flex items-center rounded-lg bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 ring-1 ring-inset ring-amber-600/20"
           >
             <Building className="mr-2 h-4 w-4" />

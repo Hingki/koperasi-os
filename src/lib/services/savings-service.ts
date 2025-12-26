@@ -55,16 +55,35 @@ export class SavingsService {
     if (updateError) throw new Error('Failed to update savings balance');
 
     // 3. Record Savings Transaction (Read Model)
-    await this.supabase.from('savings_transactions').insert({
-      koperasi_id: account.koperasi_id,
-      account_id: account.id,
-      member_id: memberId,
-      type: 'withdrawal',
-      amount: -amount,
-      balance_after: newBalance,
-      description: description,
-      created_by: userId
-    });
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+    try {
+      await this.supabase.from('savings_transactions').insert({
+        koperasi_id: account.koperasi_id,
+        account_id: account.id,
+        member_id: memberId,
+        type: 'withdrawal',
+        amount: -amount,
+        balance_after: newBalance,
+        description: description,
+        created_by: userId,
+        is_test_transaction: isDemoMode
+      });
+    } catch (err: any) {
+      if (String(err?.message || '').includes('column "is_test_transaction"')) {
+        await this.supabase.from('savings_transactions').insert({
+          koperasi_id: account.koperasi_id,
+          account_id: account.id,
+          member_id: memberId,
+          type: 'withdrawal',
+          amount: -amount,
+          balance_after: newBalance,
+          description: description,
+          created_by: userId
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 
   async processTransaction(
@@ -134,22 +153,52 @@ export class SavingsService {
     // 4. Perform Transaction (Best-effort sequence)
     
     // A. Create Transaction Record
-    const { data: tx, error: txError } = await this.supabase
-      .from('savings_transactions')
-      .insert({
-        koperasi_id: account.koperasi_id,
-        account_id: accountId,
-        member_id: account.member_id,
-        type: type,
-        amount: type === 'withdrawal' ? -amount : amount,
-        balance_after: newBalance,
-        description: description || `${type === 'deposit' ? 'Deposit' : 'Withdrawal'} via System`,
-        created_by: userId
-      })
-      .select()
-      .single();
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+    
+    let tx: any | null = null;
+    let txInsertError: any | null = null;
+    try {
+      const res = await this.supabase
+        .from('savings_transactions')
+        .insert({
+          koperasi_id: account.koperasi_id,
+          account_id: accountId,
+          member_id: account.member_id,
+          type: type,
+          amount: type === 'withdrawal' ? -amount : amount,
+          balance_after: newBalance,
+          description: description || `${type === 'deposit' ? 'Deposit' : 'Withdrawal'} via System`,
+          created_by: userId,
+          is_test_transaction: isDemoMode
+        })
+        .select()
+        .single();
+      tx = res.data;
+      txInsertError = res.error;
+    } catch (err: any) {
+      if (String(err?.message || '').includes('column "is_test_transaction"')) {
+        const res = await this.supabase
+          .from('savings_transactions')
+          .insert({
+            koperasi_id: account.koperasi_id,
+            account_id: accountId,
+            member_id: account.member_id,
+            type: type,
+            amount: type === 'withdrawal' ? -amount : amount,
+            balance_after: newBalance,
+            description: description || `${type === 'deposit' ? 'Deposit' : 'Withdrawal'} via System`,
+            created_by: userId
+          })
+          .select()
+          .single();
+        tx = res.data;
+        txInsertError = res.error;
+      } else {
+        throw err;
+      }
+    }
 
-    if (txError) throw new Error(`Failed to record transaction: ${txError.message}`);
+    if (txInsertError) throw new Error(`Failed to record transaction: ${txInsertError.message}`);
 
     // B. Update Account Balance
     const { error: updateError } = await this.supabase

@@ -79,7 +79,7 @@ export function SHUView({ netProfit }: SHUViewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${totalPercentage !== 100 ? 'text-amber-600' : 'text-blue-600'}`}>
+            <div className={`text-2xl font-bold ${totalPercentage !== 100 ? 'text-amber-600' : 'text-red-600'}`}>
               {totalPercentage}%
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -150,15 +150,15 @@ export function SHUView({ netProfit }: SHUViewProps) {
             </Table>
             
             {/* Additional Info Box */}
-            <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100 flex gap-3">
-                <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="mt-6 bg-red-50 p-4 rounded-lg border border-red-100 flex gap-3">
+                <Info className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                    <h4 className="text-sm font-semibold text-blue-800">Tentang Pembagian SHU</h4>
-                    <p className="text-sm text-blue-700">
+                    <h4 className="text-sm font-semibold text-red-800">Tentang Pembagian SHU</h4>
+                    <p className="text-sm text-red-700">
                         Pembagian ini adalah simulasi berdasarkan AD/ART. Nilai final akan diputuskan dalam Rapat Anggota Tahunan (RAT).
                         Khusus untuk <strong>Jasa Anggota (40%)</strong>, biasanya akan dibagi lagi menjadi:
                     </p>
-                    <ul className="list-disc list-inside text-sm text-blue-700 ml-2">
+                    <ul className="list-disc list-inside text-sm text-red-700 ml-2">
                         <li>Jasa Modal (berdasarkan simpanan): {formatMoney(baseSHU * (allocations.find(a => a.id === 'member')?.percentage || 0) / 100 * 0.5)} (Est. 50% dari Jasa Anggota)</li>
                         <li>Jasa Usaha (berdasarkan transaksi): {formatMoney(baseSHU * (allocations.find(a => a.id === 'member')?.percentage || 0) / 100 * 0.5)} (Est. 50% dari Jasa Anggota)</li>
                     </ul>

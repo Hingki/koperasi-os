@@ -52,9 +52,9 @@ export function ClinicCartSummary({
 
     return (
         <div className="flex flex-col h-full bg-white rounded-xl border shadow-sm overflow-hidden">
-            <div className="p-4 border-b space-y-3 bg-blue-50/50">
+            <div className="p-4 border-b space-y-3 bg-red-50/50">
                 <div className="flex items-center gap-2 mb-2">
-                    <Stethoscope className="w-5 h-5 text-blue-600" />
+                    <Stethoscope className="w-5 h-5 text-red-600" />
                     <h3 className="font-semibold text-slate-800">Data Pasien</h3>
                 </div>
                 
@@ -117,7 +117,7 @@ export function ClinicCartSummary({
                 </Popover>
 
                 {selectedPatient && (
-                     <div className="text-sm bg-blue-100 text-blue-800 p-3 rounded-md border border-blue-200">
+                     <div className="text-sm bg-red-100 text-red-800 p-3 rounded-md border border-red-200">
                         <div className="font-bold">{selectedPatient.name}</div>
                         <div className="text-xs mt-1">
                             {selectedPatient.phone}
@@ -184,7 +184,7 @@ export function ClinicCartSummary({
                     <Button variant="outline" onClick={onClear} disabled={cart.length === 0}>
                         Batal
                     </Button>
-                    <Button onClick={onCheckout} disabled={cart.length === 0 || !selectedPatient} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={onCheckout} disabled={cart.length === 0 || !selectedPatient} className="bg-red-600 hover:bg-red-700">
                         Proses Pembayaran
                     </Button>
                 </div>

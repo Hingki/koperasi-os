@@ -44,7 +44,7 @@ export function CashFlowView({ data }: { data: CashFlowData }) {
       {/* Operating Activities */}
       <Card>
         <CardHeader className="bg-slate-50 py-3">
-            <CardTitle className="text-lg text-blue-700">ARUS KAS DARI AKTIVITAS OPERASIONAL</CardTitle>
+            <CardTitle className="text-lg text-red-700">ARUS KAS DARI AKTIVITAS OPERASIONAL</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-2">
             <SectionRow title="Laba Bersih Tahun Berjalan" amount={data.operating.netProfit} />

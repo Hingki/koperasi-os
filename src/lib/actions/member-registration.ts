@@ -104,10 +104,26 @@ export async function registerSMEPartner(formData: FormData) {
     
     const data = validated.data;
 
+    // Get Koperasi ID (from metadata or fallback to first koperasi)
+    let koperasiId = user.user_metadata.koperasi_id;
+    if (!koperasiId) {
+        const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
+        koperasiId = kop?.id;
+        
+        // Update user metadata if found
+        if (koperasiId) {
+            await supabase.auth.updateUser({ data: { koperasi_id: koperasiId } });
+        }
+    }
+
+    if (!koperasiId) {
+        return { error: "Koperasi ID not found. Please contact admin." };
+    }
+
     // Insert
     const { error } = await supabase.from('member').insert({
         user_id: user.id,
-        koperasi_id: user.user_metadata.koperasi_id,
+        koperasi_id: koperasiId,
         nama_lengkap: data.nama_lengkap,
         nik: data.nik,
         phone: data.phone,

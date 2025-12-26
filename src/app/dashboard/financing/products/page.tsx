@@ -20,7 +20,7 @@ export default async function FinancingProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-            <Link href="/dashboard/financing" className="p-2 hover:bg-slate-100 rounded-full">
+            <Link href="/dashboard/financing" prefetch={false} className="p-2 hover:bg-slate-100 rounded-full">
                 <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
@@ -28,7 +28,7 @@ export default async function FinancingProductsPage() {
                 <p className="text-slate-500">Kelola skema pembiayaan (leasing, kredit barang).</p>
             </div>
         </div>
-        <Link href="/dashboard/financing/products/new">
+        <Link href="/dashboard/financing/products/new" prefetch={false}>
             <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Tambah Produk
@@ -71,7 +71,7 @@ export default async function FinancingProductsPage() {
                             </span>
                         </td>
                         <td className="p-4 flex justify-end space-x-2">
-                            <Link href={`/dashboard/financing/products/${product.id}/edit`}>
+                            <Link href={`/dashboard/financing/products/${product.id}/edit`} prefetch={false}>
                                 <Button variant="ghost" size="icon">
                                     <Pencil className="w-4 h-4 text-slate-500" />
                                 </Button>

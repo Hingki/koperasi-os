@@ -141,6 +141,7 @@ export async function completeMemberRegistration(formData: FormData) {
   if (!koperasiId) return { success: false, error: 'Sistem error: Koperasi tidak ditemukan' };
 
   // 4. Create Member
+  const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
   const { data: member, error } = await supabase.from('member').insert({
     koperasi_id: koperasiId,
     user_id: user.id,
@@ -151,7 +152,8 @@ export async function completeMemberRegistration(formData: FormData) {
     email: user.email,
     nomor_anggota: `M-${Date.now().toString().slice(-6)}`,
     status: 'active',
-    tanggal_daftar: new Date().toISOString()
+    tanggal_daftar: new Date().toISOString(),
+    is_test_transaction: isDemoMode
   }).select().single();
 
   if (error) {

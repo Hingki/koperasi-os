@@ -146,8 +146,8 @@ export default async function MemberLoanDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent>
              <div className="flex flex-col items-center justify-center h-full py-4 text-center space-y-2">
-                <div className="p-3 bg-blue-100 rounded-full">
-                    <CreditCard className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-red-100 rounded-full">
+                  <CreditCard className="w-6 h-6 text-red-600" />
                 </div>
                 <h3 className="font-medium">Total Kewajiban</h3>
                 <p className="text-2xl font-bold text-slate-900">

@@ -52,7 +52,7 @@ export default async function MemberSupportPage() {
                                             <CardContent className="p-4 space-y-3">
                                                 <div className="flex justify-between items-start">
                                                     <Badge variant="outline" className={`capitalize ${
-                                                        ticket.status === 'open' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        ticket.status === 'open' ? 'bg-teal-50 text-teal-700 border-teal-200' :
                                                         ticket.status === 'resolved' ? 'bg-green-50 text-green-700 border-green-200' :
                                                         'bg-slate-50 text-slate-700 border-slate-200'
                                                     }`}>

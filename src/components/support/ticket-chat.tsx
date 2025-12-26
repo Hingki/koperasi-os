@@ -82,7 +82,7 @@ export function TicketChat({ ticket, messages, currentUserType }: TicketChatProp
                             <label className="text-xs font-medium text-slate-500 uppercase">Status</label>
                             <div className="mt-1">
                                 <Badge variant="outline" className={`capitalize ${
-                                    ticket.status === 'open' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    ticket.status === 'open' ? 'bg-teal-50 text-teal-700 border-teal-200' :
                                     ticket.status === 'resolved' ? 'bg-green-50 text-green-700 border-green-200' :
                                     'bg-slate-50 text-slate-700 border-slate-200'
                                 }`}>
@@ -115,14 +115,14 @@ export function TicketChat({ ticket, messages, currentUserType }: TicketChatProp
                             return (
                                 <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                     <Avatar className="h-8 w-8 mt-1 border">
-                                        <AvatarFallback className={msg.sender_type === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}>
+                                        <AvatarFallback className={msg.sender_type === 'admin' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}>
                                             {msg.sender_type === 'admin' ? <Shield className="h-4 w-4" /> : <UserIcon className="h-4 w-4" />}
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className={`flex flex-col max-w-[80%] ${isMe ? 'items-end' : 'items-start'}`}>
                                         <div className={`px-4 py-2 rounded-lg text-sm ${
                                             isMe 
-                                                ? 'bg-blue-600 text-white rounded-tr-none' 
+                                                ? 'bg-red-600 text-white rounded-tr-none' 
                                                 : 'bg-white border text-slate-900 rounded-tl-none shadow-sm'
                                         }`}>
                                             {msg.message}

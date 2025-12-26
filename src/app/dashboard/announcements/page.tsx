@@ -51,9 +51,9 @@ export default async function AnnouncementsPage() {
                                             <td className="p-4">
                                                 <div className="flex items-center gap-2">
                                                     {item.type === 'promo' ? (
-                                                        <ImageIcon className="h-4 w-4 text-purple-500" />
+                                                        <ImageIcon className="h-4 w-4 text-rose-500" />
                                                     ) : (
-                                                        <Megaphone className="h-4 w-4 text-blue-500" />
+                                                        <Megaphone className="h-4 w-4 text-red-500" />
                                                     )}
                                                     <span className="capitalize">{item.type}</span>
                                                 </div>

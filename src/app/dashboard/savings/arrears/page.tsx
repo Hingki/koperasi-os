@@ -107,7 +107,7 @@ export default async function SavingsArrearsPage() {
                         </td>
                          <td className="p-4 text-right">
                             <Link href={`/dashboard/savings/${item.id}`}>
-                                <button className="text-blue-600 hover:underline font-medium text-xs">
+                                <button className="text-red-600 hover:underline font-medium text-xs">
                                     Lihat Detail
                                 </button>
                             </Link>

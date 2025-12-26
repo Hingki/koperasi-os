@@ -76,17 +76,17 @@ export default async function SavingsDashboardPage() {
             <ArrowUpRight className="h-5 w-5 text-orange-400" />
         </Link>
         
-        <Link href="/dashboard/savings/withdrawals" className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-between">
+        <Link href="/dashboard/savings/withdrawals" className="p-4 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-between">
             <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                <div className="p-2 bg-red-100 rounded-full text-red-600">
                     <List className="h-5 w-5" />
                 </div>
                 <div>
-                    <h3 className="font-semibold text-blue-900">Riwayat Penarikan</h3>
-                    <p className="text-sm text-blue-700">Lihat semua penarikan dana</p>
+                    <h3 className="font-semibold text-red-900">Riwayat Penarikan</h3>
+                    <p className="text-sm text-red-700">Lihat semua penarikan dana</p>
                 </div>
             </div>
-            <ArrowUpRight className="h-5 w-5 text-blue-400" />
+            <ArrowUpRight className="h-5 w-5 text-red-400" />
         </Link>
 
         <Link href="/dashboard/savings/requests" className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors flex items-center justify-between">
@@ -134,7 +134,7 @@ export default async function SavingsDashboardPage() {
                 {accounts?.map((acc) => (
                     <tr key={acc.id} className="hover:bg-slate-50/50">
                         <td className="p-4 font-mono">
-                            <Link href={`/dashboard/savings/${acc.id}`} className="text-blue-600 hover:underline">
+                            <Link href={`/dashboard/savings/${acc.id}`} prefetch={false} className="text-red-600 hover:underline">
                                 {acc.account_number}
                             </Link>
                         </td>

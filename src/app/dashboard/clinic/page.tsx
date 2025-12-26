@@ -57,14 +57,14 @@ export default function ClinicDashboardPage() {
           </Card>
         </Link>
 
-        <Card className="h-full bg-blue-50 border-blue-100">
+        <Card className="h-full bg-red-50 border-red-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-800">Status Klinik</CardTitle>
-              <Stethoscope className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium text-red-800">Status Klinik</CardTitle>
+              <Stethoscope className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-900">Buka</div>
-              <p className="text-xs text-blue-700">
+              <div className="text-2xl font-bold text-red-900">Buka</div>
+              <p className="text-xs text-red-700">
                 Siap melayani pasien
               </p>
             </CardContent>
@@ -77,13 +77,13 @@ export default function ClinicDashboardPage() {
                   <CardTitle>Aksi Cepat</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2">
-                  <Link href="/dashboard/clinic/patients/new">
+                  <Link href="/dashboard/clinic/patients/new" prefetch={false}>
                     <Button className="w-full justify-start" variant="outline">
                         <Users className="mr-2 h-4 w-4" />
                         Daftarkan Pasien Baru
                     </Button>
                   </Link>
-                  <Link href="/dashboard/clinic/pos">
+                  <Link href="/dashboard/clinic/pos" prefetch={false}>
                     <Button className="w-full justify-start" variant="outline">
                         <ShoppingCart className="mr-2 h-4 w-4" />
                         Buat Transaksi Baru

@@ -33,10 +33,10 @@ export default async function HrmDashboardPage() {
             <p className="text-muted-foreground">Manajemen Absensi dan Karyawan Koperasi</p>
         </div>
         <div className="space-x-2">
-            <Link href="/dashboard/hrm/employees">
+            <Link href="/dashboard/hrm/employees" prefetch={false}>
                 <Button variant="outline">Data Karyawan</Button>
             </Link>
-            <Link href="/dashboard/hrm/payroll">
+            <Link href="/dashboard/hrm/payroll" prefetch={false}>
                 <Button variant="outline">Penggajian</Button>
             </Link>
         </div>

@@ -100,13 +100,13 @@ export function BalanceSheetUnitView({ accounts, entries }: BalanceSheetUnitView
       <div className="grid gap-6 md:grid-cols-2">
         {/* Assets Section */}
         <Card className="h-fit">
-            <CardHeader className="bg-blue-50/50 py-3 border-b">
-                <CardTitle className="text-lg text-blue-700">ASET (ASSETS)</CardTitle>
+            <CardHeader className="bg-red-50/50 py-3 border-b">
+                <CardTitle className="text-lg text-red-700">ASET (ASSETS)</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-6">
                 <div>
                     <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                        <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                        <span className="w-1 h-4 bg-red-500 rounded-full"></span>
                         Aset Lancar
                     </h3>
                     <div className="space-y-1">
@@ -118,7 +118,7 @@ export function BalanceSheetUnitView({ accounts, entries }: BalanceSheetUnitView
 
                 <div>
                     <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                        <span className="w-1 h-4 bg-blue-700 rounded-full"></span>
+                        <span className="w-1 h-4 bg-red-700 rounded-full"></span>
                         Aset Tidak Lancar
                     </h3>
                     <div className="space-y-1">

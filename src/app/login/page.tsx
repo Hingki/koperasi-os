@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -41,10 +42,27 @@ export default function LoginPage() {
     }
   };
 
+  const handleResetPassword = async () => {
+    setResetMessage(null);
+    if (!email) {
+      setResetMessage('Masukkan email terlebih dahulu.');
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
+      });
+      if (error) throw error;
+      setResetMessage('Link reset password telah dikirim ke email Anda.');
+    } catch (err: any) {
+      setResetMessage(err.message || 'Gagal mengirim link reset password.');
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full">
       {/* Left Side - Branding */}
-      <div className="hidden w-1/2 flex-col justify-between bg-blue-600 p-12 text-white lg:flex">
+      <div className="hidden w-1/2 flex-col justify-between bg-red-600 p-12 text-white lg:flex">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
             <span className="text-xl font-bold">K</span>
@@ -56,13 +74,13 @@ export default function LoginPage() {
           <h1 className="text-4xl font-bold leading-tight">
             Sistem Manajemen Koperasi Terpadu
           </h1>
-          <p className="text-lg text-blue-100">
+          <p className="text-lg text-red-100">
             Kelurahan Merah Putih Duri Kosambi. <br />
             Transparan, Akuntabel, dan Memberdayakan.
           </p>
         </div>
 
-        <div className="text-sm text-blue-200">
+        <div className="text-sm text-red-200">
           &copy; {new Date().getFullYear()} Koperasi Kelurahan Merah Putih Duri Kosambi
         </div>
       </div>
@@ -85,6 +103,11 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+            {resetMessage && (
+              <div className="rounded-md bg-slate-50 p-4 text-sm text-slate-700">
+                {resetMessage}
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -97,7 +120,7 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-red-500 focus:outline-none focus:ring-red-500 sm:text-sm"
                   placeholder="nama@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -113,7 +136,7 @@ export default function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:border-red-500 focus:outline-none focus:ring-red-500 sm:text-sm"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -124,16 +147,24 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+              className="flex w-full justify-center rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
             >
               {loading ? 'Memproses...' : 'Masuk'}
             </button>
 
-            <div className="text-center text-sm text-slate-600">
-              Belum menjadi anggota?{' '}
-              <Link href="/register" className="font-semibold text-blue-600 hover:text-blue-500">
-                Daftar sekarang
-              </Link>
+            <div className="flex items-center justify-between text-sm">
+              <button type="button" onClick={handleResetPassword} className="text-slate-600 hover:text-slate-800 underline">
+                Lupa Password?
+              </button>
+              {process.env.NEXT_PUBLIC_APP_MODE === 'demo' ? (
+                <Link href="/register?mode=demo" className="font-semibold text-red-600 hover:text-red-500">
+                  Daftar Demo
+                </Link>
+              ) : (
+                <Link href="/register" className="font-semibold text-red-600 hover:text-red-500">
+                  Daftar sekarang
+                </Link>
+              )}
             </div>
           </form>
         </div>

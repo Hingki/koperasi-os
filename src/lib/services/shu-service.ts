@@ -108,7 +108,7 @@ export class SHUService {
     // Usually based on Margin provided by member or Total Shopping amount.
     // For simplicity: Total Shopping Amount in Retail + Interest Paid in Loans
     
-    // A. Retail Sales
+    // A. Retail Sales (Jasa Usaha Retail)
     const { data: retailStats } = await this.supabase
         .from('pos_transactions')
         .select('final_amount, member_id')
@@ -117,19 +117,32 @@ export class SHUService {
         .lte('transaction_date', `${year}-12-31`)
         .not('member_id', 'is', null);
 
-    const totalSales = retailStats?.reduce((sum, tx) => sum + tx.final_amount, 0) || 0;
-    const memberSales = retailStats
+    const totalRetailSales = retailStats?.reduce((sum, tx) => sum + tx.final_amount, 0) || 0;
+    const memberRetailSales = retailStats
         ?.filter(tx => tx.member_id === memberId)
         .reduce((sum, tx) => sum + tx.final_amount, 0) || 0;
 
-    // B. Loan Interest Paid (Jasa Pinjaman)
-    // We need to check loan_repayment_schedule where status is paid
-    // Ideally we should query `loan_repayment_history` or similar.
-    // Let's stick to Retail Sales for MVP Jasa Anggota or combine.
-    // If we have Loan Service, we can query interest paid.
-    
-    // For MVP, let's use Sales Volume.
-    const transactionShare = totalSales > 0 ? (memberSales / totalSales) : 0;
+    // B. Loan Interest Paid (Jasa Usaha Pinjaman)
+    // We sum interest_portion from paid schedules in the current year
+    const { data: loanStats } = await this.supabase
+        .from('loan_repayment_schedule')
+        .select('interest_portion, member_id')
+        .eq('koperasi_id', koperasiId)
+        .eq('status', 'paid')
+        .gte('paid_at', `${year}-01-01T00:00:00.000Z`)
+        .lte('paid_at', `${year}-12-31T23:59:59.999Z`);
+
+    const totalLoanInterest = loanStats?.reduce((sum, item) => sum + item.interest_portion, 0) || 0;
+    const memberLoanInterest = loanStats
+        ?.filter(item => item.member_id === memberId)
+        .reduce((sum, item) => sum + item.interest_portion, 0) || 0;
+
+    // Total Transaction Volume (Retail + Loan Interest)
+    // Note: Some cooperatives weight them differently, but simple sum is standard start.
+    const totalTransactions = totalRetailSales + totalLoanInterest;
+    const memberTransactions = memberRetailSales + memberLoanInterest;
+
+    const transactionShare = totalTransactions > 0 ? (memberTransactions / totalTransactions) : 0;
     const memberJasaAnggota = totalJasaAnggota * transactionShare;
 
     return {
@@ -139,8 +152,12 @@ export class SHUService {
             jasa_anggota: memberJasaAnggota,
             member_capital: memberCapital,
             total_capital: totalCapital,
-            member_sales: memberSales,
-            total_sales: totalSales
+            member_transactions: memberTransactions,
+            total_transactions: totalTransactions,
+            breakdown: {
+                retail_sales: memberRetailSales,
+                loan_interest: memberLoanInterest
+            }
         }
     };
   }

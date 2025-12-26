@@ -984,12 +984,15 @@ export class RetailService {
 
     // 1. Create Transaction Header
     console.log('Creating POS Transaction Header...');
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+
     const { data: txData, error: txError } = await this.supabase
       .from('pos_transactions')
       .insert({
         ...transaction,
         invoice_number: transaction.invoice_number || `INV-${Date.now()}`,
-        payment_status: transaction.payment_status || ((payments && payments.some(p => p.method === 'qris')) || paymentMethod === 'qris' ? 'pending' : 'paid')
+        payment_status: transaction.payment_status || ((payments && payments.some(p => p.method === 'qris')) || paymentMethod === 'qris' ? 'pending' : 'paid'),
+        is_test_transaction: isDemoMode
       })
       .select()
       .single();

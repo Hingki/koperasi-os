@@ -31,7 +31,7 @@ export default function ConfigPage() {
                     {mappings.map((item) => (
                         <tr key={item.key}>
                             <td className="px-4 py-3 font-medium">{item.key}</td>
-                            <td className="px-4 py-3 font-mono text-blue-600">{item.code}</td>
+                            <td className="px-4 py-3 font-mono text-red-600">{item.code}</td>
                         </tr>
                     ))}
                 </tbody>

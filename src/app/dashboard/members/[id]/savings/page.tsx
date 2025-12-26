@@ -18,7 +18,7 @@ export default async function MemberSavingsDetailPage({ params }: { params: { id
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold tracking-tight">Anggota Tidak Ditemukan</h1>
-        <Link href="/dashboard/members" className="text-blue-600 hover:underline">Kembali ke daftar anggota</Link>
+        <Link href="/dashboard/members" prefetch={false} className="text-red-600 hover:underline">Kembali ke daftar anggota</Link>
       </div>
     );
   }
@@ -67,7 +67,7 @@ export default async function MemberSavingsDetailPage({ params }: { params: { id
           <h1 className="text-2xl font-bold tracking-tight">Simpanan Anggota</h1>
           <p className="text-slate-500">Informasi simpanan untuk {member.nama_lengkap} ({member.nomor_anggota})</p>
         </div>
-        <Link href="/dashboard/members" className="text-blue-600 hover:underline">Kembali</Link>
+        <Link href="/dashboard/members" prefetch={false} className="text-red-600 hover:underline">Kembali</Link>
       </div>
 
       <div className="rounded-md border bg-white">

@@ -68,7 +68,7 @@ export function CoaTable({ initialAccounts }: { initialAccounts: Account[] }) {
                   <TableCell>{account.account_name}</TableCell>
                   <TableCell className="capitalize">{account.account_type.replace('_', ' ')}</TableCell>
                   <TableCell>
-                    <Badge variant={account.normal_balance === 'debit' ? 'default' : 'secondary'} className={account.normal_balance === 'debit' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}>
+                    <Badge variant={account.normal_balance === 'debit' ? 'default' : 'secondary'} className={account.normal_balance === 'debit' ? 'bg-teal-100 text-teal-800 hover:bg-teal-200' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}>
                         {account.normal_balance.toUpperCase()}
                     </Badge>
                   </TableCell>

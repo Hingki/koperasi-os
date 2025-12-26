@@ -57,7 +57,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               defaultValue={initialData?.nama}
               placeholder="Contoh: Koperasi Merah Putih"
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
 
@@ -68,7 +68,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               name="nomor_badan_hukum"
               defaultValue={initialData?.nomor_badan_hukum}
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
 
@@ -80,7 +80,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               name="tanggal_berdiri"
               defaultValue={initialData?.tanggal_berdiri ? new Date(initialData.tanggal_berdiri).toISOString().split('T')[0] : ''}
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
 
@@ -90,7 +90,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               id="npwp"
               name="npwp"
               defaultValue={initialData?.npwp}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
         </div>
@@ -103,7 +103,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
             defaultValue={initialData?.alamat}
             required
             rows={3}
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
           />
         </div>
 
@@ -115,7 +115,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               name="kelurahan"
               defaultValue={initialData?.kelurahan}
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
           <div className="space-y-2">
@@ -125,7 +125,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               name="kecamatan"
               defaultValue={initialData?.kecamatan}
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
           <div className="space-y-2">
@@ -135,7 +135,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               name="kota"
               defaultValue={initialData?.kota}
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
           <div className="space-y-2">
@@ -145,7 +145,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
               name="provinsi"
               defaultValue={initialData?.provinsi}
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export function KoperasiProfileForm({ initialData }: KoperasiProfileFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
           >
             <Save className="w-4 h-4 mr-2" />
             {loading ? 'Menyimpan...' : 'Simpan Perubahan'}

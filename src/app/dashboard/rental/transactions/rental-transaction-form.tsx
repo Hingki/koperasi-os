@@ -397,7 +397,7 @@ export function RentalTransactionForm({ items, customers, members }: RentalTrans
 
                 <div className="border-t pt-3 flex justify-between items-center">
                     <span className="font-bold text-lg">Total Akhir</span>
-                    <span className="font-bold text-lg text-blue-600">Rp {finalAmount.toLocaleString()}</span>
+                    <span className="font-bold text-lg text-red-600">Rp {finalAmount.toLocaleString()}</span>
                 </div>
             </div>
 

@@ -23,7 +23,7 @@ export default async function SavingsProductsPage() {
         <div className="flex space-x-2">
             <SeedProductsButton />
             <Link href="/dashboard/savings/products/new">
-                <button className="flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium">
+                <button className="flex items-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-md text-sm font-medium">
                     <Plus className="w-4 h-4 mr-2" />
                     Tambah Produk
                 </button>
@@ -36,7 +36,7 @@ export default async function SavingsProductsPage() {
             <div key={product.id} className="bg-white rounded-lg border shadow-sm p-6 flex flex-col justify-between">
                 <div>
                     <div className="flex items-center justify-between mb-4">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 font-mono">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 font-mono">
                             {product.code}
                         </span>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
@@ -65,7 +65,7 @@ export default async function SavingsProductsPage() {
                 </div>
                 
                 <div className="mt-6 pt-4 border-t flex justify-end">
-                    <button className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center">
+                    <button className="text-sm font-medium text-red-600 hover:text-red-700 flex items-center">
                         <Edit className="w-4 h-4 mr-1" /> Edit Produk
                     </button>
                 </div>

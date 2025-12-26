@@ -31,13 +31,13 @@ export default async function InvestmentsPage() {
             <h2 className="text-xl font-semibold">Portofolio Saya</h2>
             <div className="grid gap-4 md:grid-cols-3">
                 {myInvestments.map((inv: any) => (
-                    <Card key={inv.id} className="bg-blue-50 border-blue-200">
+                    <Card key={inv.id} className="bg-red-50 border-red-200">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base">{inv.product.name}</CardTitle>
                             <Badge variant="outline" className="w-fit">Active</Badge>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-blue-700">
+                            <div className="text-2xl font-bold text-red-700">
                                 {formatCurrency(inv.amount_invested)}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -83,7 +83,7 @@ export default async function InvestmentsPage() {
                             </div>
                         </CardContent>
                         <CardFooter>
-                            <Link href={`/dashboard/investments/${product.id}`} className="w-full">
+                            <Link href={`/dashboard/investments/${product.id}`} prefetch={false} className="w-full">
                                 <Button className="w-full">Lihat Detail</Button>
                             </Link>
                         </CardFooter>

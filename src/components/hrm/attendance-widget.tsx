@@ -61,12 +61,12 @@ export function AttendanceWidget({
 
     if (attendanceToday) {
         return (
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-red-50 border-red-200">
                 <CardHeader>
-                    <CardTitle className="text-blue-800">Sedang Bertugas</CardTitle>
+                    <CardTitle className="text-red-800">Sedang Bertugas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-center text-sm text-blue-700 mb-4">
+                    <div className="flex items-center text-sm text-red-700 mb-4">
                         <MapPin className="h-4 w-4 mr-2" />
                         Check-in: {new Date(attendanceToday.check_in).toLocaleTimeString()}
                     </div>
@@ -88,7 +88,7 @@ export function AttendanceWidget({
                 <p className="text-sm text-muted-foreground mb-4">
                     Catat kehadiran anda hari ini. Pastikan GPS aktif jika diperlukan.
                 </p>
-                <Button onClick={handleCheckIn} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleCheckIn} disabled={loading} className="w-full bg-red-600 hover:bg-red-700">
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Check In
                 </Button>

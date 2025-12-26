@@ -20,7 +20,7 @@ export const memberRegistrationSchema = z.object({
   phone: z.string().min(10, "Nomor HP tidak valid"),
   email: z.string().email("Email tidak valid").optional(),
   alamat_lengkap: z.string().min(10, "Alamat lengkap minimal 10 karakter"),
-  member_type: z.enum(['regular', 'honorary', 'family', 'student', 'staff']).optional(),
+  member_type: z.enum(['regular', 'honorary', 'family', 'student', 'staff', 'mitra_umkm']).optional(),
 });
 
 export type MemberRegistrationInput = z.infer<typeof memberRegistrationSchema>;

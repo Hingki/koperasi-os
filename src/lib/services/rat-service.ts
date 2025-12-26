@@ -1,101 +1,147 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 
-/**
- * Service for Electronic Annual Member Meeting (E-RAT)
- * 
- * Assumed Schema:
- * - rat_sessions (id, koperasi_id, title, scheduled_at, status, agenda, documents)
- * - rat_attendance (id, session_id, member_id, check_in_time, method)
- * - rat_votings (id, session_id, title, description, options, status, created_at)
- * - rat_votes (id, voting_id, member_id, choice_index, created_at)
- */
+export type RatStatus = 'draft' | 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+export type RatAgendaStatus = 'pending' | 'active' | 'completed';
+export type RatAttendanceStatus = 'registered' | 'present' | 'absent' | 'excused';
 
-export interface RatSession {
-  id: string;
+export interface RatSessionData {
   koperasi_id: string;
   title: string;
-  scheduled_at: string;
-  status: 'scheduled' | 'live' | 'completed';
-  agenda: string;
-  documents?: { name: string; url: string }[];
-  quorum_reached?: boolean;
+  description?: string;
+  fiscal_year: number;
+  start_time: Date;
+  end_time?: Date;
+  location?: string;
+  meeting_link?: string;
+  documents?: any[];
+  quorum_min_percent?: number;
 }
 
-export interface RatVoting {
-  id: string;
-  session_id: string;
+export interface RatAgendaData {
+  rat_session_id: string;
   title: string;
   description?: string;
-  options: string[]; // ["Setuju", "Tidak Setuju", "Abstain"]
-  status: 'pending' | 'open' | 'closed';
-  results?: Record<string, number>;
+  order_index?: number;
+  is_voting_required?: boolean;
+  voting_options?: string[];
 }
 
 export class RatService {
   constructor(private supabase: SupabaseClient) {}
 
-  // --- Session Management ---
-
-  async createSession(koperasiId: string, payload: Partial<RatSession>, userId: string) {
-    const { data, error } = await this.supabase
+  /**
+   * Create a new RAT Session
+   */
+  async createSession(data: RatSessionData) {
+    const { data: session, error } = await this.supabase
       .from('rat_sessions')
       .insert({
-        koperasi_id: koperasiId,
-        title: payload.title,
-        scheduled_at: payload.scheduled_at,
-        agenda: payload.agenda,
-        documents: payload.documents || [],
-        status: 'scheduled',
-        created_by: userId
+        ...data,
+        status: 'draft',
+        documents: data.documents || []
       })
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return session;
   }
 
-  async getSession(sessionId: string) {
+  /**
+   * Update RAT Session details
+   */
+  async updateSession(id: string, data: Partial<RatSessionData> & { status?: RatStatus }) {
+    const { data: session, error } = await this.supabase
+      .from('rat_sessions')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return session;
+  }
+
+  /**
+   * Get a single RAT session by ID
+   */
+  async getSession(id: string) {
+    const { data: session, error } = await this.supabase
+      .from('rat_sessions')
+      .select(`
+        *,
+        rat_agendas (*),
+        rat_attendance (count)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return session;
+  }
+
+  /**
+   * Get Active or Scheduled sessions for a Koperasi
+   */
+  async getActiveSessions(koperasiId: string) {
     const { data, error } = await this.supabase
       .from('rat_sessions')
       .select('*')
-      .eq('id', sessionId)
-      .single();
+      .eq('koperasi_id', koperasiId)
+      .in('status', ['scheduled', 'ongoing'])
+      .order('start_time', { ascending: true });
 
     if (error) throw error;
     return data;
   }
 
-  async updateSessionStatus(sessionId: string, status: 'live' | 'completed') {
-    const { error } = await this.supabase
-      .from('rat_sessions')
+  /**
+   * Add an agenda item to a session
+   */
+  async addAgenda(data: RatAgendaData) {
+    const { data: agenda, error } = await this.supabase
+      .from('rat_agendas')
+      .insert({
+        ...data,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return agenda;
+  }
+
+  /**
+   * Update agenda status (e.g. open voting)
+   */
+  async updateAgendaStatus(id: string, status: RatAgendaStatus) {
+    const { data: agenda, error } = await this.supabase
+      .from('rat_agendas')
       .update({ status })
-      .eq('id', sessionId);
-    
-    if (error) throw error;
-  }
-
-  // --- Attendance ---
-
-  async checkInMember(sessionId: string, memberId: string, method: 'online' | 'onsite' = 'online') {
-    // Check if already checked in
-    const { data: existing } = await this.supabase
-      .from('rat_attendance')
-      .select('id')
-      .eq('session_id', sessionId)
-      .eq('member_id', memberId)
+      .eq('id', id)
+      .select()
       .single();
 
-    if (existing) return existing;
+    if (error) throw error;
+    return agenda;
+  }
 
+  /**
+   * Register member attendance (Check-in)
+   */
+  async registerAttendance(sessionId: string, memberId: string, ipAddress?: string, deviceInfo?: string) {
+    // Upsert to handle re-check-ins or status updates
     const { data, error } = await this.supabase
       .from('rat_attendance')
-      .insert({
-        session_id: sessionId,
+      .upsert({
+        rat_session_id: sessionId,
         member_id: memberId,
-        method: method,
-        check_in_time: new Date().toISOString()
-      })
+        status: 'present',
+        check_in_time: new Date(),
+        ip_address: ipAddress,
+        device_info: deviceInfo
+      }, { onConflict: 'rat_session_id, member_id' })
       .select()
       .single();
 
@@ -103,100 +149,81 @@ export class RatService {
     return data;
   }
 
-  async getAttendanceStats(sessionId: string) {
-    const { count, error } = await this.supabase
-      .from('rat_attendance')
-      .select('*', { count: 'exact', head: true })
-      .eq('session_id', sessionId);
+  /**
+   * Submit a vote for an agenda
+   */
+  async submitVote(agendaId: string, memberId: string, voteOption: string) {
+    // Check if agenda is active
+    const { data: agenda } = await this.supabase
+      .from('rat_agendas')
+      .select('status, is_voting_required, voting_options')
+      .eq('id', agendaId)
+      .single();
 
-    if (error) throw error;
-    return count || 0;
-  }
+    if (!agenda || agenda.status !== 'active') {
+      throw new Error('Voting is not active for this agenda');
+    }
 
-  // --- Voting ---
+    if (!agenda.is_voting_required) {
+      throw new Error('This agenda does not require voting');
+    }
 
-  async createVoting(sessionId: string, title: string, options: string[], userId: string) {
+    // Check valid option
+    const options = agenda.voting_options as string[];
+    if (!options.includes(voteOption)) {
+      throw new Error('Invalid vote option');
+    }
+
     const { data, error } = await this.supabase
-      .from('rat_votings')
+      .from('rat_votes')
       .insert({
-        session_id: sessionId,
-        title: title,
-        options: options,
-        status: 'pending',
-        created_by: userId
+        rat_agenda_id: agendaId,
+        member_id: memberId,
+        vote_option: voteOption
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') { // Unique violation
+        throw new Error('You have already voted on this agenda');
+      }
+      throw error;
+    }
     return data;
   }
 
-  async openVoting(votingId: string) {
-    const { error } = await this.supabase
-      .from('rat_votings')
-      .update({ status: 'open' })
-      .eq('id', votingId);
-    if (error) throw error;
-  }
-
-  async closeVoting(votingId: string) {
-    const { error } = await this.supabase
-      .from('rat_votings')
-      .update({ status: 'closed' })
-      .eq('id', votingId);
-    if (error) throw error;
-  }
-
-  async submitVote(votingId: string, memberId: string, choiceIndex: number) {
-    // 1. Verify Voting is Open
-    const { data: voting } = await this.supabase
-      .from('rat_votings')
-      .select('status, options')
-      .eq('id', votingId)
-      .single();
-
-    if (!voting || voting.status !== 'open') throw new Error('Voting is not open');
-    if (choiceIndex < 0 || choiceIndex >= voting.options.length) throw new Error('Invalid choice');
-
-    // 2. Check if already voted
-    const { data: existing } = await this.supabase
+  /**
+   * Get vote results for an agenda
+   */
+  async getVoteResults(agendaId: string) {
+    const { data, error } = await this.supabase
       .from('rat_votes')
-      .select('id')
-      .eq('voting_id', votingId)
-      .eq('member_id', memberId)
-      .maybeSingle();
-
-    if (existing) throw new Error('You have already voted');
-
-    // 3. Cast Vote
-    const { error } = await this.supabase
-      .from('rat_votes')
-      .insert({
-        voting_id: votingId,
-        member_id: memberId,
-        choice_index: choiceIndex
-      });
-
-    if (error) throw error;
-    return true;
-  }
-
-  async getVotingResults(votingId: string) {
-    // Get all votes
-    const { data: votes, error } = await this.supabase
-      .from('rat_votes')
-      .select('choice_index')
-      .eq('voting_id', votingId);
+      .select('vote_option');
 
     if (error) throw error;
 
-    // Aggregate
-    const results: Record<number, number> = {};
-    votes?.forEach(v => {
-      results[v.choice_index] = (results[v.choice_index] || 0) + 1;
+    // Aggregate results
+    const results: Record<string, number> = {};
+    data.forEach(vote => {
+      results[vote.vote_option] = (results[vote.vote_option] || 0) + 1;
     });
 
     return results;
+  }
+
+  /**
+   * Get member attendance status
+   */
+  async getMemberAttendance(sessionId: string, memberId: string) {
+    const { data, error } = await this.supabase
+      .from('rat_attendance')
+      .select('*')
+      .eq('rat_session_id', sessionId)
+      .eq('member_id', memberId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'Row not found'
+    return data;
   }
 }

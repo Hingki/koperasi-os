@@ -134,8 +134,8 @@ export default function MemberImportPage() {
             id="file-upload"
         />
         <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
-            <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                <Upload className="w-6 h-6 text-blue-600" />
+            <div className="h-12 w-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                <Upload className="w-6 h-6 text-red-600" />
             </div>
             <span className="text-sm font-medium text-slate-900">Klik untuk upload file Excel</span>
             <span className="text-xs text-slate-500 mt-1">Format .xlsx atau .xls</span>
@@ -199,7 +199,7 @@ export default function MemberImportPage() {
                 <button 
                     onClick={handleImport}
                     disabled={errors.length > 0 || loading || data.length === 0}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                    className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                 >
                     {loading ? 'Mengimport...' : 'Proses Import Sekarang'}
                 </button>

@@ -80,7 +80,7 @@ export default async function RentalTransactionDetailPage({ params }: PageProps)
                         <div>
                             <span className="text-slate-500 block">Status</span>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
-                                tx.status === 'active' ? 'bg-blue-100 text-blue-800' : 
+                                tx.status === 'active' ? 'bg-orange-100 text-orange-800' : 
                                 tx.status === 'returned' ? 'bg-green-100 text-green-800' : 
                                 'bg-red-100 text-red-800'
                             }`}>
@@ -180,7 +180,7 @@ export default async function RentalTransactionDetailPage({ params }: PageProps)
                         )}
                         <div className="border-t pt-2 mt-2 flex justify-between font-bold text-lg">
                             <span>Total Akhir</span>
-                            <span className="text-blue-600">Rp {tx.final_amount.toLocaleString()}</span>
+                            <span className="text-red-600">Rp {tx.final_amount.toLocaleString()}</span>
                         </div>
                         
                         <div className="bg-slate-50 p-3 rounded mt-4">

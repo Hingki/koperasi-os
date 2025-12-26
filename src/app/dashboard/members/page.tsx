@@ -34,24 +34,50 @@ export default async function MembersPage() {
   const koperasiId = user.user_metadata.koperasi_id;
   const isValidUUID = koperasiId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(koperasiId);
   
-  // Defensive query: only fetch if UUID is valid
-  const { data: members, error } = isValidUUID ? await supabase
-    .from('member')
-    .select('*')
-    .eq('koperasi_id', koperasiId)
-    .order('created_at', { ascending: false }) : { data: [], error: null };
+    // Defensive query: only fetch if UUID is valid
+    let members = [];
+    let fetchError = null;
 
-  if (error) return <div>Error loading members: {error.message}</div>;
+    if (isValidUUID) {
+        try {
+            const { data, error } = await supabase
+                .from('member')
+                .select('*')
+                .eq('koperasi_id', koperasiId)
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error("Error fetching members:", error);
+                fetchError = error;
+            } else {
+                members = data || [];
+            }
+        } catch (e) {
+            console.error("Exception fetching members:", e);
+            fetchError = { message: "Unknown error occurred" } as any;
+        }
+    }
 
-  return (
-    <div className="space-y-6">
+    if (fetchError) return <div>Error loading members: {fetchError.message}</div>;
+
+    const formatDate = (dateString: string | null | undefined) => {
+        if (!dateString) return '-';
+        try {
+            return new Date(dateString).toLocaleDateString('id-ID');
+        } catch (e) {
+            return 'Invalid Date';
+        }
+    };
+
+    return (
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
             <h1 className="text-2xl font-bold tracking-tight">Anggota</h1>
             <p className="text-slate-500">Kelola anggota koperasi anda.</p>
         </div>
-        <Link href="/dashboard/members/new">
-            <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700">
+        <Link href="/dashboard/members/new" prefetch={false}>
+            <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 bg-red-600 text-white hover:bg-red-700">
                 <Plus className="mr-2 h-4 w-4" />
                 Tambah Anggota
             </button>
@@ -99,7 +125,8 @@ export default async function MembersPage() {
                         <TableCell>
                             <Link 
                               href={`/dashboard/members/${member.id}/savings`}
-                              className="text-blue-600 hover:underline text-xs"
+                              prefetch={false}
+                              className="text-red-600 hover:underline text-xs"
                             >
                               Lihat Simpanan
                             </Link>

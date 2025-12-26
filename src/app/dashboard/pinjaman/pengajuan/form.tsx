@@ -128,7 +128,7 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
                 </SelectContent>
               </Select>
               {selectedType && (
-                <FormDescription className="text-xs bg-blue-50 p-2 rounded text-blue-700 mt-2">
+                <FormDescription className="text-xs bg-red-50 p-2 rounded text-red-700 mt-2">
                   Max: {formatCurrency(selectedType.max_amount)} • Tenor: {selectedType.tenor_months} Bulan • Biaya Admin: {formatCurrency(selectedType.admin_fee)}
                 </FormDescription>
               )}
@@ -197,7 +197,7 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
         />
 
         <div className="pt-4">
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={form.formState.isSubmitting}>
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -47,7 +47,7 @@ export default function KioskPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard/retail/kiosk/orders">
+            <Link href="/dashboard/retail/kiosk/orders" prefetch={false}>
               <Button className="w-full h-24 text-lg">
                 Lihat Pesanan Masuk
               </Button>

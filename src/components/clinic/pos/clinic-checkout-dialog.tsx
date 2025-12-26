@@ -149,7 +149,7 @@ export function ClinicCheckoutDialog({
                     router.refresh();
                 }
             } else {
-                // @ts-ignore
+                // @ts-expect-error - res.error type from action may be string/unknown
                 alert(`Gagal memproses transaksi: ${res.error}`);
             }
         } catch (error: any) {

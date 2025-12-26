@@ -21,7 +21,7 @@ export default async function VendorsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-4">
-                    <Link href="/dashboard/financing" className="p-2 hover:bg-slate-100 rounded-full">
+                    <Link href="/dashboard/financing" prefetch={false} className="p-2 hover:bg-slate-100 rounded-full">
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
                     <div>
@@ -30,7 +30,7 @@ export default async function VendorsPage() {
                     </div>
                 </div>
                 <Button asChild>
-                    <Link href="/dashboard/financing/vendors/new">
+                    <Link href="/dashboard/financing/vendors/new" prefetch={false}>
                         <Plus className="w-4 h-4 mr-2" />
                         Tambah Vendor
                     </Link>
@@ -76,7 +76,7 @@ export default async function VendorsPage() {
                                 </div>
                                 <div className="mt-4 flex justify-end">
                                     <Button variant="outline" size="sm" asChild>
-                                        <Link href={`/dashboard/financing/vendors/${vendor.id}/edit`}>
+                                        <Link href={`/dashboard/financing/vendors/${vendor.id}/edit`} prefetch={false}>
                                             <Pencil className="w-4 h-4 mr-2" />
                                             Edit
                                         </Link>

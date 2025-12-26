@@ -165,7 +165,7 @@ export function LoanActionButtons({ id, status, amount }: LoanActionButtonsProps
         return (
             <Dialog open={openDisburse} onOpenChange={setOpenDisburse}>
                 <DialogTrigger asChild>
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    <Button size="sm" className="bg-red-600 hover:bg-red-700">
                         <Banknote className="h-4 w-4 mr-2" />
                         Cairkan Dana
                     </Button>
@@ -189,7 +189,7 @@ export function LoanActionButtons({ id, status, amount }: LoanActionButtonsProps
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setOpenDisburse(false)}>Batal</Button>
                         <Button 
-                            className="bg-blue-600 hover:bg-blue-700" 
+                            className="bg-teal-600 hover:bg-teal-700" 
                             onClick={handleDisburse}
                             disabled={isLoading}
                         >

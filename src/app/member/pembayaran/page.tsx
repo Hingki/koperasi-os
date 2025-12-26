@@ -143,7 +143,7 @@ export default async function PaymentPage() {
                          href={tx.signedUrl} 
                          target="_blank" 
                          rel="noopener noreferrer"
-                         className="text-blue-600 hover:underline flex items-center gap-1"
+                         className="text-red-600 hover:underline flex items-center gap-1"
                        >
                          Lihat Bukti
                        </a>

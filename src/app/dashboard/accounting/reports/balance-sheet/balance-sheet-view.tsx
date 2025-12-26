@@ -49,7 +49,7 @@ export function BalanceSheetView({ data }: { data: BalanceSheetData }) {
       {/* Assets Section */}
       <Card>
         <CardHeader className="bg-slate-50 py-3">
-            <CardTitle className="text-lg text-blue-700">ASET (ASSETS)</CardTitle>
+            <CardTitle className="text-lg text-red-700">ASET (ASSETS)</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-6">
             <div>
@@ -76,7 +76,7 @@ export function BalanceSheetView({ data }: { data: BalanceSheetData }) {
 
       {/* Liabilities & Equity Section */}
       <Card>
-        <CardHeader className="bg-slate-50 py-3">
+        <CardHeader className="bg-red-50/50 py-3">
             <CardTitle className="text-lg text-red-700">LIABILITAS & EKUITAS</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-6">

@@ -37,7 +37,7 @@ export default async function FinancingPage() {
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Pembiayaan Barang</h1>
                     <p className="text-slate-500">Kelola pembiayaan kendaraan, elektronik, dan barang lainnya.</p>
                 </div>
-                <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                <Button asChild className="bg-red-600 hover:bg-red-700">
                     <Link href="/member/financing/apply">
                         <Plus className="w-4 h-4 mr-2" />
                         Ajukan Pembiayaan
@@ -61,7 +61,7 @@ export default async function FinancingPage() {
                             <Card key={loan.id} className="overflow-hidden">
                                 <CardHeader className="bg-slate-50 pb-4">
                                     <div className="flex justify-between items-start">
-                                        <div className="p-2 bg-white rounded-lg shadow-sm text-blue-600">
+                                        <div className="p-2 bg-white rounded-lg shadow-sm text-red-600">
                                             {getIcon(loan.financing_object?.category)}
                                         </div>
                                         <Badge variant="default" className="bg-emerald-600">Aktif</Badge>
@@ -127,7 +127,7 @@ export default async function FinancingPage() {
                                             <td className="px-4 py-3 text-slate-600">
                                                 {formatCurrency(app.financing_object?.down_payment)}
                                             </td>
-                                            <td className="px-4 py-3 font-medium text-blue-600">
+                                            <td className="px-4 py-3 font-medium text-red-600">
                                                 {formatCurrency(app.amount)}
                                             </td>
                                             <td className="px-4 py-3">

@@ -178,6 +178,8 @@ export class PaymentService {
   ): Promise<PaymentTransaction> {
     
     // 1. Create Initial Record
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+    
     const { data: trx, error: createError } = await this.supabase
       .from('payment_transactions')
       .insert({
@@ -185,11 +187,12 @@ export class PaymentService {
         transaction_type: transactionType,
         reference_id: referenceId,
         payment_method: 'qris',
-        payment_provider: 'mock', // Default to mock for now, or make this dynamic
+        payment_provider: isDemoMode ? 'mock' : 'qris', // Or keep original provider name but flag as test
         amount: amount,
         status: 'pending',
         description: description,
-        created_by: createdBy
+        created_by: createdBy,
+        is_test_transaction: isDemoMode
       })
       .select()
       .single();

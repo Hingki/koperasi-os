@@ -66,7 +66,7 @@ export function ProductGrid({
                                 key={product.id}
                                 onClick={() => onAddToCart(product)}
                                 disabled={!product.is_active || product.stock_quantity <= 0}
-                                className="flex flex-col items-start p-4 bg-white rounded-lg border hover:border-blue-500 hover:shadow-sm transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex flex-col items-start p-4 bg-white rounded-lg border hover:border-red-500 hover:shadow-sm transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <div className="w-full aspect-square bg-slate-100 rounded-md mb-3 flex items-center justify-center text-slate-400">
                                     <Package className="h-8 w-8" />
@@ -77,7 +77,7 @@ export function ProductGrid({
                                 <div className="text-xs text-slate-500 mb-2">
                                     Stok: {product.stock_quantity} {product.unit}
                                 </div>
-                                <div className="font-bold text-blue-600">
+                                <div className="font-bold text-red-600">
                                     Rp {product.price_sell_public.toLocaleString('id-ID')}
                                 </div>
                             </button>

@@ -126,7 +126,7 @@ export function StaffManager({ initialRoles, memberOptions, koperasiId }: Props)
           <label className="text-sm font-medium" htmlFor="role_select">Peran</label>
           <select
             id="role_select"
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 capitalize"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 capitalize"
             value={role}
             onChange={(e) => setRole(e.target.value as UserRoleType)}
             title="Peran pengguna"

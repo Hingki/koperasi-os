@@ -53,7 +53,7 @@ export default async function EditLoanProductPage(props: { params: Promise<{ id:
                 <div className="space-y-2">
                     <Label htmlFor="interest_type">Jenis Bunga</Label>
                     <select id="interest_type" name="interest_type" required defaultValue={product.interest_type} title="Jenis Bunga"
-                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="flex h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
                     >
                         <option value="flat">Flat</option>
                         <option value="effective">Efektif (Menurun)</option>
@@ -93,7 +93,7 @@ export default async function EditLoanProductPage(props: { params: Promise<{ id:
             </div>
 
             <div className="flex items-center space-x-2">
-                <input type="checkbox" id="is_active" name="is_active" defaultChecked={product.is_active} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" title="Aktifkan Produk Ini" />
+                <input type="checkbox" id="is_active" name="is_active" defaultChecked={product.is_active} className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded" title="Aktifkan Produk Ini" />
                 <Label htmlFor="is_active">Aktifkan Produk Ini</Label>
             </div>
 

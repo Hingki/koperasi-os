@@ -91,30 +91,69 @@ export class LedgerService {
     const currentHash = crypto.createHash('sha256').update(entryData).digest('hex');
 
     // 6. Insert Entry
-    const { data: entry, error: insertError } = await this.supabase
-      .from('ledger_entry')
-      .insert({
-        koperasi_id: trx.koperasi_id,
-        period_id: periodId,
-        tx_id: crypto.randomUUID(), // Unique Transaction ID
-        tx_type: trx.tx_type,
-        tx_reference: trx.tx_reference,
-        account_debit: debitAccountId,
-        account_credit: creditAccountId,
-        amount: trx.amount,
-        description: trx.description,
-        metadata: trx.metadata || {},
-        source_table: trx.source_table,
-        source_id: trx.source_id,
-        hash_current: currentHash,
-        hash_previous: previousHash,
-        entry_date: today.toISOString(),
-        book_date: today.toISOString(),
-        status: 'posted',
-        created_by: trx.created_by
-      })
-      .select()
-      .single();
+    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+    let entry: any | null = null;
+    let insertError: any | null = null;
+    try {
+      const res = await this.supabase
+        .from('ledger_entry')
+        .insert({
+          koperasi_id: trx.koperasi_id,
+          period_id: periodId,
+          tx_id: crypto.randomUUID(),
+          tx_type: trx.tx_type,
+          tx_reference: trx.tx_reference,
+          account_debit: debitAccountId,
+          account_credit: creditAccountId,
+          amount: trx.amount,
+          description: trx.description,
+          metadata: trx.metadata || {},
+          source_table: trx.source_table,
+          source_id: trx.source_id,
+          hash_current: currentHash,
+          hash_previous: previousHash,
+          entry_date: today.toISOString(),
+          book_date: today.toISOString(),
+          status: 'posted',
+          created_by: trx.created_by,
+          is_test_transaction: isDemoMode
+        })
+        .select()
+        .single();
+      entry = res.data;
+      insertError = res.error;
+    } catch (err: any) {
+      if (String(err?.message || '').includes('column "is_test_transaction"')) {
+        const res = await this.supabase
+          .from('ledger_entry')
+          .insert({
+            koperasi_id: trx.koperasi_id,
+            period_id: periodId,
+            tx_id: crypto.randomUUID(),
+            tx_type: trx.tx_type,
+            tx_reference: trx.tx_reference,
+            account_debit: debitAccountId,
+            account_credit: creditAccountId,
+            amount: trx.amount,
+            description: trx.description,
+            metadata: trx.metadata || {},
+            source_table: trx.source_table,
+            source_id: trx.source_id,
+            hash_current: currentHash,
+            hash_previous: previousHash,
+            entry_date: today.toISOString(),
+            book_date: today.toISOString(),
+            status: 'posted',
+            created_by: trx.created_by
+          })
+          .select()
+          .single();
+        entry = res.data;
+        insertError = res.error;
+      } else {
+        throw err;
+      }
+    }
 
     if (insertError) {
       throw new Error(`Ledger Insert Failed: ${insertError.message}`);

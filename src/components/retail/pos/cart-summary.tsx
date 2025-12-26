@@ -136,7 +136,7 @@ export function CartSummary({
 
                 
                 {selectedCustomer && (
-                     <div className="text-sm bg-blue-50 text-blue-700 p-2 rounded border border-blue-100">
+                     <div className="text-sm bg-red-50 text-red-700 p-2 rounded border border-red-100">
                         Selected: <strong>{selectedCustomer.name}</strong>
                      </div>
                 )}

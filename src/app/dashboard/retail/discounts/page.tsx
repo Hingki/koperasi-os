@@ -60,7 +60,7 @@ export default async function DiscountsPage() {
               discounts.map((discount: any) => (
                 <TableRow key={discount.id}>
                   <TableCell className="font-medium flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-blue-500" />
+                    <Tag className="h-4 w-4 text-red-500" />
                     {discount.name}
                   </TableCell>
                   <TableCell>

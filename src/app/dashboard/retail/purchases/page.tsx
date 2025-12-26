@@ -92,7 +92,7 @@ export default async function PurchasesPage() {
                             <td className="px-6 py-4 font-medium text-slate-900">
                                 {p.invoice_number || '-'}
                                 {p.po && (
-                                    <div className="text-xs text-blue-600 mt-1">
+                                    <div className="text-xs text-red-600 mt-1">
                                         PO: {p.po.po_number}
                                     </div>
                                 )}

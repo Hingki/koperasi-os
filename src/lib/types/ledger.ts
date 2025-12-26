@@ -44,14 +44,15 @@ export enum AccountCode {
 
 export interface LedgerTransaction {
   koperasi_id: string;
-  tx_type: 'loan_disbursement' | 'loan_repayment' | 'savings_deposit' | 'savings_withdrawal' | 'journal_adjustment' | 'retail_purchase' | 'retail_sale' | 'retail_purchase_return' | 'retail_sales_return' | 'rental_transaction' | 'rental_payment' | 'retail_purchase_payment' | 'retail_sales_return_cogs' | 'capital_investment';
+  tx_type: 'loan_disbursement' | 'loan_repayment' | 'savings_deposit' | 'savings_withdrawal' | 'journal_adjustment' | 'retail_purchase' | 'retail_sale' | 'retail_purchase_return' | 'retail_sales_return' | 'rental_transaction' | 'rental_payment' | 'retail_purchase_payment' | 'retail_sales_return_cogs' | 'capital_investment' | 'ppob_sales' | 'ppob_cost';
   tx_reference: string; // e.g. Loan Code or Trx ID
-  account_debit: AccountCode;
-  account_credit: AccountCode;
+  account_debit: string; // Changed from AccountCode to string to allow flexibility, or keep AccountCode if strict
+  account_credit: string;
   amount: number;
   description: string;
   source_table: string;
   source_id: string;
   metadata?: Record<string, any>;
   created_by: string;
+  is_test_transaction?: boolean;
 }
