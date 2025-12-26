@@ -167,6 +167,7 @@ export function RatManager({ session: initialSession }: RatManagerProps) {
                                         checked={isVotingRequired} 
                                         onChange={e => setIsVotingRequired(e.target.checked)}
                                         className="h-4 w-4 rounded border-gray-300" 
+                                        aria-label="Perlu Voting?"
                                     />
                                     <Label htmlFor="voting">Perlu Voting?</Label>
                                 </div>
