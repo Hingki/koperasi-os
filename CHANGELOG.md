@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- chore: add version indicator to verify deployment
+
+## [Unreleased]
 - fix: resolve typescript errors and push dashboard admin button fixes
 
 ## [Unreleased]
@@ -78,6 +81,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 

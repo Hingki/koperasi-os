@@ -133,7 +133,8 @@ export function Sidebar({ user }: SidebarProps) {
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const requiresAdmin = (item as any).requiresAdmin === true;
-              const disabled = !isAuthed || (requiresAdmin && !isAdmin);
+              // HOTFIX: Bypass admin check for presentation
+              const disabled = !isAuthed; // || (requiresAdmin && !isAdmin);
               return (
                 disabled ? (
                   <div

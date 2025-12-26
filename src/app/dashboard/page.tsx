@@ -62,6 +62,7 @@ export default async function DashboardPage() {
         )}
 
         {/* Dev Helper: Always show Claim Admin Access button if not admin, for debugging */}
+        {/* TEMPORARILY DISABLED: Causes client-side crash on Vercel
         {!isAdmin && (
           <div className="flex flex-col items-end">
             <form action={grantAdminAccess}>
@@ -76,6 +77,7 @@ export default async function DashboardPage() {
             <p className="text-xs text-slate-400 mt-1">Role Status: {roles?.length ? roles.map(r => r.role).join(', ') : 'None'}</p>
           </div>
         )}
+        */}
       </div>
       
       {/* Stats Grid with Suspense */}
