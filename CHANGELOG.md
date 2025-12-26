@@ -1,29 +1,11 @@
 ﻿## [Unreleased]
-- fix: safe env var check in middleware
-
-## [Unreleased]
+- fix: safe env var check in middleware to prevent build crash
 - fix: use safe fallback for missing env vars to prevent build crash
-
-## [Unreleased]
-- fix: sanitize env vars in middleware to prevent invalid api key errors
-
-## [Unreleased]
 - fix: sanitize env vars to strip quotes and whitespace
-
-## [Unreleased]
 - fix: explicit env var checks in supabase clients and fix a11y issue
-
-## [Unreleased]
 - fix: handle missing env vars in middleware and remove duplicate config
-
-## [Unreleased]
 - fix: resolve next.js 16 build errors and prepare for deployment
-
-## [Unreleased]
 - Merge remote-tracking branch 'origin/main'
-
-## [Unreleased]
-- fix: resolve build errors and prepare for Vercel deployment
 
 # Changelog
 
@@ -75,6 +57,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
