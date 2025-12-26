@@ -30,22 +30,22 @@ import type { User } from '@supabase/supabase-js';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Anggota', href: '/dashboard/members', icon: Users, requiresAdmin: true },
-  { name: 'Kepegawaian', href: '/dashboard/hrm', icon: UserCheck, requiresAdmin: true },
-  { name: 'Simpanan', href: '/dashboard/savings', icon: Wallet, requiresAdmin: true },
-  { name: 'Pinjaman', href: '/dashboard/pinjaman', icon: Banknote, requiresAdmin: true },
-  { name: 'Pembiayaan', href: '/dashboard/financing', icon: Package, requiresAdmin: true },
-  { name: 'Investasi', href: '/dashboard/investments', icon: TrendingUp, requiresAdmin: true },
-  { name: 'Toko', href: '/dashboard/retail', icon: ShoppingBag, requiresAdmin: true },
-  { name: 'Gudang', href: '/dashboard/warehouse', icon: Warehouse, requiresAdmin: true },
-  { name: 'Lelang', href: '/dashboard/auction', icon: Gavel, requiresAdmin: true },
-  { name: 'Unit Sewa', href: '/dashboard/rental', icon: Key, requiresAdmin: true },
-  { name: 'Klinik', href: '/dashboard/clinic', icon: Stethoscope, requiresAdmin: true },
-  { name: 'PPOB', href: '/dashboard/ppob', icon: Smartphone, requiresAdmin: true },
-  { name: 'Akuntansi', href: '/dashboard/accounting', icon: BookOpen, requiresAdmin: true },
-  { name: 'Pengumuman', href: '/dashboard/announcements', icon: Megaphone, requiresAdmin: true },
-  { name: 'Support', href: '/dashboard/support', icon: MessageSquare, requiresAdmin: true },
-  { name: 'Pengaturan', href: '/dashboard/settings', icon: Settings, requiresAdmin: true },
+  { name: 'Anggota', href: '/dashboard/members', icon: Users, requiresAdmin: false },
+  { name: 'Kepegawaian', href: '/dashboard/hrm', icon: UserCheck, requiresAdmin: false },
+  { name: 'Simpanan', href: '/dashboard/savings', icon: Wallet, requiresAdmin: false },
+  { name: 'Pinjaman', href: '/dashboard/pinjaman', icon: Banknote, requiresAdmin: false },
+  { name: 'Pembiayaan', href: '/dashboard/financing', icon: Package, requiresAdmin: false },
+  { name: 'Investasi', href: '/dashboard/investments', icon: TrendingUp, requiresAdmin: false },
+  { name: 'Toko', href: '/dashboard/retail', icon: ShoppingBag, requiresAdmin: false },
+  { name: 'Gudang', href: '/dashboard/warehouse', icon: Warehouse, requiresAdmin: false },
+  { name: 'Lelang', href: '/dashboard/auction', icon: Gavel, requiresAdmin: false },
+  { name: 'Unit Sewa', href: '/dashboard/rental', icon: Key, requiresAdmin: false },
+  { name: 'Klinik', href: '/dashboard/clinic', icon: Stethoscope, requiresAdmin: false },
+  { name: 'PPOB', href: '/dashboard/ppob', icon: Smartphone, requiresAdmin: false },
+  { name: 'Akuntansi', href: '/dashboard/accounting', icon: BookOpen, requiresAdmin: false },
+  { name: 'Pengumuman', href: '/dashboard/announcements', icon: Megaphone, requiresAdmin: false },
+  { name: 'Support', href: '/dashboard/support', icon: MessageSquare, requiresAdmin: false },
+  { name: 'Pengaturan', href: '/dashboard/settings', icon: Settings, requiresAdmin: false },
 ];
 
 interface SidebarProps {
@@ -132,9 +132,8 @@ export function Sidebar({ user }: SidebarProps) {
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const requiresAdmin = (item as any).requiresAdmin === true;
-              // HOTFIX: Bypass admin check for presentation
-              const disabled = !isAuthed; // || (requiresAdmin && !isAdmin);
+              // HOTFIX v0.1.3: Always enable for authed users
+              const disabled = !isAuthed; 
               return (
                 disabled ? (
                   <div
@@ -149,7 +148,7 @@ export function Sidebar({ user }: SidebarProps) {
                       <item.icon className="mr-3 h-5 w-5 text-slate-300" />
                       {item.name}
                     </div>
-                    <span className="text-xs font-medium text-slate-500">{!isAuthed ? 'Butuh login' : 'Butuh akses'}</span>
+                    <span className="text-xs font-medium text-slate-500">{!isAuthed ? 'Butuh login' : 'Restricted (v0.1.3)'}</span>
                   </div>
                 ) : (
                   <Link
