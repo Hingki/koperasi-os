@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix: use safe fallback for missing env vars to prevent build crash
+
+## [Unreleased]
 - fix: sanitize env vars in middleware to prevent invalid api key errors
 
 ## [Unreleased]
@@ -69,6 +72,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
