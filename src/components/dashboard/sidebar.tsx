@@ -24,7 +24,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 
@@ -60,23 +60,29 @@ export function Sidebar({ user }: SidebarProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const isAuthed = !!user;
 
-  // Fetch roles to determine admin access
-  // Graceful: if fails, default to non-admin
-  if (typeof window !== 'undefined' && isAuthed && !isAdmin) {
-    // best-effort call; avoid re-renders with a microtask guard
-    Promise.resolve().then(async () => {
-      try {
-        const { data: roles } = await supabase
-          .from('user_role')
-          .select('role')
-          .eq('user_id', user!.id)
-          .eq('is_active', true);
-        const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
-        const hasAdmin = !!roles?.some((r: any) => adminRoles.includes(r.role));
-        if (hasAdmin !== isAdmin) setIsAdmin(hasAdmin);
-      } catch {}
-    });
-  }
+  // Fetch roles to determine admin access using useEffect
+
+  useEffect(() => {
+    let mounted = true;
+    if (isAuthed && !isAdmin) {
+      const checkRole = async () => {
+        try {
+          const { data: roles } = await supabase
+            .from('user_role')
+            .select('role')
+            .eq('user_id', user!.id)
+            .eq('is_active', true);
+          const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
+          const hasAdmin = !!roles?.some((r: any) => adminRoles.includes(r.role));
+          if (mounted && hasAdmin) setIsAdmin(true);
+        } catch (error) {
+          console.error('Role check failed:', error);
+        }
+      };
+      checkRole();
+    }
+    return () => { mounted = false; };
+  }, [isAuthed, user, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

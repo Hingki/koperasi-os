@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { ArrowRight, Building } from 'lucide-react';
+import { ArrowRight, Building, Key } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { koperasiService } from '@/lib/services/koperasi-service';
