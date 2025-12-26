@@ -16,12 +16,27 @@ export default async function DashboardPage() {
   }
 
   // Check user role
-  const { data: roles } = await supabase
-    .from('user_role')
+  // 1. Check 'members' table first (primary source of truth)
+  const { data: member } = await supabase
+    .from('members')
     .select('role')
-    .eq('user_id', user.id);
+    .eq('id', user.id)
+    .single();
 
-  const isAdmin = roles?.some(r => ['admin', 'pengurus', 'ketua', 'bendahara'].includes(r.role)) || false;
+  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
+  let isAdmin = false;
+
+  if (member && adminRoles.includes(member.role)) {
+    isAdmin = true;
+  } else {
+    // 2. Fallback to 'user_role' table
+    const { data: roles } = await supabase
+      .from('user_role')
+      .select('role')
+      .eq('user_id', user.id);
+    
+    isAdmin = roles?.some(r => adminRoles.includes(r.role)) || false;
+  }
 
   // Fetch Core Data (Koperasi Info) - Keep this blocking as it's essential for context
   const koperasiId = user.user_metadata?.koperasi_id;
