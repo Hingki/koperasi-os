@@ -132,7 +132,6 @@ export function Sidebar({ user }: SidebarProps) {
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              // HOTFIX v0.1.3: Always enable for authed users
               const disabled = !isAuthed; 
               return (
                 disabled ? (
@@ -148,7 +147,7 @@ export function Sidebar({ user }: SidebarProps) {
                       <item.icon className="mr-3 h-5 w-5 text-slate-300" />
                       {item.name}
                     </div>
-                    <span className="text-xs font-medium text-slate-500">{!isAuthed ? 'Butuh login' : 'Restricted (v0.1.3)'}</span>
+                    <span className="text-xs font-medium text-slate-500">Butuh login</span>
                   </div>
                 ) : (
                   <Link
