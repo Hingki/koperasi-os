@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix: resolve build error by aligning server action signature
+
+## [Unreleased]
 - chore: force show claim admin button for debugging
 
 ## [Unreleased]
@@ -69,6 +72,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
