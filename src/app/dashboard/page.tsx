@@ -61,18 +61,20 @@ export default async function DashboardPage() {
           </Link>
         )}
 
-        {/* Dev Helper: Claim Admin Access */}
+        {/* Dev Helper: Always show Claim Admin Access button if not admin, for debugging */}
         {!isAdmin && (
-          <form action={grantAdminAccess}>
-            <button 
-              type="submit"
-              className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shadow-sm transition-colors"
-            >
-              <Key className="mr-2 h-4 w-4" />
-              Claim Admin Access (Dev)
-            </button>
-            <p className="text-xs text-slate-400 mt-1">Env: {process.env.NODE_ENV}</p>
-          </form>
+          <div className="flex flex-col items-end">
+            <form action={grantAdminAccess}>
+              <button 
+                type="submit"
+                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shadow-sm transition-colors"
+              >
+                <Key className="mr-2 h-4 w-4" />
+                Claim Admin Access
+              </button>
+            </form>
+            <p className="text-xs text-slate-400 mt-1">Role Status: {roles?.length ? roles.map(r => r.role).join(', ') : 'None'}</p>
+          </div>
         )}
       </div>
       
@@ -89,6 +91,11 @@ export default async function DashboardPage() {
         <div className="col-span-3 h-[400px] rounded-xl bg-slate-50/50 border border-dashed border-slate-200 flex items-center justify-center text-slate-400">
             Recent Activity (Coming Soon)
         </div>
+      </div>
+      
+      {/* Version Indicator */}
+      <div className="text-center text-xs text-slate-300 pb-4">
+        v0.1.2-admin-fix
       </div>
     </div>
   );
