@@ -66,28 +66,13 @@ export function Sidebar({ user }: SidebarProps) {
     // best-effort call; avoid re-renders with a microtask guard
     Promise.resolve().then(async () => {
       try {
-        // 1. Check 'members' table first (primary source of truth)
-        const { data: member } = await supabase
-          .from('members')
+        const { data: roles } = await supabase
+          .from('user_role')
           .select('role')
-          .eq('id', user!.id)
-          .single();
-        
+          .eq('user_id', user!.id)
+          .eq('is_active', true);
         const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
-        let hasAdmin = false;
-
-        if (member && adminRoles.includes(member.role)) {
-          hasAdmin = true;
-        } else {
-          // 2. Fallback to 'user_role' table if members check fails
-          const { data: roles } = await supabase
-            .from('user_role')
-            .select('role')
-            .eq('user_id', user!.id)
-            .eq('is_active', true);
-          hasAdmin = !!roles?.some((r: any) => adminRoles.includes(r.role));
-        }
-
+        const hasAdmin = !!roles?.some((r: any) => adminRoles.includes(r.role));
         if (hasAdmin !== isAdmin) setIsAdmin(hasAdmin);
       } catch {}
     });
