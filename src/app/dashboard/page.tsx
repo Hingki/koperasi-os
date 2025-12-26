@@ -62,7 +62,7 @@ export default async function DashboardPage() {
         )}
 
         {/* Dev Helper: Claim Admin Access */}
-        {!isAdmin && process.env.NODE_ENV === 'development' && (
+        {!isAdmin && (
           <form action={grantAdminAccess}>
             <button 
               type="submit"
@@ -71,6 +71,7 @@ export default async function DashboardPage() {
               <Key className="mr-2 h-4 w-4" />
               Claim Admin Access (Dev)
             </button>
+            <p className="text-xs text-slate-400 mt-1">Env: {process.env.NODE_ENV}</p>
           </form>
         )}
       </div>

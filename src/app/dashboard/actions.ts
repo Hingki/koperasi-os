@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export async function grantAdminAccess() {
+export async function grantAdminAccess(formData?: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,7 +44,7 @@ export async function grantAdminAccess() {
     .single();
 
   if (existingRole) {
-    return { success: true, message: 'Already admin' };
+    return;
   }
 
   // 3. Insert admin role
@@ -72,5 +72,4 @@ export async function grantAdminAccess() {
   }
 
   revalidatePath('/dashboard');
-  return { success: true };
 }
