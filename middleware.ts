@@ -45,6 +45,28 @@ export async function middleware(request: NextRequest) {
   }
 
   // Create Supabase client for middleware
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Middleware Error: Missing Supabase Environment Variables');
+    // Allow public routes to load even without Supabase (e.g. for initial setup/debugging)
+    // This prevents a hard crash on the landing page if env vars are missing
+    if (
+      pathname === '/' || 
+      pathname === '/login' || 
+      pathname === '/register' ||
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/static')
+    ) {
+      return NextResponse.next();
+    }
+    return NextResponse.json(
+      { error: 'Configuration Error: Missing Supabase Environment Variables' },
+      { status: 500 }
+    );
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -52,8 +74,8 @@ export async function middleware(request: NextRequest) {
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
