@@ -62,22 +62,9 @@ export default async function DashboardPage() {
         )}
 
         {/* Dev Helper: Always show Claim Admin Access button if not admin, for debugging */}
-        {/* TEMPORARILY DISABLED: Causes client-side crash on Vercel
         {!isAdmin && (
-          <div className="flex flex-col items-end">
-            <form action={grantAdminAccess}>
-              <button 
-                type="submit"
-                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shadow-sm transition-colors"
-              >
-                <Key className="mr-2 h-4 w-4" />
-                Claim Admin Access
-              </button>
-            </form>
-            <p className="text-xs text-slate-400 mt-1">Role Status: {roles?.length ? roles.map(r => r.role).join(', ') : 'None'}</p>
-          </div>
+           <ClaimAdminButton />
         )}
-        */}
       </div>
       
       {/* Stats Grid with Suspense */}
@@ -97,7 +84,7 @@ export default async function DashboardPage() {
       
       {/* Version Indicator */}
       <div className="text-center text-xs text-slate-300 pb-4">
-        v0.1.2-admin-fix
+        v0.1.6-secure
       </div>
     </div>
   );

@@ -132,7 +132,7 @@ export function Sidebar({ user }: SidebarProps) {
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              const disabled = !isAuthed; 
+              const disabled = !isAuthed || (item.requiresAdmin && !isAdmin); 
               return (
                 disabled ? (
                   <div
@@ -147,7 +147,9 @@ export function Sidebar({ user }: SidebarProps) {
                       <item.icon className="mr-3 h-5 w-5 text-slate-300" />
                       {item.name}
                     </div>
-                    <span className="text-xs font-medium text-slate-500">Butuh login</span>
+                    <span className="text-xs font-medium text-slate-500">
+                      {!isAuthed ? "Butuh login" : "Butuh akses"}
+                    </span>
                   </div>
                 ) : (
                   <Link
