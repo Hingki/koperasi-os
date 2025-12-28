@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- chore: restore RBAC and fix admin claim button v0.1.6
+
+## [Unreleased]
 - chore: cleanup debug banner and finalize v0.1.5
 
 ## [Unreleased]
@@ -93,6 +96,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 

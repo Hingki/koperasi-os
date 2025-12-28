@@ -6,8 +6,7 @@ import { koperasiService } from '@/lib/services/koperasi-service';
 import { Suspense } from 'react';
 import { DashboardStats } from './dashboard-stats';
 import { Skeleton } from '@/components/ui/skeleton';
-
-import { grantAdminAccess } from './actions';
+import { ClaimAdminButton } from '@/components/dashboard/claim-admin-button';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
