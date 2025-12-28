@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix: add missing import for ClaimAdminButton in dashboard
+
+## [Unreleased]
 - chore: restore RBAC and fix admin claim button v0.1.6
 
 ## [Unreleased]
@@ -96,6 +99,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 

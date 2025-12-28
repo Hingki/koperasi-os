@@ -50,39 +50,15 @@ const navigation = [
 
 interface SidebarProps {
   user: User | null;
+  isAdmin?: boolean;
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const supabase = createClient();
-  const [isAdmin, setIsAdmin] = useState(false);
   const isAuthed = !!user;
-
-  // Fetch roles to determine admin access using useEffect
-
-  useEffect(() => {
-    let mounted = true;
-    if (isAuthed && !isAdmin) {
-      const checkRole = async () => {
-        try {
-          const { data: roles } = await supabase
-            .from('user_role')
-            .select('role')
-            .eq('user_id', user!.id)
-            .eq('is_active', true);
-          const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
-          const hasAdmin = !!roles?.some((r: any) => adminRoles.includes(r.role));
-          if (mounted && hasAdmin) setIsAdmin(true);
-        } catch (error) {
-          console.error('Role check failed:', error);
-        }
-      };
-      checkRole();
-    }
-    return () => { mounted = false; };
-  }, [isAuthed, user, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
