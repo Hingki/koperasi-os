@@ -1,6 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { AccountingService } from './accounting-service';
-import { LedgerService } from './ledger-service';
 import { AccountCode } from '@/lib/types/ledger';
 
 export interface PpobProduct {
@@ -25,11 +24,8 @@ export interface PpobTransactionData {
 }
 
 export class PpobService {
-  private ledgerService: LedgerService;
 
-  constructor(private supabase: SupabaseClient) {
-    this.ledgerService = new LedgerService(supabase);
-  }
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get Active PPOB Products
@@ -66,7 +62,7 @@ export class PpobService {
       .order('koperasi_id', { ascending: false }); // Koperasi specific first (if not null)
 
     if (prodError || !products || products.length === 0) throw new Error('Product not found');
-    
+
     // Take the first one (most specific)
     const product = products[0];
 
@@ -86,7 +82,7 @@ export class PpobService {
     }
 
     // 3. Start Transaction
-    
+
     // A. Create PPOB Transaction Record (Pending)
     const { data: trx, error: trxError } = await this.supabase
       .from('ppob_transactions')
@@ -125,16 +121,16 @@ export class PpobService {
       // C. Call Provider API (Mock for now)
       // In real world, call Fonnte/Digiflazz here.
       // If fail, we must refund (increment_savings_balance) and set status failed.
-      const providerSuccess = true; 
+      const providerSuccess = true;
 
       if (!providerSuccess) {
-         // Refund
-         await this.supabase.rpc('increment_savings_balance', {
-            p_account_id: data.account_id,
-            p_amount: totalCost
-         });
-         await this.supabase.from('ppob_transactions').update({ status: 'failed' }).eq('id', trx.id);
-         throw new Error('Provider transaction failed');
+        // Refund
+        await this.supabase.rpc('increment_savings_balance', {
+          p_account_id: data.account_id,
+          p_amount: totalCost
+        });
+        await this.supabase.from('ppob_transactions').update({ status: 'failed' }).eq('id', trx.id);
+        throw new Error('Provider transaction failed');
       }
 
       // D. Update Transaction Status
@@ -144,7 +140,7 @@ export class PpobService {
         .eq('id', trx.id);
 
       // E. Ledger Entries (Double Entry)
-      
+
       // 1. Revenue Recognition: Debit Savings (Liability Decrease) -> Credit Revenue PPOB
       const debitAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.SAVINGS_VOLUNTARY, this.supabase);
       const creditAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.PPOB_REVENUE, this.supabase);
@@ -171,22 +167,22 @@ export class PpobService {
         // Prefer PPOB_DEPOSIT, fallback to CASH_ON_HAND if not found
         let creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.PPOB_DEPOSIT, this.supabase);
         if (!creditCostAccId) {
-             creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+          creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
         }
 
         if (expenseAccId && creditCostAccId) {
-             await AccountingService.postJournal({
-                koperasi_id: data.koperasi_id,
-                business_unit: 'PPOB',
-                transaction_date: new Date().toISOString().split('T')[0],
-                description: `HPP PPOB ${product.name}`,
-                reference_id: trx.id,
-                reference_type: 'PPOB_TRANSACTION_COST',
-                lines: [
-                    { account_id: expenseAccId, debit: product.price_buy, credit: 0 },
-                    { account_id: creditCostAccId, debit: 0, credit: product.price_buy }
-                ]
-             }, this.supabase);
+          await AccountingService.postJournal({
+            koperasi_id: data.koperasi_id,
+            business_unit: 'PPOB',
+            transaction_date: new Date().toISOString().split('T')[0],
+            description: `HPP PPOB ${product.name}`,
+            reference_id: trx.id,
+            reference_type: 'PPOB_TRANSACTION_COST',
+            lines: [
+              { account_id: expenseAccId, debit: product.price_buy, credit: 0 },
+              { account_id: creditCostAccId, debit: 0, credit: product.price_buy }
+            ]
+          }, this.supabase);
         }
       }
 
@@ -196,9 +192,9 @@ export class PpobService {
       // If failed after PPOB record creation but before success, update status
       if (trx) {
         await this.supabase
-            .from('ppob_transactions')
-            .update({ status: 'failed', metadata: { error: err.message } })
-            .eq('id', trx.id);
+          .from('ppob_transactions')
+          .update({ status: 'failed', metadata: { error: err.message } })
+          .eq('id', trx.id);
       }
       throw err;
     }

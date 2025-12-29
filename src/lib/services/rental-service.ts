@@ -66,11 +66,9 @@ export interface RentalTransactionItem {
 }
 
 export class RentalService {
-  private ledgerService: LedgerService;
   private paymentService: PaymentService;
 
   constructor(private supabase: SupabaseClient) {
-    this.ledgerService = new LedgerService(supabase);
     this.paymentService = new PaymentService(supabase);
   }
 
@@ -99,7 +97,7 @@ export class RentalService {
       .select('*')
       .eq('id', id)
       .single();
-    
+
     if (error) throw error;
     return data;
   }
@@ -110,7 +108,7 @@ export class RentalService {
       .insert(item)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
@@ -122,7 +120,7 @@ export class RentalService {
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
@@ -151,7 +149,7 @@ export class RentalService {
       .insert(customer)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
@@ -170,21 +168,21 @@ export class RentalService {
       .order('rental_date', { ascending: false });
 
     if (status) {
-        if (status === 'active') {
-            query = query.in('status', ['active', 'overdue']);
-        } else {
-            query = query.eq('status', status);
-        }
+      if (status === 'active') {
+        query = query.in('status', ['active', 'overdue']);
+      } else {
+        query = query.eq('status', status);
+      }
     }
 
     const { data, error } = await query;
     if (error) throw error;
-    
+
     // Normalize customer name for display
     return data.map((tx: any) => ({
-        ...tx,
-        customer_name: tx.customer_type === 'member' ? tx.member?.nama_lengkap : tx.customer?.name,
-        customer_phone: tx.customer_type === 'member' ? tx.member?.phone : tx.customer?.phone
+      ...tx,
+      customer_name: tx.customer_type === 'member' ? tx.member?.nama_lengkap : tx.customer?.name,
+      customer_phone: tx.customer_type === 'member' ? tx.member?.phone : tx.customer?.phone
     }));
   }
 
@@ -202,7 +200,7 @@ export class RentalService {
       `)
       .eq('id', id)
       .single();
-    
+
     if (error) throw error;
     return data;
   }
@@ -222,7 +220,7 @@ export class RentalService {
       })
       .select()
       .single();
-    
+
     if (txError) throw txError;
 
     // 2. Create Items
@@ -234,55 +232,55 @@ export class RentalService {
     const { error: itemsError } = await this.supabase
       .from('rental_transaction_items')
       .insert(itemsWithId);
-    
+
     if (itemsError) throw itemsError;
 
     // 3. Update Item Status to 'rented'
     for (const item of items) {
-        if (item.item_id) {
-            await this.supabase
-                .from('rental_items')
-                .update({ status: 'rented' })
-                .eq('id', item.item_id);
-        }
+      if (item.item_id) {
+        await this.supabase
+          .from('rental_items')
+          .update({ status: 'rented' })
+          .eq('id', item.item_id);
+      }
     }
 
     // 4. Record Payment & Revenue (Accounting)
     if (paymentAmount > 0) {
-        // Record Cash In
-        // For Accounting:
-        // Debit Cash
-        // Credit Rental Revenue (for the rental fee)
-        // Credit Deposit Liability (for the deposit) -- Ideally. For MVP we might just book it all as Revenue or split it.
-        // Let's split if possible.
-        
-        // Simple logic: Proportional payment? Or prioritize Deposit?
-        // Let's assume full payment for simplicity of MVP logic.
-        
-        if (header.created_by) {
-            // A. Record Payment Transaction
-            await this.paymentService.recordManualPayment(
-                header.koperasi_id!,
-                txData.id,
-                'rental_payment', // We need to add this type or use generic
-                paymentAmount,
-                'cash', // Default to cash for now
-                `Rental Payment ${header.transaction_number}`,
-                header.created_by
-            );
+      // Record Cash In
+      // For Accounting:
+      // Debit Cash
+      // Credit Rental Revenue (for the rental fee)
+      // Credit Deposit Liability (for the deposit) -- Ideally. For MVP we might just book it all as Revenue or split it.
+      // Let's split if possible.
 
-            // B. Ledger (Revenue)
-            // Note: paymentService.recordManualPayment already calls createJournalEntry which maps to accounts.
-            // But we need to make sure it maps correctly for Rental.
-            // Currently payment-service.ts maps 'rental_sale' -> ? 
-            // We added 'rental_payment' to types, but payment-service needs update to map it to RENTAL_REVENUE.
-            // Actually, let's manually record ledger here for more control or update payment service.
-            // Let's update payment service later. For now, we manually record here if needed or trust payment service.
-            // Since I haven't updated PaymentService.createJournalEntry to handle 'rental_payment' -> RENTAL_REVENUE, 
-            // I should update PaymentService or do it here.
-            
-            // I will update PaymentService to handle 'rental_payment' mapping to RENTAL_REVENUE.
-        }
+      // Simple logic: Proportional payment? Or prioritize Deposit?
+      // Let's assume full payment for simplicity of MVP logic.
+
+      if (header.created_by) {
+        // A. Record Payment Transaction
+        await this.paymentService.recordManualPayment(
+          header.koperasi_id!,
+          txData.id,
+          'rental_payment', // We need to add this type or use generic
+          paymentAmount,
+          'cash', // Default to cash for now
+          `Rental Payment ${header.transaction_number}`,
+          header.created_by
+        );
+
+        // B. Ledger (Revenue)
+        // Note: paymentService.recordManualPayment already calls createJournalEntry which maps to accounts.
+        // But we need to make sure it maps correctly for Rental.
+        // Currently payment-service.ts maps 'rental_sale' -> ? 
+        // We added 'rental_payment' to types, but payment-service needs update to map it to RENTAL_REVENUE.
+        // Actually, let's manually record ledger here for more control or update payment service.
+        // Let's update payment service later. For now, we manually record here if needed or trust payment service.
+        // Since I haven't updated PaymentService.createJournalEntry to handle 'rental_payment' -> RENTAL_REVENUE, 
+        // I should update PaymentService or do it here.
+
+        // I will update PaymentService to handle 'rental_payment' mapping to RENTAL_REVENUE.
+      }
     }
 
     return txData;
@@ -302,81 +300,81 @@ export class RentalService {
 
     // 2. Update Transaction
     const { error: updateError } = await this.supabase
-        .from('rental_transactions')
-        .update({
-            status: 'returned',
-            return_date_actual: returnDate.toISOString(),
-            fine_amount: fineAmount,
-            notes: notes ? (tx.notes + '\n' + notes) : tx.notes,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      .from('rental_transactions')
+      .update({
+        status: 'returned',
+        return_date_actual: returnDate.toISOString(),
+        fine_amount: fineAmount,
+        notes: notes ? (tx.notes + '\n' + notes) : tx.notes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
 
     if (updateError) throw updateError;
 
     // 3. Update Items Status to 'available'
     if (tx.items) {
-        for (const item of tx.items) {
-            await this.supabase
-                .from('rental_items')
-                .update({ status: 'available' })
-                .eq('id', item.item_id);
-        }
+      for (const item of tx.items) {
+        await this.supabase
+          .from('rental_items')
+          .update({ status: 'available' })
+          .eq('id', item.item_id);
+      }
     }
 
     // 4. Handle Deposit Refund & Fines (Accounting)
     // If refundDeposit is true, we pay back the deposit amount.
     // If fine > 0, we might deduct from deposit or charge extra.
-    
+
     // Case 1: Refund Deposit (Cash Out)
     // Debit: Deposit Liability (or Revenue if we booked it as revenue earlier) -> For MVP we likely booked as Revenue.
     // So Debit RENTAL_REVENUE (Contra) or EXPENSE.
     // Let's assume we treat Deposit return as reducing Cash and reducing Revenue (or specific liability).
-    
-    if (refundDeposit && tx.deposit_amount > 0) {
-        const refundAmount = tx.deposit_amount - fineAmount; // Deduct fine from deposit
-        
-        if (refundAmount > 0) {
-             const revenueAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.RENTAL_REVENUE, this.supabase);
-             const cashAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
 
-             if (revenueAccId && cashAccId) {
-                await AccountingService.postJournal({
-                    koperasi_id: tx.koperasi_id,
-                    business_unit: 'RENTAL',
-                    transaction_date: new Date().toISOString().split('T')[0],
-                    description: `Pengembalian Deposit ${tx.transaction_number}`,
-                    reference_id: id,
-                    reference_type: 'RENTAL_REFUND',
-                    lines: [
-                        { account_id: revenueAccId, debit: refundAmount, credit: 0 },
-                        { account_id: cashAccId, debit: 0, credit: refundAmount }
-                    ]
-                }, this.supabase);
-             }
+    if (refundDeposit && tx.deposit_amount > 0) {
+      const refundAmount = tx.deposit_amount - fineAmount; // Deduct fine from deposit
+
+      if (refundAmount > 0) {
+        const revenueAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.RENTAL_REVENUE, this.supabase);
+        const cashAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+
+        if (revenueAccId && cashAccId) {
+          await AccountingService.postJournal({
+            koperasi_id: tx.koperasi_id,
+            business_unit: 'RENTAL',
+            transaction_date: new Date().toISOString().split('T')[0],
+            description: `Pengembalian Deposit ${tx.transaction_number}`,
+            reference_id: id,
+            reference_type: 'RENTAL_REFUND',
+            lines: [
+              { account_id: revenueAccId, debit: refundAmount, credit: 0 },
+              { account_id: cashAccId, debit: 0, credit: refundAmount }
+            ]
+          }, this.supabase);
         }
+      }
     }
-    
+
     // Case 2: Fine Payment (if fine exceeds deposit)
     if (fineAmount > tx.deposit_amount) {
-        const extraCharge = fineAmount - tx.deposit_amount;
-        const cashAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
-        const penaltyAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.PENALTY_INCOME, this.supabase);
+      const extraCharge = fineAmount - tx.deposit_amount;
+      const cashAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+      const penaltyAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.PENALTY_INCOME, this.supabase);
 
-        if (cashAccId && penaltyAccId) {
-            await AccountingService.postJournal({
-                koperasi_id: tx.koperasi_id,
-                business_unit: 'RENTAL',
-                transaction_date: new Date().toISOString().split('T')[0],
-                description: `Denda Keterlambatan/Kerusakan ${tx.transaction_number}`,
-                reference_id: id,
-                reference_type: 'RENTAL_FINE',
-                lines: [
-                    { account_id: cashAccId, debit: extraCharge, credit: 0 },
-                    { account_id: penaltyAccId, debit: 0, credit: extraCharge }
-                ]
-            }, this.supabase);
-        }
+      if (cashAccId && penaltyAccId) {
+        await AccountingService.postJournal({
+          koperasi_id: tx.koperasi_id,
+          business_unit: 'RENTAL',
+          transaction_date: new Date().toISOString().split('T')[0],
+          description: `Denda Keterlambatan/Kerusakan ${tx.transaction_number}`,
+          reference_id: id,
+          reference_type: 'RENTAL_FINE',
+          lines: [
+            { account_id: cashAccId, debit: extraCharge, credit: 0 },
+            { account_id: penaltyAccId, debit: 0, credit: extraCharge }
+          ]
+        }, this.supabase);
+      }
     }
 
     // Optional: Reclassify deducted fine from Revenue to Penalty Income

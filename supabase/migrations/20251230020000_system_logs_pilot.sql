@@ -31,8 +31,8 @@ CREATE POLICY "Enable read for admins and pengurus" ON public.system_logs
     USING (
         auth.jwt() ->> 'role' IN ('admin', 'pengurus', 'manager') OR
         EXISTS (
-            SELECT 1 FROM public.users
-            WHERE id = auth.uid() AND role IN ('admin', 'pengurus', 'manager')
+            SELECT 1 FROM public.user_role
+            WHERE user_id = auth.uid() AND role IN ('admin', 'pengurus', 'ketua', 'bendahara')
         )
     );
 

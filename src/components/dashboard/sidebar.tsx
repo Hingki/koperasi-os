@@ -40,7 +40,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 
@@ -125,57 +125,16 @@ const navigation: NavSection[] = [
 interface SidebarProps {
   user: User | null;
   isAdmin?: boolean;
+  coaReady?: boolean;
+  periodLocked?: boolean;
 }
 
-export function Sidebar({ user, isAdmin = false }: SidebarProps) {
+export function Sidebar({ user, isAdmin = false, coaReady = true, periodLocked = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const supabase = createClient();
   const isAuthed = !!user;
-  const [coaReady, setCoaReady] = useState<boolean>(true);
-  const [periodLocked, setPeriodLocked] = useState<boolean>(false);
-  const [koperasiId, setKoperasiId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { data: userRes } = await supabase.auth.getUser();
-        const userId = userRes.user?.id;
-        if (!userId) return;
-        const { data: role } = await supabase
-          .from('user_role')
-          .select('koperasi_id, role')
-          .eq('user_id', userId)
-          .limit(1)
-          .single();
-        const kId = role?.koperasi_id || null;
-        if (mounted) setKoperasiId(kId);
-        if (!kId) return;
-
-        // COA readiness
-        const { count: accCount } = await supabase
-          .from('accounts')
-          .select('id', { head: true, count: 'exact' })
-          .eq('koperasi_id', kId);
-        if (mounted) setCoaReady((accCount || 0) > 0);
-
-        // Period lock (current date falls into a closed period)
-        const today = new Date().toISOString().split('T')[0];
-        const { data: period } = await supabase
-          .from('accounting_periods')
-          .select('is_closed')
-          .eq('koperasi_id', kId)
-          .lte('start_date', today)
-          .gte('end_date', today)
-          .limit(1)
-          .single();
-        if (mounted) setPeriodLocked(!!period?.is_closed);
-      } catch { }
-    })();
-    return () => { mounted = false; };
-  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

@@ -142,14 +142,16 @@ export async function seedDefaultAccounts(): Promise<void> {
   if (!user) return;
 
   // Get Koperasi ID
-  const { data: roles } = await supabase
+  const { data: userRoles } = await supabase
     .from('user_role')
-    .select('koperasi_id')
+    .select('koperasi_id, role')
     .eq('user_id', user.id)
-    .single();
+    .eq('is_active', true);
 
-  if (!roles) return;
-  const koperasiId = roles.koperasi_id;
+  const activeRole = userRoles?.find(r => ['admin', 'bendahara'].includes(r.role)) || userRoles?.[0];
+
+  if (!activeRole) return;
+  const koperasiId = activeRole.koperasi_id;
 
   // SAK-EP Mandatory Accounts
   const seeds = [

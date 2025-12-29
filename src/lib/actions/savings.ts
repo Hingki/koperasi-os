@@ -19,8 +19,9 @@ export async function createDefaultSavingsProducts() {
   }
 
   // 2. Get Koperasi Context
-  const { data: userRole } = await supabase.from('user_role').select('koperasi_id').eq('user_id', user.id).single();
-  let koperasiId = userRole?.koperasi_id;
+  const { data: userRoles } = await supabase.from('user_role').select('koperasi_id, role').eq('user_id', user.id).eq('is_active', true);
+  const activeRole = userRoles?.find(r => ['admin', 'bendahara'].includes(r.role)) || userRoles?.[0];
+  let koperasiId = activeRole?.koperasi_id;
 
   // Fallback for MVP if no role
   if (!koperasiId) {

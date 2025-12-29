@@ -5,11 +5,9 @@ import { AccountCode } from '@/lib/types/ledger';
 
 export class HrmService {
   private supabase: SupabaseClient;
-  private ledgerService: LedgerService;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
-    this.ledgerService = new LedgerService(supabase);
   }
 
   // --- Employees ---
@@ -32,7 +30,7 @@ export class HrmService {
       .select('*')
       .eq('user_id', userId)
       .single();
-    
+
     // It's okay if not found (user might not be an employee)
     if (error && error.code !== 'PGRST116') throw error;
     return data;
@@ -79,11 +77,11 @@ export class HrmService {
     // Check if already checked in today
     const today = new Date().toISOString().split('T')[0];
     const { data: existing } = await this.supabase
-        .from('hrm_attendance')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .gte('check_in', `${today}T00:00:00.000Z`)
-        .single();
+      .from('hrm_attendance')
+      .select('id')
+      .eq('employee_id', employeeId)
+      .gte('check_in', `${today}T00:00:00.000Z`)
+      .single();
 
     if (existing) throw new Error('Already checked in today');
 
@@ -130,7 +128,7 @@ export class HrmService {
     deductions: number;
   }) {
     const net_salary = payroll.basic_salary + payroll.allowances - payroll.deductions;
-    
+
     const { data, error } = await this.supabase
       .from('hrm_payroll')
       .insert({
@@ -148,42 +146,42 @@ export class HrmService {
   async processPayrollPayment(payrollId: string, paidByUserId: string) {
     // 1. Get Payroll Details
     const { data: payroll, error } = await this.supabase
-        .from('hrm_payroll')
-        .select('*, employee:employees(full_name)')
-        .eq('id', payrollId)
-        .single();
-    
+      .from('hrm_payroll')
+      .select('*, employee:employees(full_name)')
+      .eq('id', payrollId)
+      .single();
+
     if (error) throw error;
     if (payroll.status === 'paid') throw new Error('Payroll already paid');
 
     // 2. Update Status
     await this.supabase
-        .from('hrm_payroll')
-        .update({ 
-            status: 'paid',
-            payment_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', payrollId);
+      .from('hrm_payroll')
+      .update({
+        status: 'paid',
+        payment_date: new Date().toISOString().split('T')[0]
+      })
+      .eq('id', payrollId);
 
     // 3. Record Ledger (Expense)
     // Debit: Operational Expense (Gaji), Credit: Cash/Bank
-    
+
     const expenseAccId = await AccountingService.getAccountIdByCode(payroll.koperasi_id, AccountCode.OPERATIONAL_EXPENSE, this.supabase);
     const cashAccId = await AccountingService.getAccountIdByCode(payroll.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
 
     if (expenseAccId && cashAccId) {
-        await AccountingService.postJournal({
-            koperasi_id: payroll.koperasi_id,
-            business_unit: 'HRM', // or 'MANAGEMENT'
-            transaction_date: new Date().toISOString().split('T')[0],
-            description: `Gaji ${payroll.employee.full_name} Periode ${payroll.period_month}/${payroll.period_year}`,
-            reference_id: payroll.id,
-            reference_type: 'PAYROLL_PAYMENT',
-            lines: [
-                { account_id: expenseAccId, debit: payroll.net_salary, credit: 0 },
-                { account_id: cashAccId, debit: 0, credit: payroll.net_salary }
-            ]
-        }, this.supabase);
+      await AccountingService.postJournal({
+        koperasi_id: payroll.koperasi_id,
+        business_unit: 'HRM', // or 'MANAGEMENT'
+        transaction_date: new Date().toISOString().split('T')[0],
+        description: `Gaji ${payroll.employee.full_name} Periode ${payroll.period_month}/${payroll.period_year}`,
+        reference_id: payroll.id,
+        reference_type: 'PAYROLL_PAYMENT',
+        lines: [
+          { account_id: expenseAccId, debit: payroll.net_salary, credit: 0 },
+          { account_id: cashAccId, debit: 0, credit: payroll.net_salary }
+        ]
+      }, this.supabase);
     }
 
     return true;

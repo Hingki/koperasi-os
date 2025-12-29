@@ -1,5 +1,5 @@
--- Fix RPC to use correct table 'accounting_period' (singular)
--- Date: 2025-12-29
+-- Fix security issue: mutable search_path in post_journal_entry
+-- Date: 2025-12-30
 
 CREATE OR REPLACE FUNCTION post_journal_entry(
   p_koperasi_id UUID,

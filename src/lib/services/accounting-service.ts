@@ -35,20 +35,32 @@ export const AccountingService = {
    * Helper to get Account ID by Code (Server-Side safe)
    */
   async getAccountIdByCode(koperasiId: string, code: string, client?: SupabaseClient): Promise<string | null> {
-    const supabase = client || createClient();
-    const { data, error } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('koperasi_id', koperasiId)
-      .eq('code', code)
-      .single();
-
-    if (error) {
-      console.warn(`Account not found for code ${code} in koperasi ${koperasiId}: ${error.message}`);
+    if (!koperasiId || !code) {
+      console.warn('getAccountIdByCode called with missing parameters', { koperasiId, code });
+      return null;
     }
 
-    if (error || !data) return null;
-    return data.id;
+    const supabase = client || createClient();
+
+    try {
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('koperasi_id', koperasiId)
+        .eq('code', code)
+        .maybeSingle();
+
+      if (error) {
+        console.warn(`Account not found for code ${code} in koperasi ${koperasiId}: ${error.message}`);
+        return null;
+      }
+
+      if (!data) return null;
+      return data.id;
+    } catch (err) {
+      console.error(`Unexpected error in getAccountIdByCode for ${code}:`, err);
+      return null;
+    }
   },
 
   /**
@@ -77,6 +89,8 @@ export const AccountingService = {
    * Get all accounts for a specific Koperasi
    */
   async getAccounts(koperasiId: string) {
+    if (!koperasiId) return [];
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from('accounts')
@@ -84,7 +98,10 @@ export const AccountingService = {
       .eq('koperasi_id', koperasiId)
       .order('code', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('getAccounts error:', error);
+      throw error;
+    }
     return data as Account[];
   },
 
@@ -156,6 +173,47 @@ export const AccountingService = {
   },
 
   /**
+   * Void a Journal Entry via Reversal (Immutability Pattern)
+   * Creates a new journal entry that reverses the original one.
+   */
+  async voidJournal(journalId: string, reason: string, client?: SupabaseClient) {
+    const supabase = client || createClient();
+
+    // 1. Get original journal and lines
+    const { data: journal, error: fetchError } = await supabase
+      .from('journals')
+      .select(`*, journal_lines(*)`)
+      .eq('id', journalId)
+      .single();
+
+    if (fetchError || !journal) {
+      console.error(`voidJournal: Journal ${journalId} not found`, fetchError);
+      throw new Error('Journal not found for voiding');
+    }
+
+    // 2. Create Reversal Lines (Swap Debit/Credit)
+    const reversalLines = journal.journal_lines.map((line: any) => ({
+      account_id: line.account_id,
+      debit: Number(line.credit), // Swap
+      credit: Number(line.debit), // Swap
+      description: `Reversal: ${line.description}`
+    }));
+
+    // 3. Create Reversal Entry
+    const reversalEntry: CreateJournalDTO = {
+      koperasi_id: journal.koperasi_id,
+      business_unit: journal.business_unit,
+      transaction_date: new Date().toISOString().split('T')[0],
+      description: `VOID/REVERSAL: ${journal.description} - ${reason}`,
+      reference_id: journal.id,
+      reference_type: 'JOURNAL_VOID',
+      lines: reversalLines,
+    };
+
+    return await this.postJournal(reversalEntry, client);
+  },
+
+  /**
    * Get Journals with Pagination & Filtering
    */
   async getJournals(
@@ -213,55 +271,7 @@ export const AccountingService = {
     };
   },
 
-  /**
-   * Void a Journal Entry by Posting a Reversal
-   * Creates a compensating journal with swapped debit/credit for all lines.
-   * Preserves immutability and audit trail.
-   */
-  async voidJournal(
-    originalJournalId: string,
-    reason: string,
-    client?: SupabaseClient
-  ) {
-    const supabase = client || createClient();
 
-    // Fetch original journal
-    const { data: journal, error: jErr } = await supabase
-      .from('journals')
-      .select('*')
-      .eq('id', originalJournalId)
-      .single();
-
-    if (jErr || !journal) throw new Error(jErr?.message || 'Original journal not found');
-
-    // Fetch lines
-    const { data: lines, error: lErr } = await supabase
-      .from('journal_lines')
-      .select('account_id, debit, credit, description')
-      .eq('journal_id', originalJournalId);
-
-    if (lErr) throw new Error(lErr.message);
-
-    const reversalLines = (lines || []).map((l: any) => ({
-      account_id: l.account_id,
-      debit: Number(l.credit) || 0,
-      credit: Number(l.debit) || 0,
-      description: `VOID REVERSAL: ${l.description || journal.description}`
-    }));
-
-    const dto: CreateJournalDTO = {
-      koperasi_id: journal.koperasi_id,
-      business_unit: journal.business_unit,
-      transaction_date: journal.transaction_date,
-      description: `VOID of ${journal.description} (${originalJournalId}) - ${reason}`,
-      reference_id: originalJournalId,
-      reference_type: 'JOURNAL_VOID',
-      lines: reversalLines,
-      created_by: journal.created_by || undefined
-    };
-
-    await this.postJournal(dto, supabase);
-  },
 
   /**
    * Post a Journal Entry via RPC

@@ -18,12 +18,15 @@ export default async function JournalPage() {
   let kId: string | null = null;
 
   if (userId) {
-    const { data: role } = await supabase
+    const { data: userRoles } = await supabase
       .from('user_role')
       .select('koperasi_id, role')
       .eq('user_id', userId)
-      .limit(1)
-      .single();
+      .eq('is_active', true);
+
+    // Find best role
+    const role = userRoles?.find(r => ['admin', 'bendahara', 'staff', 'teller'].includes(r.role)) || userRoles?.[0];
+
     kId = role?.koperasi_id || null;
 
     if (kId) {
@@ -43,7 +46,7 @@ export default async function JournalPage() {
         .single();
       const isClosed = !!period?.is_closed;
 
-      const roleOk = ['admin','bendahara','staff','teller'].includes(role?.role || '');
+      const roleOk = ['admin', 'bendahara', 'staff', 'teller'].includes(role?.role || '');
       canCreate = roleOk && coaReady && !isClosed;
       if (!roleOk) disabledReason = 'Akses tidak mencukupi';
       else if (!coaReady) disabledReason = 'COA belum siap';
@@ -85,7 +88,7 @@ export default async function JournalPage() {
       </div>
 
       <div className="rounded-md border bg-white p-4">
-         <JournalTable initialEntries={entries || []} />
+        <JournalTable initialEntries={entries || []} />
       </div>
     </div>
   );
