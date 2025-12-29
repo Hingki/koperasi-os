@@ -1,14 +1,26 @@
 import { createClient } from '@/lib/supabase/server';
 import { SHUView } from './shu-view';
-import { calculateAccountBalances, classifyIncomeStatement } from '@/lib/utils/accounting';
+import { classifyIncomeStatement } from '@/lib/utils/accounting';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { PrintButton } from '@/components/common/print-button';
+import { ReportService } from '@/lib/services/report-service';
+import { ReportPeriodSelector } from '@/components/accounting/report-period-selector';
+import { ReportExportButtons } from '@/components/accounting/report-export-buttons';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SHUPage() {
+interface PageProps {
+    searchParams: Promise<{
+        periodId?: string;
+        startDate?: string;
+        endDate?: string;
+        unitId?: string;
+    }>;
+}
+
+export default async function SHUPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -17,38 +29,48 @@ export default async function SHUPage() {
   // Fetch Koperasi ID
   const { data: member } = await supabase.from('member').select('koperasi_id').eq('user_id', user.id).maybeSingle();
   let koperasiId = member?.koperasi_id;
-  
-  // Fallback for dev/admin if not linked to member
   if (!koperasiId) {
       const { data: kop } = await supabase.from('koperasi').select('id').limit(1).maybeSingle();
       koperasiId = kop?.id;
   }
+  
+  if (!koperasiId) return <div>Koperasi not found</div>;
 
-  if (!koperasiId) {
-      return <div>Koperasi data not found. Please set up a koperasi first.</div>;
-  }
+  const reportService = new ReportService(supabase);
 
-  // 1. Fetch Chart of Accounts
-  const { data: accounts } = await supabase
-    .from('chart_of_accounts')
+  // 1. Fetch Periods
+  const { data: periods } = await supabase
+    .from('accounting_period')
     .select('*')
     .eq('koperasi_id', koperasiId)
-    .order('account_code');
+    .order('start_date', { ascending: false });
 
-  // 2. Fetch All Ledger Entries
-  // Note: In production, filter by date range for the current fiscal year
-  const { data: entries } = await supabase
-    .from('ledger_entry')
-    .select('account_debit, account_credit, amount')
-    .eq('koperasi_id', koperasiId)
-    .eq('status', 'posted');
+  // 2. Determine Period Dates
+  let startDate = new Date(new Date().getFullYear(), 0, 1);
+  let endDate = new Date();
 
-  // 3. Calculate Balances
+  if (searchParams.startDate && searchParams.endDate) {
+      startDate = new Date(searchParams.startDate);
+      endDate = new Date(searchParams.endDate);
+  }
+
+  // 3. Fetch Data via Service
+  const { accounts, entries } = await reportService.getReportData(
+      koperasiId, 
+      startDate, 
+      endDate, 
+      searchParams.unitId
+  );
+
+  // 4. Calculate & Classify
+  const { calculateAccountBalances } = await import('@/lib/utils/accounting');
   const balances = calculateAccountBalances(accounts || [], entries || []);
+  const reportData = classifyIncomeStatement(balances);
+  const netProfit = reportData.netProfit;
 
-  // 4. Calculate Net Profit
-  const incomeStatement = classifyIncomeStatement(balances);
-  const netProfit = incomeStatement.netProfit;
+  const periodLabel = searchParams.periodId && searchParams.periodId !== 'current'
+    ? periods?.find(p => p.id === searchParams.periodId)?.name || 'Custom Period'
+    : `Periode Berjalan (${startDate.toLocaleDateString('id-ID')} - ${endDate.toLocaleDateString('id-ID')})`;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -62,11 +84,19 @@ export default async function SHUPage() {
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">Pembagian Sisa Hasil Usaha (SHU)</h1>
                 <p className="text-muted-foreground">
-                    Estimasi Distribusi SHU Tahun Berjalan
+                    Estimasi {periodLabel}
                 </p>
             </div>
         </div>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+            <ReportPeriodSelector periods={periods || []} />
+            <ReportExportButtons 
+                data={{ ...reportData, netProfit }} 
+                reportType="shu" 
+                period={periodLabel} 
+                koperasiName="Koperasi OS" 
+            />
+        </div>
       </div>
 
       <SHUView netProfit={netProfit} />

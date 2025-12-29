@@ -1,64 +1,95 @@
 import { createClient } from '@/lib/supabase/server';
 import { BalanceSheetView } from './balance-sheet-view';
-import { calculateAccountBalances, classifyBalanceSheet } from '@/lib/utils/accounting';
+import { classifyBalanceSheet } from '@/lib/utils/accounting';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { PrintButton } from '@/components/common/print-button';
+import { ReportService } from '@/lib/services/report-service';
+import { ReportPeriodSelector } from '@/components/accounting/report-period-selector';
+import { ReportExportButtons } from '@/components/accounting/report-export-buttons';
 
 export const dynamic = 'force-dynamic';
 
-export default async function BalanceSheetPage() {
+interface PageProps {
+  searchParams: Promise<{
+    periodId?: string;
+    endDate?: string;
+    unitId?: string;
+  }>;
+}
+
+export default async function BalanceSheetPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return <div>Unauthorized</div>;
 
-  // Fetch Koperasi ID
-  const { data: member } = await supabase.from('member').select('koperasi_id').eq('user_id', user.id).single();
+  const { data: member } = await supabase.from('member').select('koperasi_id').eq('user_id', user.id).maybeSingle();
   let koperasiId = member?.koperasi_id;
   if (!koperasiId) {
-      const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
-      koperasiId = kop?.id;
+    const { data: kop } = await supabase.from('koperasi').select('id').limit(1).maybeSingle();
+    koperasiId = kop?.id;
   }
 
-  // 1. Fetch Chart of Accounts
-  const { data: accounts } = await supabase
-    .from('chart_of_accounts')
+  if (!koperasiId) return <div>Koperasi not found</div>;
+
+  const reportService = new ReportService(supabase);
+
+  // 1. Fetch Periods
+  const { data: periods } = await supabase
+    .from('accounting_period')
     .select('*')
     .eq('koperasi_id', koperasiId)
-    .order('account_code');
+    .order('start_date', { ascending: false });
 
-  // 2. Fetch All Ledger Entries (For MVP - Production should use aggregated views)
-  const { data: entries } = await supabase
-    .from('ledger_entry')
-    .select('account_debit, account_credit, amount')
-    .eq('koperasi_id', koperasiId)
-    .eq('status', 'posted');
+  // 2. Determine As Of Date
+  let asOfDate = new Date();
+  if (searchParams.endDate) {
+    asOfDate = new Date(searchParams.endDate);
+  }
 
-  // 3. Calculate Balances
-  const balances = calculateAccountBalances(accounts || [], entries || []);
+  // 3. Fetch Data
+  const { accounts, entries, initialBalances } = await reportService.getReportDataAsOf(
+    koperasiId,
+    asOfDate,
+    searchParams.unitId
+  );
 
-  // 4. Classify for Balance Sheet
+  // 4. Calculate
+  const { calculateAccountBalances } = await import('@/lib/utils/accounting');
+  const balances = calculateAccountBalances(accounts || [], entries || [], initialBalances);
   const reportData = classifyBalanceSheet(balances);
+
+  const periodLabel = searchParams.periodId && searchParams.periodId !== 'current'
+    ? periods?.find(p => p.id === searchParams.periodId)?.name || 'Custom Period'
+    : `Per ${asOfDate.toLocaleDateString('id-ID')}`;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
-            <Link href="/dashboard/accounting/reports">
-                <Button variant="ghost" size="icon">
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-            </Link>
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Neraca (Balance Sheet)</h1>
-                <p className="text-muted-foreground">
-                    Posisi Keuangan per {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-            </div>
+          <Link href="/dashboard/accounting/reports">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Neraca (Balance Sheet)</h1>
+            <p className="text-muted-foreground">
+              Posisi Keuangan {periodLabel}
+            </p>
+          </div>
         </div>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          <ReportPeriodSelector periods={periods || []} />
+          <ReportExportButtons
+            data={reportData}
+            reportType="balance-sheet"
+            period={periodLabel}
+            koperasiName="Koperasi OS"
+          />
+        </div>
       </div>
 
       <BalanceSheetView data={reportData} />

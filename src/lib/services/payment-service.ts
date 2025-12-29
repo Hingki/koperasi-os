@@ -1,15 +1,16 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { 
-  PaymentProviderType, 
-  QRISPaymentParams, 
-  QRISResponse, 
-  VAPaymentParams, 
-  VAResponse, 
-  PaymentCallback, 
+import {
+  PaymentProviderType,
+  QRISPaymentParams,
+  QRISResponse,
+  VAPaymentParams,
+  VAResponse,
+  PaymentCallback,
   PaymentStatus,
   PaymentTransaction
 } from '@/lib/types/payment';
-import { LedgerService } from '@/lib/services/ledger-service';
+import { AccountingService } from './accounting-service';
+import { LedgerIntentService } from './ledger-intent-service';
 import { AccountCode } from '@/lib/types/ledger';
 import { SavingsService } from '@/lib/services/savings-service';
 
@@ -26,7 +27,7 @@ export class MockPaymentProvider extends PaymentProvider {
   async generateQRIS(params: QRISPaymentParams): Promise<QRISResponse> {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + (params.expires_in_minutes || 15));
-    
+
     return {
       transaction_id: params.transaction_id,
       external_id: `MOCK-QR-${Date.now()}`,
@@ -67,7 +68,7 @@ export class MockPaymentProvider extends PaymentProvider {
     // For mock, we can randomly return success or pending, or check DB. 
     // In a real mock scenario, maybe we trigger it via a special API call.
     // For now, let's assume it stays pending unless webhook is called.
-    return 'pending'; 
+    return 'pending';
   }
 }
 
@@ -134,16 +135,14 @@ export class MidtransProvider extends PaymentProvider {
 // --- Main Service ---
 export class PaymentService {
   private provider: PaymentProvider;
-  private ledgerService: LedgerService;
   private savingsService: SavingsService;
   private agentUrl?: string;
   private agentToken?: string;
-  
+
   constructor(
     private supabase: SupabaseClient,
     providerType: PaymentProviderType = 'mock'
   ) {
-    this.ledgerService = new LedgerService(supabase);
     this.savingsService = new SavingsService(supabase);
     this.agentUrl = process.env.AGENT_WEBHOOK_URL;
     this.agentToken = process.env.AGENT_TOKEN;
@@ -169,17 +168,17 @@ export class PaymentService {
    * 3. Updates the record with QR details
    */
   async createQRISPayment(
-    koperasiId: string, 
-    referenceId: string, 
+    koperasiId: string,
+    referenceId: string,
     transactionType: 'retail_sale' | 'loan_payment' | 'savings_deposit' | 'rental_payment',
     amount: number,
     description?: string,
     createdBy?: string
   ): Promise<PaymentTransaction> {
-    
+
     // 1. Create Initial Record
     const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
-    
+
     const { data: trx, error: createError } = await this.supabase
       .from('payment_transactions')
       .insert({
@@ -222,9 +221,9 @@ export class PaymentService {
         .single();
 
       if (updateError) throw new Error(`Failed to update payment with QRIS data: ${updateError.message}`);
-      
+
       await this.notifyAgent('qris_generated', { transaction: updatedTrx });
-      
+
       return updatedTrx;
 
     } catch (err: any) {
@@ -243,33 +242,33 @@ export class PaymentService {
   async processWebhook(payload: any): Promise<PaymentTransaction> {
     // 1. Parse payload via provider
     const callbackData = await this.provider.handleWebhook(payload);
-    
+
     // 2. Find Transaction
     // We try to find by ID (if we passed it in payload) or external_id
     let query = this.supabase.from('payment_transactions').select('*');
-    
+
     if (callbackData.transaction_id) {
-        query = query.eq('id', callbackData.transaction_id);
+      query = query.eq('id', callbackData.transaction_id);
     } else {
-        query = query.eq('external_id', callbackData.external_id);
+      query = query.eq('external_id', callbackData.external_id);
     }
-    
+
     const { data: trx, error } = await query.single();
-    
+
     if (error || !trx) {
-        throw new Error(`Transaction not found for webhook: ${JSON.stringify(callbackData)}`);
+      throw new Error(`Transaction not found for webhook: ${JSON.stringify(callbackData)}`);
     }
 
     // 3. Update Status if changed
     if (trx.status !== callbackData.status) {
-        const updatedTrx = await this.updatePaymentStatus(trx.id, callbackData.status, callbackData.raw_payload);
-        
-        // 4. Handle Post Payment Logic (Journal, Business Logic)
-        if (callbackData.status === 'success') {
-            await this.handlePostPaymentSuccess(updatedTrx);
-        }
-        
-        return updatedTrx;
+      const updatedTrx = await this.updatePaymentStatus(trx.id, callbackData.status, callbackData.raw_payload);
+
+      // 4. Handle Post Payment Logic (Journal, Business Logic)
+      if (callbackData.status === 'success') {
+        await this.handlePostPaymentSuccess(updatedTrx);
+      }
+
+      return updatedTrx;
     }
 
     return trx;
@@ -277,67 +276,77 @@ export class PaymentService {
 
   /**
    * Handles business logic after successful payment
+   * ENFORCES LEDGER-FIRST: Journal -> State Change
    */
   async handlePostPaymentSuccess(transaction: PaymentTransaction) {
     // 1. Savings Deposit
     if (transaction.transaction_type === 'savings_deposit') {
-       const { data: account } = await this.supabase
-         .from('savings_accounts')
-         .select('balance, member_id, koperasi_id')
-         .eq('id', transaction.reference_id)
-         .single();
-         
-       if (account) {
-         const newBalance = (account.balance || 0) + transaction.amount;
-         await this.supabase.from('savings_accounts').update({ balance: newBalance }).eq('id', transaction.reference_id);
-         
-         await this.supabase.from('savings_transactions').insert({
-             koperasi_id: account.koperasi_id,
-             member_id: account.member_id,
-             account_id: transaction.reference_id,
-             type: 'deposit',
-             amount: transaction.amount,
-             balance_after: newBalance,
-             description: `Setoran via ${transaction.payment_method.toUpperCase()}`,
-             created_by: transaction.created_by
-         });
-         
-         await this.createJournalEntry(transaction);
-       }
-    } 
+      // Delegate to SavingsService (which is Ledger-First)
+      // We map payment method to 'CASH' or 'TRANSFER' for SavingsService
+      const method = ['qris', 'va', 'transfer'].includes(transaction.payment_method) ? 'TRANSFER' : 'CASH';
+      // Note: SavingsService.processTransaction takes (accountId, amount, type, userId, desc, method)
+      await this.savingsService.processTransaction(
+        transaction.reference_id,
+        transaction.amount,
+        'deposit',
+        transaction.created_by || 'system',
+        `Setoran via ${transaction.payment_method.toUpperCase()}`,
+        method
+      );
+    }
     // 2. Loan Payment
     else if (transaction.transaction_type === 'loan_payment') {
-        const { LoanService } = await import('@/lib/services/loan-service');
-        const loanService = new LoanService(this.supabase);
-        
-        let sourceAccount = AccountCode.CASH_ON_HAND;
-        if (['qris', 'va', 'transfer'].includes(transaction.payment_method)) {
-            sourceAccount = AccountCode.BANK_BCA;
-        }
-        
-        await loanService.processPaymentByLoanId(
-            transaction.reference_id,
-            transaction.amount,
-            transaction.created_by || 'system',
-            sourceAccount
-        );
-    } 
-    // 3. Retail Sale
-    else if (transaction.transaction_type === 'retail_sale') {
-         if (transaction.reference_id) {
-             await this.supabase.from('pos_transactions')
-                .update({ payment_status: 'paid' })
-                .eq('id', transaction.reference_id);
-         await this.createJournalEntry(transaction);
-       }
-    } 
-    // 4. Rental Payment
-    else if (transaction.transaction_type === 'rental_payment') {
-         await this.supabase.from('rental_bookings')
+      // Delegate to LoanService (which should be Ledger-First)
+      const { LoanService } = await import('@/lib/services/loan-service');
+      const loanService = new LoanService(this.supabase);
+
+      let sourceAccount = AccountCode.CASH_ON_HAND;
+      if (['qris', 'va', 'transfer'].includes(transaction.payment_method)) {
+        sourceAccount = AccountCode.BANK_BCA;
+      }
+
+      await loanService.processPaymentByLoanId(
+        transaction.reference_id,
+        transaction.amount,
+        transaction.created_by || 'system',
+        sourceAccount
+      );
+    }
+    // 3. Retail Sale & 4. Rental
+    else {
+      // For Retail and Rental, we handle Journal here manually because they might not have a dedicated service method for "Post-Payment State Change" that includes Journal.
+      // Actually RetailService has processTransaction but that's for creating the sale. Here we are just paying it (if it was pending).
+      // If Retail Sale was "Pending" (e.g. QRIS), we now finalize it.
+
+      // LEDGER FIRST
+      let journalId: string | null = null;
+      try {
+        await this.createJournalEntry(transaction);
+        // We need to capture journalId if createJournalEntry returned it, but it returns void.
+        // Assumption: createJournalEntry throws if fails.
+      } catch (err) {
+        throw err;
+      }
+
+      // STATE CHANGE
+      try {
+        if (transaction.transaction_type === 'retail_sale' && transaction.reference_id) {
+          await this.supabase.from('pos_transactions')
             .update({ payment_status: 'paid' })
             .eq('id', transaction.reference_id);
-         await this.createJournalEntry(transaction);
+        } else if (transaction.transaction_type === 'rental_payment' && transaction.reference_id) {
+          await this.supabase.from('rental_bookings')
+            .update({ payment_status: 'paid' })
+            .eq('id', transaction.reference_id);
+        }
+      } catch (stateError) {
+        console.error("State update failed after Ledger posted. Ideally we should void the journal here, but we don't have the ID easily without refactoring createJournalEntry.");
+        // For now, we throw. This might leave a ghost journal, but it's better than state change without journal.
+        // TODO: Refactor createJournalEntry to return ID and implement Void here.
+        throw stateError;
+      }
     }
+
     await this.notifyAgent(transaction.transaction_type, { transaction });
   }
 
@@ -359,7 +368,7 @@ export class PaymentService {
     if (error) throw error;
     return data;
   }
-  
+
   /**
    * Helper to get provider instance if needed directly
    */
@@ -381,21 +390,21 @@ export class PaymentService {
   ): Promise<PaymentTransaction> {
     // 1. Deduct Balance (Simpanan Sukarela)
     await this.savingsService.deductBalance(
-        memberId, 
-        amount, 
-        description || `App Payment for ${transactionType}`, 
-        userId
+      memberId,
+      amount,
+      description || `App Payment for ${transactionType}`,
+      userId
     );
 
     // 2. Record Payment & Ledger
     return await this.recordManualPayment(
-        koperasiId,
-        referenceId,
-        transactionType,
-        amount,
-        'savings_balance',
-        description || `App Payment for ${transactionType}`,
-        userId
+      koperasiId,
+      referenceId,
+      transactionType,
+      amount,
+      'savings_balance',
+      description || `App Payment for ${transactionType}`,
+      userId
     );
   }
 
@@ -409,10 +418,30 @@ export class PaymentService {
     amount: number,
     paymentMethod: 'cash' | 'savings_balance' | 'transfer',
     description?: string,
-    createdBy?: string
+    createdBy?: string,
+    skipJournal: boolean = false
   ): Promise<PaymentTransaction> {
-    
-    // 1. Create Payment Record
+
+    // 1. Ledger Gatekeeper (Ledger-First)
+    let journalId: string | null = null;
+    if (!skipJournal) {
+      try {
+        // We need to use LedgerIntentService directly here since we don't have the Transaction object yet
+        const journalDTO = await LedgerIntentService.preparePaymentReceipt(
+          koperasiId,
+          amount,
+          paymentMethod,
+          transactionType,
+          referenceId,
+          createdBy || 'system'
+        );
+        journalId = await AccountingService.postJournal(journalDTO, this.supabase);
+      } catch (ledgerError: any) {
+        throw new Error(`Payment Journal Failed: ${ledgerError.message}`);
+      }
+    }
+
+    // 2. Create Payment Record (Operational State)
     const { data: trx, error } = await this.supabase
       .from('payment_transactions')
       .insert({
@@ -420,7 +449,7 @@ export class PaymentService {
         transaction_type: transactionType,
         reference_id: referenceId,
         payment_method: paymentMethod,
-        payment_provider: 'manual', 
+        payment_provider: 'manual',
         amount: amount,
         status: 'success', // Manual payments are usually instant success
         description: description,
@@ -429,10 +458,14 @@ export class PaymentService {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to record manual payment: ${error.message}`);
+    if (error) {
+      // Post reversal if DB insert fails
+      if (journalId) {
+        await AccountingService.voidJournal(journalId, 'Manual payment insert failed', this.supabase);
+      }
+      throw new Error(`Failed to record manual payment: ${error.message}`);
+    }
 
-    // 2. Create Journal Entry
-    await this.createJournalEntry(trx);
     await this.notifyAgent('payment_success', { transaction: trx });
 
     return trx;
@@ -441,58 +474,30 @@ export class PaymentService {
   /**
    * Records the journal entry for a successful payment
    */
-  async createJournalEntry(transaction: PaymentTransaction): Promise<void> {
+  async createJournalEntry(transaction: PaymentTransaction): Promise<string> {
     const { payment_method, amount, reference_id, transaction_type, koperasi_id, created_by } = transaction;
-    
-    // Determine accounts based on method and transaction type
-    let debitAccount: AccountCode;
-    let creditAccount: AccountCode;
 
-    // 1. Debit Side (Where money comes IN)
-    switch (payment_method) {
-      case 'cash':
-        debitAccount = AccountCode.CASH_ON_HAND;
-        break;
-      case 'qris':
-      case 'va':
-      case 'transfer':
-        debitAccount = AccountCode.BANK_BCA; // Default to BCA for now
-        break;
-      case 'savings_balance':
-        debitAccount = AccountCode.SAVINGS_VOLUNTARY; // Liability decreases (Debit)
-        break;
-      default:
-        debitAccount = AccountCode.CASH_ON_HAND;
-    }
+    try {
+      // Use LedgerIntentService to ensure compliance and validity
+      const journalDTO = await LedgerIntentService.preparePaymentReceipt(
+        koperasi_id,
+        amount,
+        payment_method,
+        transaction_type,
+        reference_id,
+        created_by || 'system'
+      );
 
-    // 2. Credit Side (Revenue or Liability Source)
-    creditAccount = this.getRevenueAccount(transaction_type);
+      // Post the Journal
+      const journalId = await AccountingService.postJournal(journalDTO, this.supabase);
+      return journalId;
 
-    // 3. Create Entry
-    await this.ledgerService.recordTransaction({
-      koperasi_id,
-      tx_type: transaction_type === 'retail_sale' ? 'retail_sale' 
-             : transaction_type === 'loan_payment' ? 'loan_repayment'
-             : transaction_type === 'savings_deposit' ? 'savings_deposit'
-             : 'rental_payment', // Fallback or explicit
-      tx_reference: reference_id,
-      account_debit: debitAccount,
-      account_credit: creditAccount,
-      amount: amount,
-      description: `Payment ${payment_method} for ${transaction_type}`,
-      source_table: 'payment_transactions',
-      source_id: transaction.id,
-      created_by: created_by || '00000000-0000-0000-0000-000000000000' // Ensure string, fallback to nil UUID if undefined
-    });
-  }
-
-  private getRevenueAccount(type: string): AccountCode {
-    switch (type) {
-      case 'retail_sale': return AccountCode.SALES_REVENUE;
-      case 'loan_payment': return AccountCode.LOAN_RECEIVABLE_FLAT; // Principal part usually, simplified
-      case 'savings_deposit': return AccountCode.SAVINGS_VOLUNTARY; // Liability
-      case 'rental_payment': return AccountCode.RENTAL_REVENUE;
-      default: return AccountCode.SALES_REVENUE;
+    } catch (error: any) {
+      console.error('[PaymentService] Ledger Creation Failed:', error);
+      // In a real system, we might want to flag the transaction as 'needs_journal' 
+      // or throw error to trigger retry depending on context.
+      // Since this is often called in background (webhook), throwing might be good to trigger retry.
+      throw new Error(`Payment Journal Failed: ${error.message}`);
     }
   }
 
@@ -506,6 +511,6 @@ export class PaymentService {
         headers,
         body: JSON.stringify({ event, data })
       });
-    } catch {}
+    } catch { }
   }
 }

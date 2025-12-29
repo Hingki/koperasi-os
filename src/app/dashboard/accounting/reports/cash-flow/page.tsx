@@ -1,46 +1,75 @@
 import { createClient } from '@/lib/supabase/server';
 import { CashFlowView } from './cash-flow-view';
-import { calculateAccountBalances, classifyCashFlow } from '@/lib/utils/accounting';
+import { classifyCashFlow } from '@/lib/utils/accounting';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { PrintButton } from '@/components/common/print-button';
+import { ReportService } from '@/lib/services/report-service';
+import { ReportPeriodSelector } from '@/components/accounting/report-period-selector';
+import { ReportExportButtons } from '@/components/accounting/report-export-buttons';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CashFlowPage() {
+interface PageProps {
+    searchParams: Promise<{
+        periodId?: string;
+        startDate?: string;
+        endDate?: string;
+        unitId?: string;
+    }>;
+}
+
+export default async function CashFlowPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return <div>Unauthorized</div>;
 
   // Fetch Koperasi ID
-  const { data: member } = await supabase.from('member').select('koperasi_id').eq('user_id', user.id).single();
+  const { data: member } = await supabase.from('member').select('koperasi_id').eq('user_id', user.id).maybeSingle();
   let koperasiId = member?.koperasi_id;
   if (!koperasiId) {
-      const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
+      const { data: kop } = await supabase.from('koperasi').select('id').limit(1).maybeSingle();
       koperasiId = kop?.id;
   }
+  
+  if (!koperasiId) return <div>Koperasi not found</div>;
 
-  // 1. Fetch Chart of Accounts
-  const { data: accounts } = await supabase
-    .from('chart_of_accounts')
+  const reportService = new ReportService(supabase);
+
+  // 1. Fetch Periods
+  const { data: periods } = await supabase
+    .from('accounting_period')
     .select('*')
     .eq('koperasi_id', koperasiId)
-    .order('account_code');
+    .order('start_date', { ascending: false });
 
-  // 2. Fetch All Ledger Entries
-  const { data: entries } = await supabase
-    .from('ledger_entry')
-    .select('account_debit, account_credit, amount')
-    .eq('koperasi_id', koperasiId)
-    .eq('status', 'posted');
+  // 2. Determine Period Dates
+  let startDate = new Date(new Date().getFullYear(), 0, 1);
+  let endDate = new Date();
 
-  // 3. Calculate Balances
+  if (searchParams.startDate && searchParams.endDate) {
+      startDate = new Date(searchParams.startDate);
+      endDate = new Date(searchParams.endDate);
+  }
+
+  // 3. Fetch Data via Service
+  const { accounts, entries } = await reportService.getReportData(
+      koperasiId, 
+      startDate, 
+      endDate, 
+      searchParams.unitId
+  );
+
+  // 4. Calculate & Classify
+  const { calculateAccountBalances } = await import('@/lib/utils/accounting');
   const balances = calculateAccountBalances(accounts || [], entries || []);
-
-  // 4. Classify for Cash Flow
   const reportData = classifyCashFlow(balances);
+
+  const periodLabel = searchParams.periodId && searchParams.periodId !== 'current'
+    ? periods?.find(p => p.id === searchParams.periodId)?.name || 'Custom Period'
+    : `Periode Berjalan (${startDate.toLocaleDateString('id-ID')} - ${endDate.toLocaleDateString('id-ID')})`;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -54,11 +83,19 @@ export default async function CashFlowPage() {
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">Laporan Arus Kas (Cash Flow)</h1>
                 <p className="text-muted-foreground">
-                    Periode Berjalan per {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {periodLabel}
                 </p>
             </div>
         </div>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+            <ReportPeriodSelector periods={periods || []} />
+            <ReportExportButtons 
+                data={reportData} 
+                reportType="cash-flow" 
+                period={periodLabel} 
+                koperasiName="Koperasi OS" 
+            />
+        </div>
       </div>
 
       <CashFlowView data={reportData} />

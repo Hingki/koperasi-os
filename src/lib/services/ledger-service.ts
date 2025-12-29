@@ -3,6 +3,10 @@ import { LedgerTransaction } from '@/lib/types/ledger';
 import crypto from 'crypto';
 
 export class LedgerService {
+  /**
+   * @deprecated Use AccountingService instead. This service is legacy and should not be used for new development.
+   * All financial transactions must use AccountingService.postJournal().
+   */
   constructor(private supabase: SupabaseClient) {}
 
   /**

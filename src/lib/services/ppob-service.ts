@@ -1,5 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { AccountingService } from './accounting-service';
 import { LedgerService } from './ledger-service';
+import { AccountCode } from '@/lib/types/ledger';
 
 export interface PpobProduct {
   id: string;
@@ -144,34 +146,48 @@ export class PpobService {
       // E. Ledger Entries (Double Entry)
       
       // 1. Revenue Recognition: Debit Savings (Liability Decrease) -> Credit Revenue PPOB
-      await this.ledgerService.recordTransaction({
-        koperasi_id: data.koperasi_id,
-        tx_type: 'ppob_sales',
-        tx_reference: trx.id,
-        account_debit: '2-1001', // Simpanan Sukarela (Liability) - Debit to decrease
-        account_credit: '4-4001', // Pendapatan PPOB (Revenue) - Credit to increase
-        amount: totalCost,
-        description: `Pembelian PPOB ${product.name} - ${data.customer_number}`,
-        created_by: data.member_id,
-        source_table: 'ppob_transactions',
-        source_id: trx.id
-      });
+      const debitAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.SAVINGS_VOLUNTARY, this.supabase);
+      const creditAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.PPOB_REVENUE, this.supabase);
 
-      // 2. Cost Recognition: Debit Expense PPOB -> Credit Cash/Bank
+      if (debitAccId && creditAccId) {
+        await AccountingService.postJournal({
+          koperasi_id: data.koperasi_id,
+          business_unit: 'PPOB',
+          transaction_date: new Date().toISOString().split('T')[0],
+          description: `Pembelian PPOB ${product.name} - ${data.customer_number}`,
+          reference_id: trx.id,
+          reference_type: 'PPOB_TRANSACTION',
+          lines: [
+            { account_id: debitAccId, debit: totalCost, credit: 0 },
+            { account_id: creditAccId, debit: 0, credit: totalCost }
+          ]
+        }, this.supabase);
+      }
+
+      // 2. Cost Recognition: Debit Expense PPOB -> Credit PPOB Deposit (Asset)
       // Only if we have a buy price (cost)
       if (product.price_buy > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: data.koperasi_id,
-            tx_type: 'ppob_cost',
-            tx_reference: `${trx.id}-cost`,
-            account_debit: '5-1102', // Beban Pokok PPOB (Expense) - Debit to increase
-            account_credit: '1-1001', // Kas (Asset) - Credit to decrease
-            amount: product.price_buy,
-            description: `HPP PPOB ${product.name}`,
-            created_by: data.member_id,
-            source_table: 'ppob_transactions',
-            source_id: trx.id
-        });
+        const expenseAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, '5-1102', this.supabase); // Beban Pokok PPOB
+        // Prefer PPOB_DEPOSIT, fallback to CASH_ON_HAND if not found
+        let creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.PPOB_DEPOSIT, this.supabase);
+        if (!creditCostAccId) {
+             creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+        }
+
+        if (expenseAccId && creditCostAccId) {
+             await AccountingService.postJournal({
+                koperasi_id: data.koperasi_id,
+                business_unit: 'PPOB',
+                transaction_date: new Date().toISOString().split('T')[0],
+                description: `HPP PPOB ${product.name}`,
+                reference_id: trx.id,
+                reference_type: 'PPOB_TRANSACTION_COST',
+                lines: [
+                    { account_id: expenseAccId, debit: product.price_buy, credit: 0 },
+                    { account_id: creditCostAccId, debit: 0, credit: product.price_buy }
+                ]
+             }, this.supabase);
+        }
       }
 
       return { success: true, transaction: trx };

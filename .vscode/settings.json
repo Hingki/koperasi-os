@@ -9,5 +9,8 @@
   ],
   "[sql]": {
     "editor.defaultFormatter": "mtxr.sqltools"
+  },
+  "workbench.editor.autoLockGroups": {
+    "imagePreview.previewEditor": true
   }
 }

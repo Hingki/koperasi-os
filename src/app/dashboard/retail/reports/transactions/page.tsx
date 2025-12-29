@@ -31,6 +31,22 @@ export default async function TransactionsReportPage() {
       </div>
 
       <div className="border rounded-lg">
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 text-xs text-slate-600 bg-slate-50 p-4 border-b">
+          <div className="flex items-center gap-2">
+            <Badge variant="default">Lunas</Badge>
+            <span>Pembayaran diterima, stok berkurang.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">Pending</Badge>
+            <span>Transaksi belum selesai dibayar.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">Void</Badge>
+            <span>Dibatalkan, stok dikembalikan.</span>
+          </div>
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -62,7 +78,10 @@ export default async function TransactionsReportPage() {
             {(!transactions || transactions.length === 0) && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                  Belum ada data transaksi.
+                  <div className="flex flex-col items-center justify-center gap-1 py-6">
+                    <p className="font-medium text-slate-900">Belum ada riwayat transaksi</p>
+                    <p className="text-xs">Transaksi penjualan dari POS akan muncul di sini secara otomatis.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

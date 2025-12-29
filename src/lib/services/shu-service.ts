@@ -24,11 +24,9 @@ export const DEFAULT_SHU_CONFIG: SHUDistributionConfig = {
 
 export class SHUService {
   private reportService: ReportService;
-  private ledgerService: LedgerService;
 
   constructor(private supabase: SupabaseClient) {
     this.reportService = new ReportService(supabase);
-    this.ledgerService = new LedgerService(supabase);
   }
 
   /**

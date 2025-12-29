@@ -4,16 +4,17 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
 } from "@/components/ui/dialog"
 import { CartItem } from './pos-layout';
 import { processPosTransaction } from '@/app/actions/retail-pos';
 import { Loader2, CheckCircle, Printer, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/use-toast';
 
 export function CheckoutDialog({
     open,
@@ -23,7 +24,8 @@ export function CheckoutDialog({
     customerType,
     koperasiId,
     onSuccess,
-    originalTransactionId
+    originalTransactionId,
+    savingsBalance
 }: {
     open: boolean,
     onOpenChange: (open: boolean) => void,
@@ -32,7 +34,8 @@ export function CheckoutDialog({
     customerType: 'member' | 'retail' | 'guest',
     koperasiId: string,
     onSuccess: () => void,
-    originalTransactionId?: string
+    originalTransactionId?: string,
+    savingsBalance?: number
 }) {
     const total = cart.reduce((sum, item) => sum + (item.price_sell_public * item.qty), 0);
     const [cashAmount, setCashAmount] = useState('');
@@ -40,6 +43,7 @@ export function CheckoutDialog({
     const [activeTab, setActiveTab] = useState<'cash' | 'qris' | 'savings'>('cash');
     const [successData, setSuccessData] = useState<any>(null);
     const router = useRouter();
+    const { toast } = useToast();
 
     const change = Number(cashAmount) - total;
     const canPay = Number(cashAmount) >= total;
@@ -142,12 +146,24 @@ export function CheckoutDialog({
 
             if (res.success) {
                 setSuccessData(res.data);
+                toast({
+                    title: "Transaksi Berhasil",
+                    description: "Pembayaran telah diproses.",
+                });
                 router.refresh();
             } else {
-                alert(`Gagal memproses transaksi: ${res.error}`);
+                toast({
+                    title: "Gagal memproses transaksi",
+                    description: res.error,
+                    variant: "destructive"
+                });
             }
         } catch (error: any) {
-            alert(`Error: ${error.message}`);
+            toast({
+                title: "Terjadi kesalahan",
+                description: error.message,
+                variant: "destructive"
+            });
         } finally {
             setLoading(false);
         }
@@ -168,18 +184,18 @@ export function CheckoutDialog({
                                 {change >= 0 && <span className="block text-sm">Kembali: Rp {change.toLocaleString('id-ID')}</span>}
                             </p>
                         </div>
-                        
+
                         <div className="flex w-full gap-3">
-                            <Button 
-                                variant="outline" 
-                                className="flex-1" 
+                            <Button
+                                variant="outline"
+                                className="flex-1"
                                 onClick={handlePrint}
                             >
                                 <Printer className="mr-2 h-4 w-4" />
                                 Cetak Struk
                             </Button>
-                            <Button 
-                                className="flex-1" 
+                            <Button
+                                className="flex-1"
                                 onClick={handleReset}
                             >
                                 Transaksi Baru
@@ -195,100 +211,112 @@ export function CheckoutDialog({
                                 Total Tagihan: <span className="font-bold text-slate-900">Rp {total.toLocaleString('id-ID')}</span>
                             </DialogDescription>
                         </DialogHeader>
-                        
+
                         <div className="w-full">
-                    <div className="grid w-full grid-cols-3 bg-slate-100 p-1 rounded-lg mb-4">
-                        <button
-                            onClick={() => setActiveTab('cash')}
-                            className={`py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'cash' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-                        >
-                            Tunai
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('qris')}
-                            className={`py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'qris' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-                        >
-                            QRIS
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('savings')}
-                            disabled={customerType !== 'member'}
-                            className={`py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'savings' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900 disabled:opacity-50'}`}
-                        >
-                            Simpanan
-                        </button>
-                    </div>
-                    
-                    {activeTab === 'cash' && (
-                        <div className="space-y-4 pt-2">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Nominal Diterima</label>
-                                <Input 
-                                    type="number" 
-                                    value={cashAmount} 
-                                    onChange={(e) => setCashAmount(e.target.value)}
-                                    placeholder="0"
-                                    autoFocus
-                                />
-                            </div>
-                            
-                            <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
-                                <span className="font-medium">Kembalian</span>
-                                <span className={`font-bold text-lg ${change < 0 ? 'text-red-500' : 'text-green-600'}`}>
-                                    Rp {Math.max(0, change).toLocaleString('id-ID')}
-                                </span>
+                            <div className="grid w-full grid-cols-3 bg-slate-100 p-1 rounded-lg mb-4">
+                                <button
+                                    onClick={() => setActiveTab('cash')}
+                                    className={`py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'cash' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
+                                >
+                                    Tunai
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('qris')}
+                                    className={`py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'qris' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
+                                >
+                                    QRIS
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('savings')}
+                                    disabled={customerType !== 'member'}
+                                    className={`py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'savings' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900 disabled:opacity-50'}`}
+                                >
+                                    Simpanan
+                                </button>
                             </div>
 
-                            <Button 
-                                className="w-full" 
-                                size="lg" 
-                                disabled={!canPay || loading}
-                                onClick={() => handlePayment('cash')}
-                            >
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Bayar Tunai
-                            </Button>
-                        </div>
-                    )}
-                    
-                    {activeTab === 'qris' && (
-                        <div className="space-y-4 pt-4">
-                            <div className="text-center py-8 space-y-4">
-                                <p className="text-slate-500">QRIS akan di-generate setelah konfirmasi.</p>
-                                <Button 
-                                    className="w-full" 
-                                    size="lg"
-                                    disabled={loading}
-                                    onClick={() => handlePayment('qris')}
-                                >
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Generate QRIS & Bayar
-                                </Button>
-                            </div>
-                        </div>
-                    )}
+                            {activeTab === 'cash' && (
+                                <div className="space-y-4 pt-2">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Nominal Diterima</label>
+                                        <Input
+                                            type="number"
+                                            value={cashAmount}
+                                            onChange={(e) => setCashAmount(e.target.value)}
+                                            placeholder="0"
+                                            autoFocus
+                                            disabled={loading}
+                                        />
+                                    </div>
 
-                    {activeTab === 'savings' && (
-                        <div className="space-y-4 pt-4">
-                             <div className="text-center py-8 space-y-4">
-                                <p className="text-slate-500">
-                                    Pembayaran akan memotong saldo Simpanan Sukarela anggota <strong>{customer?.name}</strong>.
-                                </p>
-                                <Button 
-                                    className="w-full" 
-                                    size="lg"
-                                    disabled={loading}
-                                    onClick={() => handlePayment('savings')}
-                                >
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Bayar dengan Simpanan
-                                </Button>
-                            </div>
+                                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
+                                        <span className="font-medium">Kembalian</span>
+                                        <span className={`font-bold text-lg ${change < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                            Rp {Math.max(0, change).toLocaleString('id-ID')}
+                                        </span>
+                                    </div>
+
+                                    <Button
+                                        className="w-full"
+                                        size="lg"
+                                        disabled={!canPay || loading}
+                                        onClick={() => handlePayment('cash')}
+                                    >
+                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Bayar Tunai
+                                    </Button>
+                                </div>
+                            )}
+
+                            {activeTab === 'qris' && (
+                                <div className="space-y-4 pt-4">
+                                    <div className="text-center py-8 space-y-4">
+                                        <p className="text-slate-500">QRIS akan di-generate setelah konfirmasi.</p>
+                                        <Button
+                                            className="w-full"
+                                            size="lg"
+                                            disabled={loading}
+                                            onClick={() => handlePayment('qris')}
+                                        >
+                                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Generate QRIS & Bayar
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'savings' && (
+                                <div className="space-y-4 pt-4">
+                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                        <p className="text-sm text-blue-800 font-medium mb-1">Bayar dengan Saldo Simpanan</p>
+                                        <p className="text-xs text-blue-600">
+                                            Pembayaran akan memotong saldo simpanan anggota secara otomatis.
+                                        </p>
+                                        {typeof savingsBalance === 'number' && (
+                                            <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between items-center">
+                                                <span className="text-sm text-blue-800">Saldo Simpanan Saat Ini:</span>
+                                                <span className="font-bold text-blue-900">
+                                                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(savingsBalance)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-end pt-4">
+                                        <Button
+                                            className="w-full bg-blue-600 hover:bg-blue-700"
+                                            onClick={() => handlePayment('savings')}
+                                            disabled={loading}
+                                        >
+                                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Bayar dengan Simpanan
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-                </>
-            )}
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );

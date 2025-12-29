@@ -5,6 +5,7 @@ import { ProductGrid } from './product-grid';
 import { CartSummary } from './cart-summary';
 import { CheckoutDialog } from './checkout-dialog';
 import { InventoryProduct } from '@/lib/services/retail-service';
+import { useToast } from '@/components/ui/use-toast';
 
 export interface CartItem extends InventoryProduct {
     qty: number;
@@ -25,9 +26,10 @@ export function PosLayout({ koperasiId, initialProducts, initialTransaction }: {
         }
         return [];
     });
-    const [selectedCustomer, setSelectedCustomer] = useState<any>(initialTransaction?.member_id ? { id: initialTransaction.member_id, name: initialTransaction.customer_name } : null); 
+    const [selectedCustomer, setSelectedCustomer] = useState<any>(initialTransaction?.member_id ? { id: initialTransaction.member_id, name: initialTransaction.customer_name } : null);
     const [customerType, setCustomerType] = useState<'member' | 'retail' | 'guest'>(initialTransaction?.member_id ? 'member' : 'guest');
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+    const { toast } = useToast();
 
     const addToCart = (product: InventoryProduct) => {
         setCart(prev => {
@@ -35,13 +37,20 @@ export function PosLayout({ koperasiId, initialProducts, initialTransaction }: {
             if (existing) {
                 // Check stock limit
                 if (existing.qty >= product.stock_quantity) {
-                    alert('Stok tidak mencukupi');
+                    toast({
+                        title: "Stok tidak mencukupi",
+                        description: `Sisa stok: ${product.stock_quantity}`,
+                        variant: "destructive"
+                    });
                     return prev;
                 }
                 return prev.map(p => p.id === product.id ? { ...p, qty: p.qty + 1 } : p);
             }
             if (product.stock_quantity <= 0) {
-                alert('Stok habis');
+                toast({
+                    title: "Stok habis",
+                    variant: "destructive"
+                });
                 return prev;
             }
             return [...prev, { ...product, qty: 1 }];
@@ -53,11 +62,15 @@ export function PosLayout({ koperasiId, initialProducts, initialTransaction }: {
             removeFromCart(productId);
             return;
         }
-        
+
         setCart(prev => {
             const item = prev.find(p => p.id === productId);
             if (item && qty > item.stock_quantity) {
-                alert('Stok tidak mencukupi');
+                toast({
+                    title: "Stok tidak mencukupi",
+                    description: `Sisa stok: ${item.stock_quantity}`,
+                    variant: "destructive"
+                });
                 return prev;
             }
             return prev.map(p => p.id === productId ? { ...p, qty } : p);
@@ -77,14 +90,14 @@ export function PosLayout({ koperasiId, initialProducts, initialTransaction }: {
     return (
         <div className="flex h-[calc(100vh-6rem)] gap-4">
             <div className="flex-1 flex flex-col min-w-0 bg-slate-50 rounded-xl border overflow-hidden">
-                 <ProductGrid 
-                    koperasiId={koperasiId} 
-                    initialProducts={initialProducts} 
-                    onAddToCart={addToCart} 
-                 />
+                <ProductGrid
+                    koperasiId={koperasiId}
+                    initialProducts={initialProducts}
+                    onAddToCart={addToCart}
+                />
             </div>
             <div className="w-[400px] flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-                <CartSummary 
+                <CartSummary
                     cart={cart}
                     onUpdateQty={updateQty}
                     onRemove={removeFromCart}
@@ -97,9 +110,9 @@ export function PosLayout({ koperasiId, initialProducts, initialTransaction }: {
                     setCustomerType={setCustomerType}
                 />
             </div>
-            
-            <CheckoutDialog 
-                open={isCheckoutOpen} 
+
+            <CheckoutDialog
+                open={isCheckoutOpen}
                 onOpenChange={setIsCheckoutOpen}
                 cart={cart}
                 customer={selectedCustomer}

@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { LedgerService } from '@/lib/services/ledger-service';
+import { AccountingService } from '@/lib/services/accounting-service';
 import { createHash, randomUUID } from 'crypto';
 // import { AccountCode } from '@/lib/types/ledger'; // Not used here as we pass raw IDs
 

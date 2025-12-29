@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix: harden grantAdminAccess server action to prevent crash on missing member
+
+## [Unreleased]
 - refactor: move RBAC check to server layout for instant UI sync v0.1.7
 
 ## [Unreleased]
@@ -102,6 +105,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 

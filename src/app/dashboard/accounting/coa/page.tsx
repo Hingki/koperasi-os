@@ -1,37 +1,83 @@
 import { createClient } from '@/lib/supabase/server';
-import { CoaTable } from './coa-table';
+import { CoaList } from '@/components/accounting/coa-list';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { seedDefaultAccounts } from './actions';
+import { AlertCircle, Download, Plus } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+export const metadata = {
+  title: 'Chart of Accounts (COA) - Koperasi OS',
+  description: 'Kelola bagan akun standar SAK-EP',
+};
 
 export default async function CoaPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: accounts } = await supabase
-    .from('chart_of_accounts')
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Get Koperasi ID & Role Check
+  const { data: roles } = await supabase
+    .from('user_role')
+    .select('koperasi_id, role')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!roles) {
+     return <div className="p-8">Anda tidak memiliki akses koperasi.</div>;
+  }
+
+  const isAdmin = ['admin', 'bendahara'].includes(roles.role);
+
+  // Fetch Accounts
+  const { data: accounts, error } = await supabase
+    .from('accounts')
     .select('*')
-    .order('account_code', { ascending: true });
+    .eq('koperasi_id', roles.koperasi_id)
+    .order('code', { ascending: true });
+
+  const hasAccounts = accounts && accounts.length > 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Kode Akun (Chart of Accounts)</h1>
-          <p className="text-muted-foreground">
-            Daftar akun yang digunakan untuk pencatatan transaksi.
+          <h1 className="text-2xl font-bold tracking-tight">Chart of Accounts (COA)</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+             Struktur akun standar SAK-EP (Entitas Privat).
           </p>
         </div>
-        <Link href="/dashboard/accounting/coa/new">
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Tambah Akun
-          </Button>
-        </Link>
+        
+        {/* Actions */}
+        <div className="flex gap-2">
+            {!hasAccounts && isAdmin && (
+               <form action={seedDefaultAccounts}>
+                 <Button variant="default" size="sm">
+                   <Download className="mr-2 h-4 w-4" />
+                   Seed Default SAK-EP
+                 </Button>
+               </form>
+            )}
+            {/* Note: Manual Add is handled inside the list via sub-account buttons or a global add if needed */}
+        </div>
       </div>
 
-      <div className="rounded-md border bg-white p-4">
-         <CoaTable initialAccounts={accounts || []} />
+      {!isAdmin && (
+         <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Akses Terbatas</AlertTitle>
+            <AlertDescription>
+               Anda dalam mode Read-Only. Hanya Admin & Bendahara yang dapat mengubah struktur COA.
+            </AlertDescription>
+         </Alert>
+      )}
+
+      {/* COA List Component */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+         <CoaList accounts={accounts || []} />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LedgerService } from './ledger-service';
+import { AccountingService } from './accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 
 export class HrmService {
@@ -166,18 +167,24 @@ export class HrmService {
 
     // 3. Record Ledger (Expense)
     // Debit: Operational Expense (Gaji), Credit: Cash/Bank
-    await this.ledgerService.recordTransaction({
-        koperasi_id: payroll.koperasi_id,
-        tx_type: 'journal_adjustment', // Using generic type for now or add 'payroll_expense'
-        tx_reference: `PAYROLL-${payroll.period_month}-${payroll.period_year}-${payroll.employee.full_name}`,
-        account_debit: AccountCode.OPERATIONAL_EXPENSE, // Should be specific Salary Expense if available
-        account_credit: AccountCode.CASH_ON_HAND,
-        amount: payroll.net_salary,
-        description: `Gaji ${payroll.employee.full_name} Periode ${payroll.period_month}/${payroll.period_year}`,
-        source_table: 'hrm_payroll',
-        source_id: payroll.id,
-        created_by: paidByUserId
-    });
+    
+    const expenseAccId = await AccountingService.getAccountIdByCode(payroll.koperasi_id, AccountCode.OPERATIONAL_EXPENSE, this.supabase);
+    const cashAccId = await AccountingService.getAccountIdByCode(payroll.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+
+    if (expenseAccId && cashAccId) {
+        await AccountingService.postJournal({
+            koperasi_id: payroll.koperasi_id,
+            business_unit: 'HRM', // or 'MANAGEMENT'
+            transaction_date: new Date().toISOString().split('T')[0],
+            description: `Gaji ${payroll.employee.full_name} Periode ${payroll.period_month}/${payroll.period_year}`,
+            reference_id: payroll.id,
+            reference_type: 'PAYROLL_PAYMENT',
+            lines: [
+                { account_id: expenseAccId, debit: payroll.net_salary, credit: 0 },
+                { account_id: cashAccId, debit: 0, credit: payroll.net_salary }
+            ]
+        }, this.supabase);
+    }
 
     return true;
   }

@@ -3,7 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { SavingsService } from '@/lib/services/savings-service';
-import { LedgerService } from '@/lib/services/ledger-service';
+import { AccountingService } from '@/lib/services/accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 import { revalidatePath } from 'next/cache';
 
@@ -146,38 +146,40 @@ export async function purchasePPOB(formData: FormData) {
       'withdrawal',
       user.id,
       `PPOB: ${product.name} - ${customerNumber}`,
+      'CASH',
       true // Skip default ledger
     );
 
     // Record Ledger Entries (Smart Accounting)
-    const ledgerService = new LedgerService(supabase);
     
     // 1. Payment for Product (Reduces Savings, Reduces Asset/Increases Revenue)
-    // Here we simplify:
-    // Debit: Savings Liability (Member pays) -> Done by processTransaction logic (we handle the other side)
-    // But processTransaction with skipLedger=true means we must handle BOTH sides or at least the contra.
-    // Actually processTransaction returns the transaction record, but DOES NOT create ledger entries if skipLedger=true.
-    
-    // Debit: Member Savings (Liability Decrease)
-    // Credit: PPOB Revenue/Sales (Income Increase) -> For the full amount (Simple model)
-    // OR Split: Credit Deposit (Asset Decrease) for COGS, Credit Profit for Margin.
-    
-    // Simple Model for MVP:
     // Debit: Savings Liability (AccountCode derived above)
     // Credit: PPOB Revenue (or Cash if we treat it as pass-through)
     
-    await ledgerService.recordTransaction({
-        koperasi_id: account.koperasi_id,
-        tx_type: 'retail_sale', 
-        tx_reference: transaction.id,
-        account_debit: savingsAccountCode,
-        account_credit: AccountCode.OTHER_INCOME, // Todo: Use specific PPOB Income account
-        amount: totalAmount,
-        description: `Pembelian PPOB ${product.name} - ${customerNumber}`,
-        source_table: 'savings_transactions',
-        source_id: transaction.id,
-        created_by: user.id
-    });
+    try {
+        const debitAccId = await AccountingService.getAccountIdByCode(account.koperasi_id, savingsAccountCode, supabase);
+        // TODO: Use specific PPOB Income account if available
+        const creditAccId = await AccountingService.getAccountIdByCode(account.koperasi_id, AccountCode.OTHER_INCOME, supabase);
+
+        if (debitAccId && creditAccId) {
+            await AccountingService.postJournal({
+                koperasi_id: account.koperasi_id,
+                business_unit: 'PPOB',
+                transaction_date: new Date().toISOString().split('T')[0],
+                description: `Pembelian PPOB ${product.name} - ${customerNumber}`,
+                reference_id: transaction.id,
+                reference_type: 'PPOB_TRANSACTION',
+                lines: [
+                    { account_id: debitAccId, debit: totalAmount, credit: 0 },
+                    { account_id: creditAccId, debit: 0, credit: totalAmount }
+                ]
+            }, supabase);
+        } else {
+             console.warn('Accounting Warning: Accounts not found for PPOB Transaction');
+        }
+    } catch (ledgerError) {
+        console.error('Ledger Recording Failed:', ledgerError);
+    }
 
     // Log PPOB Transaction
     const { error: logError } = await supabase

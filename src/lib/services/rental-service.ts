@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LedgerService } from './ledger-service';
 import { PaymentService } from './payment-service';
+import { AccountingService } from './accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 
 export interface RentalItem {
@@ -336,37 +337,51 @@ export class RentalService {
         const refundAmount = tx.deposit_amount - fineAmount; // Deduct fine from deposit
         
         if (refundAmount > 0) {
-             await this.ledgerService.recordTransaction({
-                koperasi_id: tx.koperasi_id,
-                tx_type: 'rental_payment', // Refund
-                tx_reference: tx.transaction_number,
-                account_debit: AccountCode.RENTAL_REVENUE, // Reversing revenue/liability
-                account_credit: AccountCode.CASH_ON_HAND,
-                amount: refundAmount,
-                description: `Pengembalian Deposit ${tx.transaction_number}`,
-                source_table: 'rental_transactions',
-                source_id: id,
-                created_by: createdBy
-            });
+             const revenueAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.RENTAL_REVENUE, this.supabase);
+             const cashAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+
+             if (revenueAccId && cashAccId) {
+                await AccountingService.postJournal({
+                    koperasi_id: tx.koperasi_id,
+                    business_unit: 'RENTAL',
+                    transaction_date: new Date().toISOString().split('T')[0],
+                    description: `Pengembalian Deposit ${tx.transaction_number}`,
+                    reference_id: id,
+                    reference_type: 'RENTAL_REFUND',
+                    lines: [
+                        { account_id: revenueAccId, debit: refundAmount, credit: 0 },
+                        { account_id: cashAccId, debit: 0, credit: refundAmount }
+                    ]
+                }, this.supabase);
+             }
         }
     }
     
-    // Case 2: Fine Payment (if not covered by deposit or extra)
-    // Usually fine is Income.
-    if (fineAmount > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: tx.koperasi_id,
-            tx_type: 'rental_payment',
-            tx_reference: tx.transaction_number,
-            account_debit: AccountCode.CASH_ON_HAND, // Assumed deducted from deposit (so we kept cash) or paid fresh
-            account_credit: AccountCode.PENALTY_INCOME,
-            amount: fineAmount,
-            description: `Denda Keterlambatan/Kerusakan ${tx.transaction_number}`,
-            source_table: 'rental_transactions',
-            source_id: id,
-            created_by: createdBy
-        });
+    // Case 2: Fine Payment (if fine exceeds deposit)
+    if (fineAmount > tx.deposit_amount) {
+        const extraCharge = fineAmount - tx.deposit_amount;
+        const cashAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
+        const penaltyAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, AccountCode.PENALTY_INCOME, this.supabase);
+
+        if (cashAccId && penaltyAccId) {
+            await AccountingService.postJournal({
+                koperasi_id: tx.koperasi_id,
+                business_unit: 'RENTAL',
+                transaction_date: new Date().toISOString().split('T')[0],
+                description: `Denda Keterlambatan/Kerusakan ${tx.transaction_number}`,
+                reference_id: id,
+                reference_type: 'RENTAL_FINE',
+                lines: [
+                    { account_id: cashAccId, debit: extraCharge, credit: 0 },
+                    { account_id: penaltyAccId, debit: 0, credit: extraCharge }
+                ]
+            }, this.supabase);
+        }
     }
+
+    // Optional: Reclassify deducted fine from Revenue to Penalty Income
+    // (If fineAmount <= deposit_amount, the fine part stays in Revenue unless we move it)
+    // Skipping for MVP simplicity to avoid too many journal entries.
 
     return true;
   }

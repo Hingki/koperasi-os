@@ -1,10 +1,12 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { LoanApplication, LoanType } from '@/lib/services/loan-service';
+import { Member } from '@/lib/types/member';
 
 export const generateLoanContract = (
-    application: any,
-    member: any,
-    product: any,
+    application: LoanApplication,
+    member: Member,
+    product: LoanType,
     schedule: any[]
 ) => {
     const doc = new jsPDF();

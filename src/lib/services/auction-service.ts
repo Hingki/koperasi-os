@@ -16,6 +16,7 @@ export interface Auction {
   end_time: string;
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   winner_id?: string;
+  final_price?: number;
   created_at: string;
   created_by: string;
 }

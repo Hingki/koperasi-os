@@ -42,7 +42,7 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
   const { toast } = useToast();
   const router = useRouter();
   const [selectedType, setSelectedType] = useState<LoanType | null>(null);
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -57,15 +57,15 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
     try {
       // Validate max amount against loan type limit
       if (selectedType && values.amount > selectedType.max_amount) {
-        form.setError("amount", { 
-            type: "max", 
-            message: `Maksimal untuk jenis ini adalah ${formatCurrency(selectedType.max_amount)}` 
+        form.setError("amount", {
+          type: "max",
+          message: `Maksimal untuk jenis ini adalah ${formatCurrency(selectedType.max_amount)}`
         });
         return;
       }
 
       const result = await applyForLoan(values);
-      
+
       if (result.success) {
         toast({
           title: "Pengajuan Terkirim",
@@ -91,27 +91,28 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
     const principal = watchAmount / selectedType.tenor_months;
     const interest = watchAmount * ratePerMonth;
     return {
-        principal,
-        interest,
-        total: principal + interest
+      principal,
+      interest,
+      total: principal + interest
     };
   })() : null;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        
+
         <FormField
           control={form.control}
           name="loan_type_id"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Jenis Pinjaman</FormLabel>
-              <Select 
+              <Select
+                disabled={form.formState.isSubmitting}
                 onValueChange={(val) => {
-                    field.onChange(val);
-                    setSelectedType(loanTypes.find(t => t.id === val) || null);
-                }} 
+                  field.onChange(val);
+                  setSelectedType(loanTypes.find(t => t.id === val) || null);
+                }}
                 defaultValue={field.value}
               >
                 <FormControl>
@@ -144,38 +145,52 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
             <FormItem>
               <FormLabel>Jumlah Pengajuan (Rp)</FormLabel>
               <FormControl>
-                <Input 
-                    type="number" 
-                    placeholder="Contoh: 5000000" 
-                    {...field} 
+                <Input
+                  disabled={form.formState.isSubmitting}
+                  type="number"
+                  placeholder="Contoh: 5000000"
+                  {...field}
                 />
               </FormControl>
+              {selectedType && field.value > 0 && (
+                <div className="mt-2 text-sm text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
+                  <div className="flex justify-between font-medium">
+                    <span>Estimasi Dana Diterima:</span>
+                    <span className="text-green-700">
+                      {formatCurrency(Math.max(0, field.value - selectedType.admin_fee))}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    *Biaya admin {formatCurrency(selectedType.admin_fee)} dipotong saat pencairan.
+                  </p>
+                </div>
+              )}
               <FormMessage />
             </FormItem>
           )}
         />
 
         {simulation && (
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                    <Calculator className="h-4 w-4" />
-                    Simulasi Angsuran Bulanan
-                </h4>
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-slate-500">Pokok</span>
-                        <span>{formatCurrency(simulation.principal)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-slate-500">Bunga</span>
-                        <span>{formatCurrency(simulation.interest)}</span>
-                    </div>
-                    <div className="border-t pt-2 flex justify-between font-bold text-slate-900">
-                        <span>Total per Bulan</span>
-                        <span>{formatCurrency(simulation.total)}</span>
-                    </div>
-                </div>
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Simulasi Angsuran Bulanan
+            </h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Pokok</span>
+                <span>{formatCurrency(simulation.principal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bunga</span>
+                <span>{formatCurrency(simulation.interest)}</span>
+              </div>
+              <div className="border-t pt-2 flex justify-between font-bold text-slate-900">
+                <span>Total per Bulan</span>
+                <span>{formatCurrency(simulation.total)}</span>
+              </div>
             </div>
+          </div>
         )}
 
         <FormField
@@ -185,10 +200,11 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
             <FormItem>
               <FormLabel>Tujuan Penggunaan</FormLabel>
               <FormControl>
-                <Textarea 
-                  placeholder="Jelaskan tujuan penggunaan dana pinjaman..." 
+                <Textarea
+                  disabled={form.formState.isSubmitting}
+                  placeholder="Jelaskan tujuan penggunaan dana pinjaman..."
                   className="resize-none min-h-[100px]"
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -197,16 +213,16 @@ export function LoanApplicationForm({ loanTypes }: { loanTypes: LoanType[] }) {
         />
 
         <div className="pt-4">
-            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Mengirim Pengajuan...
-                    </>
-                ) : (
-                    'Kirim Pengajuan'
-                )}
-            </Button>
+          <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Mengirim Pengajuan...
+              </>
+            ) : (
+              'Kirim Pengajuan'
+            )}
+          </Button>
         </div>
       </form>
     </Form>

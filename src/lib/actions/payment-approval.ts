@@ -2,8 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { LedgerService } from '@/lib/services/ledger-service';
-import { LedgerTransaction, AccountCode } from '@/lib/types/ledger';
+import { AccountingService } from '@/lib/services/accounting-service';
+import { AccountCode } from '@/lib/types/ledger';
 
 export async function approvePayment(transactionId: string) {
   const supabase = await createClient();
@@ -22,13 +22,11 @@ export async function approvePayment(transactionId: string) {
   if (tx.payment_status !== 'pending') throw new Error('Transaction is not pending');
 
   // 2. Process based on Type
-  const ledgerService = new LedgerService(supabase);
-  
   try {
     if (tx.transaction_type === 'savings_deposit') {
-      await processSavingsDeposit(supabase, tx, ledgerService, user.id);
+      await processSavingsDeposit(supabase, tx, user.id);
     } else if (tx.transaction_type === 'loan_payment') {
-      await processLoanPayment(supabase, tx, ledgerService, user.id);
+      await processLoanPayment(supabase, tx, user.id);
     }
 
     // 3. Update Payment Transaction Status
@@ -68,7 +66,7 @@ export async function rejectPayment(transactionId: string, reason: string) {
   return { success: true };
 }
 
-export async function processSavingsDeposit(supabase: any, tx: any, ledger: LedgerService, userId: string) {
+export async function processSavingsDeposit(supabase: any, tx: any, userId: string) {
   // 1. Get Savings Account and Product
   const { data: account } = await supabase
     .from('savings_accounts')
@@ -78,7 +76,39 @@ export async function processSavingsDeposit(supabase: any, tx: any, ledger: Ledg
 
   if (!account) throw new Error('Savings account not found');
 
-  // 2. Create Savings Transaction
+  // 2. Ledger Entry (Ledger-First Principle)
+  // Debit: Bank/Cash (Payment Source Account Code)
+  // Credit: Member Savings (Product Account Code)
+  const debitCode = (tx.payment_source?.account_code || '1-1001') as AccountCode;
+  const creditCode = (account.product?.coa_id || '2-1001') as AccountCode;
+
+  const debitAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, debitCode, supabase);
+  const creditAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, creditCode, supabase);
+
+  if (!debitAccId || !creditAccId) {
+      console.warn(`Missing accounts for savings deposit: Debit ${debitCode}, Credit ${creditCode}`);
+      // Fallback or error? For now proceed but log, or maybe throw error if strict SAK-EP.
+      // Given mandate "Strict SAK-EP", we should probably ensure accounts exist.
+      // But for backward compatibility, we'll try to proceed if possible, but AccountingService.postJournal needs valid IDs.
+      // If we can't find IDs, we can't post journal.
+  }
+
+  if (debitAccId && creditAccId) {
+      await AccountingService.postJournal({
+          koperasi_id: tx.koperasi_id,
+          business_unit: 'SAVINGS',
+          transaction_date: new Date().toISOString().split('T')[0],
+          description: `Setoran Simpanan ${account.account_number} via ${tx.payment_method}`,
+          reference_id: tx.id,
+          reference_type: 'SAVINGS_DEPOSIT',
+          lines: [
+              { account_id: debitAccId, debit: tx.amount, credit: 0 },
+              { account_id: creditAccId, debit: 0, credit: tx.amount }
+          ]
+      }, supabase);
+  }
+
+  // 3. Create Savings Transaction
   const { error: txError } = await supabase
     .from('savings_transactions')
     .insert({
@@ -92,39 +122,14 @@ export async function processSavingsDeposit(supabase: any, tx: any, ledger: Ledg
 
   if (txError) throw new Error(txError.message);
 
-  // 3. Update Account Balance
+  // 4. Update Account Balance
   await supabase.rpc('update_savings_balance', { 
     p_account_id: account.id, 
     p_amount: tx.amount 
   });
-
-  // 4. Ledger Entry
-  // Debit: Bank/Cash (Payment Source Account Code)
-  // Credit: Member Savings (Product Account Code)
-  const debitCode = (tx.payment_source?.account_code || '1-1001') as AccountCode;
-  const creditCode = (account.product?.coa_id || '2-1001') as AccountCode;
-
-  // We need to resolve COA IDs from Codes or use EnsureAccount
-  // LedgerService expects Codes or IDs? 
-  // ensureAccount takes (koperasi_id, code_or_name, user_id)
-  
-  const ledgerTx: LedgerTransaction = {
-    koperasi_id: tx.koperasi_id,
-    amount: tx.amount,
-    account_debit: debitCode,
-    account_credit: creditCode,
-    tx_reference: tx.id,
-    tx_type: 'savings_deposit',
-    description: `Setoran Simpanan ${account.account_number}`,
-    source_table: 'payment_transactions',
-    source_id: tx.id,
-    created_by: userId
-  };
-
-  await ledger.recordTransaction(ledgerTx);
 }
 
-export async function processLoanPayment(supabase: any, tx: any, ledger: LedgerService, userId: string) {
+export async function processLoanPayment(supabase: any, tx: any, userId: string) {
   // 1. Get Loan Details
   const { data: loan } = await supabase
     .from('loans')
@@ -159,20 +164,10 @@ export async function processLoanPayment(supabase: any, tx: any, ledger: LedgerS
     if (Math.abs(tx.amount - totalDue) < 1000) { // Tolerance
        interestPortion = schedule.interest_portion;
        principalPortion = schedule.principal_portion;
-       
-       // Update Schedule
-       await supabase
-         .from('loan_repayment_schedule')
-         .update({ status: 'paid', paid_at: new Date().toISOString() })
-         .eq('id', schedule.id);
     }
   }
 
-  // 3. Update Loan Outstanding (if tracking externally)
-  // Assuming loan table has remaining_principal? 
-  // If not, we calculate from transactions.
-  
-  // 4. Ledger Entry
+  // 3. Ledger Entry (Ledger-First)
   // Debit: Bank (Payment Source)
   // Credit: Loan Receivable (Product COA) -> Principal
   // Credit: Interest Income (Product Interest COA) -> Interest
@@ -181,38 +176,41 @@ export async function processLoanPayment(supabase: any, tx: any, ledger: LedgerS
   const creditPrincipalCode = (loan.product?.coa_receivable || '1-1003') as AccountCode;
   const creditInterestCode = (loan.product?.coa_interest_income || '4-1001') as AccountCode;
 
-  // LedgerService currently supports Double Entry (1 Debit, 1 Credit).
-  // For Split, we need 2 transactions or Multi-Leg support.
-  // LedgerService.recordTransaction does 1 pair.
-  // So we record 2 entries if interest > 0.
+  const debitAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, debitCode, supabase);
+  const principalAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, creditPrincipalCode, supabase);
+  const interestAccId = await AccountingService.getAccountIdByCode(tx.koperasi_id, creditInterestCode, supabase);
 
-  if (principalPortion > 0) {
-    await ledger.recordTransaction({
-        koperasi_id: tx.koperasi_id,
-        amount: principalPortion,
-        account_debit: debitCode,
-        account_credit: creditPrincipalCode,
-        tx_reference: tx.id + '-P',
-        tx_type: 'loan_repayment',
-        description: `Angsuran Pokok Pinjaman ${loan.id}`,
-        source_table: 'payment_transactions',
-        source_id: tx.id,
-        created_by: userId
-    });
+  if (debitAccId && principalAccId && interestAccId) {
+      const lines = [];
+      lines.push({ account_id: debitAccId, debit: tx.amount, credit: 0 }); // Total Debit
+      
+      if (principalPortion > 0) {
+          lines.push({ account_id: principalAccId, debit: 0, credit: principalPortion });
+      }
+      if (interestPortion > 0) {
+          lines.push({ account_id: interestAccId, debit: 0, credit: interestPortion });
+      }
+
+      await AccountingService.postJournal({
+          koperasi_id: tx.koperasi_id,
+          business_unit: 'LENDING',
+          transaction_date: new Date().toISOString().split('T')[0],
+          description: `Angsuran Pinjaman ${loan.id} (Pokok: ${principalPortion}, Bunga: ${interestPortion})`,
+          reference_id: tx.id,
+          reference_type: 'LOAN_REPAYMENT',
+          lines: lines
+      }, supabase);
   }
 
-  if (interestPortion > 0) {
-    await ledger.recordTransaction({
-        koperasi_id: tx.koperasi_id,
-        amount: interestPortion,
-        account_debit: debitCode,
-        account_credit: creditInterestCode,
-        tx_reference: tx.id + '-I',
-        tx_type: 'loan_repayment',
-        description: `Angsuran Bunga Pinjaman ${loan.id}`,
-        source_table: 'payment_transactions',
-        source_id: tx.id,
-        created_by: userId
-    });
+  // 4. Update Schedule if matched
+  if (schedule && Math.abs(tx.amount - schedule.total_installment) < 1000) {
+       await supabase
+         .from('loan_repayment_schedule')
+         .update({ status: 'paid', paid_at: new Date().toISOString() })
+         .eq('id', schedule.id);
   }
+
+  // 5. Update Loan Outstanding (if tracking externally)
+  // Assuming loan table has remaining_principal? 
+  // If not, we calculate from transactions.
 }

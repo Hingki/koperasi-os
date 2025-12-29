@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LedgerService } from './ledger-service';
+import { AccountingService } from './accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 import { PaymentService } from './payment-service';
 import { SavingsService } from './savings-service';
@@ -30,14 +30,13 @@ export interface PharmacyItemInput extends Partial<POSTransactionItem> {
 }
 
 export class PharmacyService {
-  private ledgerService: LedgerService;
+  // private ledgerService: LedgerService;
   private paymentService: PaymentService;
   private savingsService: SavingsService;
   private loyaltyService: LoyaltyService;
   private retailService: RetailService;
 
   constructor(private supabase: SupabaseClient) {
-    this.ledgerService = new LedgerService(supabase);
     this.paymentService = new PaymentService(supabase);
     this.savingsService = new SavingsService(supabase);
     this.loyaltyService = new LoyaltyService(supabase);
@@ -196,96 +195,64 @@ export class PharmacyService {
     }
 
     // 5. Ledger Entries (Pharmacy Specific)
+    // Ledger-First Principle: Use AccountingService.postJournal for atomic double-entry
+
+    const journalLines: any[] = [];
     
-    // A. Revenue (Credit)
-    // Net Sales (Items only)
+    // A. Revenue Recognition
     const netSales = itemsTotal - discount;
-    if (netSales > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: transaction.koperasi_id!,
-            tx_type: 'retail_sale',
-            tx_reference: txData.invoice_number,
-            account_debit: AccountCode.CASH_ON_HAND, // Or mixed based on payment
-            account_credit: AccountCode.SALES_REVENUE_PHARMACY,
-            amount: netSales,
-            description: `Penjualan Obat ${txData.invoice_number}`,
-            source_table: 'pos_transactions',
-            source_id: txData.id,
-            created_by: transaction.created_by || 'system'
-        });
-    }
-
-    // B. Service Income (Tuslah/Embalase)
     const totalService = tuslah + embalase;
-    if (totalService > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: transaction.koperasi_id!,
-            tx_type: 'retail_sale',
-            tx_reference: txData.invoice_number,
-            account_debit: AccountCode.CASH_ON_HAND,
-            account_credit: AccountCode.SERVICE_INCOME_PHARMACY,
-            amount: totalService,
-            description: `Jasa Layanan Farmasi (Tuslah/Embalase) ${txData.invoice_number}`,
-            source_table: 'pos_transactions',
-            source_id: txData.id,
-            created_by: transaction.created_by || 'system'
-        });
+    
+    // Total Invoice Amount = Net Sales + Service + Tax
+    // This amount matches what the customer pays (or owes)
+    const totalInvoice = netSales + totalService + tax;
+
+    if (totalInvoice > 0) {
+        // Debit: Accounts Receivable (or Unapplied Cash handled by PaymentService)
+        // Since PaymentService records "Debit Cash / Credit Unapplied", we Debit Unapplied/AR here.
+        const arAccId = await AccountingService.getAccountIdByCode(transaction.koperasi_id!, AccountCode.ACCOUNTS_RECEIVABLE, this.supabase);
+        
+        // Credits
+        const revenueAccId = await AccountingService.getAccountIdByCode(transaction.koperasi_id!, AccountCode.SALES_REVENUE_PHARMACY, this.supabase);
+        const serviceAccId = await AccountingService.getAccountIdByCode(transaction.koperasi_id!, AccountCode.SERVICE_INCOME_PHARMACY, this.supabase);
+        const vatAccId = await AccountingService.getAccountIdByCode(transaction.koperasi_id!, AccountCode.VAT_OUT, this.supabase);
+
+        if (arAccId) {
+            journalLines.push({ account_id: arAccId, debit: totalInvoice, credit: 0 });
+
+            if (netSales > 0 && revenueAccId) {
+                journalLines.push({ account_id: revenueAccId, debit: 0, credit: netSales });
+            }
+            if (totalService > 0 && serviceAccId) {
+                journalLines.push({ account_id: serviceAccId, debit: 0, credit: totalService });
+            }
+            if (tax > 0 && vatAccId) {
+                journalLines.push({ account_id: vatAccId, debit: 0, credit: tax });
+            }
+        }
     }
 
-    // C. VAT Output
-    if (tax > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: transaction.koperasi_id!,
-            tx_type: 'retail_sale',
-            tx_reference: txData.invoice_number,
-            account_debit: AccountCode.CASH_ON_HAND, // Technically part of what customer paid
-            account_credit: AccountCode.VAT_OUT,
-            amount: tax,
-            description: `PPN Keluaran Farmasi ${txData.invoice_number}`,
-            source_table: 'pos_transactions',
-            source_id: txData.id,
-            created_by: transaction.created_by || 'system'
-        });
-    }
-    
-    // Note: The above Debit is simplified. If split payment, we need to debit multiple accounts.
-    // However, LedgerService usually records the "Economic Event". 
-    // The "Cash In" is recorded by PaymentService usually? 
-    // Looking at RetailService:
-    // It records Debit COGS / Credit Inventory.
-    // It records Debit PaymentMethod / Credit Sales?
-    // Wait, RetailService.processTransaction calls paymentService.recordManualPayment which likely creates a transaction log but maybe not Ledger?
-    // RetailService line 1066: calls paymentService.recordManualPayment.
-    // Let's check PaymentService.
-    // If PaymentService records the Ledger "Debit Cash / Credit Unapplied?", then RetailService records "Debit Unapplied / Credit Sales"?
-    // Actually RetailService logic (lines 1121+) records COGS and VAT OUT.
-    // But where is the SALES REVENUE recorded?
-    // RetailService doesn't seem to record SALES_REVENUE in the snippet I read! 
-    // Ah, wait. I missed it or it's not there?
-    // I see VAT_OUT (Credit VAT_OUT, Debit SALES_REVENUE?? No, line 1158 Debit SALES_REVENUE). That reduces Revenue.
-    // But the initial Revenue entry? 
-    // Maybe `paymentService.recordManualPayment` does it?
-    
-    // Let's assume I need to record the Revenue manually here as 'retail_sale'.
-    // If PaymentService handles the Cash side, I should check it. 
-    // But to be safe, I will record the full accounting entry here:
-    // Debit: AR/Cash (handled by PaymentService??)
-    // Credit: Sales Revenue
-    
-    // D. COGS (Debit COGS, Credit Inventory Medicine)
+    // B. COGS (Debit COGS / Credit Inventory)
     if (totalCOGS > 0) {
-        await this.ledgerService.recordTransaction({
+        const cogsAccId = await AccountingService.getAccountIdByCode(transaction.koperasi_id!, AccountCode.COGS, this.supabase);
+        const inventoryAccId = await AccountingService.getAccountIdByCode(transaction.koperasi_id!, AccountCode.INVENTORY_MEDICINE, this.supabase);
+        
+        if (cogsAccId && inventoryAccId) {
+            journalLines.push({ account_id: cogsAccId, debit: totalCOGS, credit: 0 });
+            journalLines.push({ account_id: inventoryAccId, debit: 0, credit: totalCOGS });
+        }
+    }
+
+    if (journalLines.length > 0) {
+        await AccountingService.postJournal({
             koperasi_id: transaction.koperasi_id!,
-            tx_type: 'retail_sale',
-            tx_reference: txData.invoice_number,
-            account_debit: AccountCode.COGS,
-            account_credit: AccountCode.INVENTORY_MEDICINE,
-            amount: totalCOGS,
-            description: `HPP Obat ${txData.invoice_number}`,
-            source_table: 'pos_transactions',
-            source_id: txData.id,
-            created_by: transaction.created_by || 'system'
-        });
+            business_unit: 'PHARMACY',
+            transaction_date: transaction.transaction_date || new Date().toISOString().split('T')[0],
+            description: `Penjualan Farmasi ${txData.invoice_number}`,
+            reference_id: txData.id,
+            reference_type: 'PHARMACY_SALE',
+            lines: journalLines
+        }, this.supabase);
     }
 
     return { ...txData, paymentResult };
@@ -522,18 +489,32 @@ export class PharmacyService {
       // 3. Record Ledger Adjustment
       if (totalVarianceValue !== 0) {
         const isGain = totalVarianceValue > 0;
-        await this.ledgerService.recordTransaction({
-            koperasi_id: opname.koperasi_id,
-            tx_type: 'journal_adjustment',
-            tx_reference: `OPNAME-${opnameData.id}`,
-            account_debit: isGain ? AccountCode.INVENTORY_MEDICINE : AccountCode.COGS, // Or dedicated adjustment account
-            account_credit: isGain ? AccountCode.COGS : AccountCode.INVENTORY_MEDICINE, // Or dedicated adjustment account
-            amount: Math.abs(totalVarianceValue),
-            description: `Stock Opname Adjustment ${opname.notes || ''}`,
-            source_table: 'inventory_stock_opname',
-            source_id: opnameData.id,
-            created_by: opname.created_by
-        });
+        const inventoryAccId = await AccountingService.getAccountIdByCode(opname.koperasi_id, AccountCode.INVENTORY_MEDICINE, this.supabase);
+        const cogsAccId = await AccountingService.getAccountIdByCode(opname.koperasi_id, AccountCode.COGS, this.supabase); // Or dedicated adjustment account
+
+        if (inventoryAccId && cogsAccId) {
+             const amount = Math.abs(totalVarianceValue);
+             await AccountingService.postJournal({
+                koperasi_id: opname.koperasi_id,
+                business_unit: 'PHARMACY',
+                transaction_date: new Date().toISOString().split('T')[0],
+                description: `Stock Opname Adjustment ${opnameData.id}`,
+                reference_id: opnameData.id,
+                reference_type: 'PHARMACY_STOCK_OPNAME',
+                lines: [
+                    { 
+                        account_id: isGain ? inventoryAccId : cogsAccId, 
+                        debit: amount, 
+                        credit: 0 
+                    },
+                    { 
+                        account_id: isGain ? cogsAccId : inventoryAccId, 
+                        debit: 0, 
+                        credit: amount 
+                    }
+                ]
+             }, this.supabase);
+        }
       }
     }
 

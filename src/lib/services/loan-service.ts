@@ -1,8 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LedgerService } from './ledger-service';
 import { PaymentService } from './payment-service';
 import { AccountCode } from '@/lib/types/ledger';
+import { LedgerIntentService } from '@/lib/services/ledger-intent-service';
 import { NotificationService } from './notification-service';
+import { AccountingService } from './accounting-service';
 
 export interface LoanType {
   id: string;
@@ -10,6 +11,7 @@ export interface LoanType {
   name: string;
   description?: string;
   interest_rate: number;
+  interest_type?: string;
   max_amount: number;
   admin_fee: number;
   tenor_months: number;
@@ -30,6 +32,7 @@ export interface LoanApplication {
   disbursed_at?: string;
   notes?: string;
   loan_type?: LoanType;
+  tenor_months?: number;
   member?: {
     id: string;
     name: string;
@@ -54,11 +57,9 @@ export interface LoanRepayment {
 }
 
 export class LoanService {
-  private ledgerService: LedgerService;
   private paymentService: PaymentService;
 
   constructor(private supabase: SupabaseClient) {
-    this.ledgerService = new LedgerService(supabase);
     this.paymentService = new PaymentService(supabase);
   }
 
@@ -70,9 +71,9 @@ export class LoanService {
       .eq('koperasi_id', koperasiId)
       .eq('is_active', true)
       .order('name');
-    
+
     if (error) throw error;
-    
+
     return data.map((item: any) => ({
       id: item.id,
       koperasi_id: item.koperasi_id,
@@ -144,7 +145,7 @@ export class LoanService {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    
+
     return data.map((item: any) => ({
       id: item.id,
       koperasi_id: item.koperasi_id,
@@ -174,14 +175,14 @@ export class LoanService {
   }) {
     // 1. Get Loan Product limits
     const { data: product } = await this.supabase
-        .from('loan_products')
-        .select('*')
-        .eq('id', data.loan_type_id)
-        .single();
-    
+      .from('loan_products')
+      .select('*')
+      .eq('id', data.loan_type_id)
+      .single();
+
     if (!product) throw new Error('Jenis pinjaman tidak ditemukan');
     if (data.amount > product.max_amount) throw new Error(`Jumlah melebihi batas maksimal ${product.max_amount}`);
-    
+
     const tenor = data.tenor_months || product.max_tenor_months;
     if (tenor > product.max_tenor_months) throw new Error(`Tenor melebihi batas maksimal ${product.max_tenor_months} bulan`);
 
@@ -242,9 +243,9 @@ export class LoanService {
       .update({
         status,
         workflow_metadata: {
-            reviewed_by: reviewerId,
-            reviewed_at: new Date().toISOString(),
-            notes
+          reviewed_by: reviewerId,
+          reviewed_at: new Date().toISOString(),
+          notes
         }
       })
       .eq('id', id)
@@ -258,7 +259,7 @@ export class LoanService {
       const message = 'Pengajuan pinjaman Anda telah disetujui. Silakan menunggu proses pencairan.';
       try {
         await notifier.createNotification(data.member_id, title, message);
-      } catch {}
+      } catch { }
     }
     return data;
   }
@@ -266,11 +267,11 @@ export class LoanService {
   async disburseLoan(id: string, disburserId: string) {
     // 1. Fetch Application & Product
     const { data: application } = await this.supabase
-        .from('loan_applications')
-        .select(`*, product:loan_products(*)`)
-        .eq('id', id)
-        .single();
-    
+      .from('loan_applications')
+      .select(`*, product:loan_products(*)`)
+      .eq('id', id)
+      .single();
+
     if (!application) throw new Error('Application not found');
     if (application.status !== 'approved') throw new Error('Pinjaman harus disetujui sebelum dicairkan');
 
@@ -279,13 +280,29 @@ export class LoanService {
     const tenorMonths = application.tenor_months;
     const interestTotal = amount * (interestRate / 100) * (tenorMonths / 12); // Simple interest estimate
 
-    // 2. Create Active Loan Record
     const startDate = new Date();
     const dueDate = new Date(startDate);
     dueDate.setMonth(dueDate.getMonth() + tenorMonths);
-
+    const loanCode = `L-${Date.now()}`;
     const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
 
+    // A. Ledger Gatekeeper (Ledger-First)
+    let journalId: string | null = null;
+    try {
+      const journalDTO = await LedgerIntentService.prepareLoanDisbursement(
+        application.koperasi_id,
+        amount,
+        application.member_id,
+        loanCode,
+        disburserId
+      );
+      journalId = await AccountingService.postJournal(journalDTO, this.supabase);
+    } catch (error: any) {
+      console.error("Ledger Gatekeeper Failed:", error);
+      throw new Error(`Pencairan Gagal di Sistem Akuntansi: ${error.message}`);
+    }
+
+    // 2. Create Active Loan Record
     let loan: any | null = null;
     let loanError: any | null = null;
     try {
@@ -296,7 +313,7 @@ export class LoanService {
           application_id: application.id,
           member_id: application.member_id,
           product_id: application.product_id,
-          loan_code: `L-${Date.now()}`,
+          loan_code: loanCode,
           principal_amount: amount,
           interest_rate: interestRate,
           interest_type: 'flat',
@@ -322,7 +339,7 @@ export class LoanService {
             application_id: application.id,
             member_id: application.member_id,
             product_id: application.product_id,
-            loan_code: `L-${Date.now()}`,
+            loan_code: loanCode,
             principal_amount: amount,
             interest_rate: interestRate,
             interest_type: 'flat',
@@ -343,33 +360,35 @@ export class LoanService {
       }
     }
 
-    if (loanError) throw loanError;
+    if (loanError) {
+      throw new Error(`System Error: Ledger posted (ID: ${journalId}) but Loan creation failed: ${loanError.message}`);
+    }
 
     // 3. Generate Schedule
-    await this.generateRepaymentSchedule(loan, tenorMonths);
+    try {
+      await this.generateRepaymentSchedule(loan, tenorMonths);
+    } catch (scheduleError: any) {
+      // Critical: Loan active but no schedule.
+      // Admin needs to fix this manually or retry.
+      console.error("Schedule Generation Failed:", scheduleError);
+      // Don't throw here to avoid rollback confusion, but alert user?
+      // Ideally throw and let user retry.
+      throw new Error(`Loan Created but Schedule Generation Failed: ${scheduleError.message}`);
+    }
 
     // 4. Update Application Status
-    await this.supabase
-        .from('loan_applications')
-        .update({
-            status: 'disbursed',
-            disbursed_at: new Date().toISOString()
-        })
-        .eq('id', id);
+    const { error: appError } = await this.supabase
+      .from('loan_applications')
+      .update({
+        status: 'disbursed',
+        disbursed_at: new Date().toISOString()
+      })
+      .eq('id', id);
 
-    // 5. Accounting Journal
-    await this.ledgerService.recordTransaction({
-        koperasi_id: application.koperasi_id,
-        tx_type: 'loan_disbursement',
-        tx_reference: loan.id,
-        account_debit: AccountCode.LOAN_RECEIVABLE_FLAT,
-        account_credit: AccountCode.CASH_ON_HAND,
-        amount: amount,
-        description: `Pencairan Pinjaman #${loan.loan_code}`,
-        source_table: 'loans',
-        source_id: loan.id,
-        created_by: disburserId
-    });
+    if (appError) {
+      console.error("Failed to update application status:", appError);
+      // Not critical enough to rollback loan, but confusing for UI.
+    }
 
     return true;
   }
@@ -377,7 +396,7 @@ export class LoanService {
   async generateRepaymentSchedule(loan: any, months: number) {
     const amount = loan.principal_amount;
     const ratePerMonth = loan.interest_rate / 12 / 100;
-    
+
     // Flat Rate Calculation
     const principalPerMonth = amount / months;
     const interestPerMonth = amount * ratePerMonth;
@@ -389,19 +408,19 @@ export class LoanService {
     const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
 
     for (let i = 1; i <= months; i++) {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        schedule.push({
-            koperasi_id: loan.koperasi_id,
-            loan_id: loan.id,
-            member_id: loan.member_id,
-            installment_number: i,
-            due_date: currentDate.toISOString().split('T')[0],
-            principal_portion: principalPerMonth,
-            interest_portion: interestPerMonth,
-            total_installment: totalPerMonth,
-            status: 'pending',
-            is_test_transaction: isDemoMode
-        });
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      schedule.push({
+        koperasi_id: loan.koperasi_id,
+        loan_id: loan.id,
+        member_id: loan.member_id,
+        installment_number: i,
+        due_date: currentDate.toISOString().split('T')[0],
+        principal_portion: principalPerMonth,
+        interest_portion: interestPerMonth,
+        total_installment: totalPerMonth,
+        status: 'pending',
+        is_test_transaction: isDemoMode
+      });
     }
 
     try {
@@ -433,41 +452,47 @@ export class LoanService {
   ) {
     // 1. Validate Schedule
     const { data: schedule, error } = await this.supabase
-        .from('loan_repayment_schedule')
-        .select('*, loan:loans(*)')
-        .eq('id', scheduleId)
-        .single();
-    
+      .from('loan_repayment_schedule')
+      .select('*, loan:loans(*)')
+      .eq('id', scheduleId)
+      .single();
+
     if (error || !schedule) throw new Error('Jadwal angsuran tidak ditemukan');
     if (schedule.status === 'paid') throw new Error('Angsuran sudah lunas');
-    
+
     // 2. Prepare Description
     const description = `Angsuran Pinjaman #${schedule.loan.loan_code} - Angsuran Ke-${schedule.installment_number}`;
-    
+
     // 3. Create QRIS
     return await this.paymentService.createQRISPayment(
-        koperasiId,
-        scheduleId, // reference_id
-        'loan_payment',
-        amount,
-        description,
-        userId
+      koperasiId,
+      scheduleId, // reference_id
+      'loan_payment',
+      amount,
+      description,
+      userId
     );
   }
 
   async recordRepayment(
-    scheduleId: string, 
-    amountPaid: number, 
+    scheduleId: string,
+    amountPaid: number,
     recorderId: string,
     targetAccountCode: string = AccountCode.CASH_ON_HAND
   ) {
-    // 1. Get Schedule Item
+    // 1. Get Schedule Item with Loan and Product details
     const { data: schedule, error: scheduleError } = await this.supabase
-        .from('loan_repayment_schedule')
-        .select('*, loan:loans(*)')
-        .eq('id', scheduleId)
-        .single();
-    
+      .from('loan_repayment_schedule')
+      .select(`
+            *, 
+            loan:loans(
+                *,
+                product:loan_products(*)
+            )
+        `)
+      .eq('id', scheduleId)
+      .single();
+
     if (scheduleError || !schedule) throw new Error('Schedule not found');
     if (schedule.status === 'paid') throw new Error('Installment already paid');
 
@@ -475,194 +500,240 @@ export class LoanService {
     const newPaidAmount = (schedule.paid_amount || 0) + amountPaid;
     let newStatus = 'partial';
     if (newPaidAmount >= schedule.total_installment) {
-        newStatus = 'paid';
+      newStatus = 'paid';
     }
 
     // 3. Update Schedule
     const { error: updateError } = await this.supabase
-        .from('loan_repayment_schedule')
-        .update({
-            paid_amount: newPaidAmount,
-            paid_at: new Date().toISOString(),
-            status: newStatus
-        })
-        .eq('id', scheduleId);
+      .from('loan_repayment_schedule')
+      .update({
+        paid_amount: newPaidAmount,
+        paid_at: new Date().toISOString(),
+        status: newStatus
+      })
+      .eq('id', scheduleId);
 
     if (updateError) throw updateError;
 
     // 4. Update Loan Balance (Principal reduction)
     // We assume proportional payment for accounting:
     // Ratio = PrincipalPortion / TotalInstallment
-    const ratio = schedule.principal_portion / schedule.total_installment;
+    // If total_installment is 0 (should not happen), avoid NaN
+    const totalInstallment = schedule.total_installment || 1;
+    const ratio = schedule.principal_portion / totalInstallment;
+
+    // For accounting allocation
     const principalPaid = amountPaid * ratio;
     const interestPaid = amountPaid - principalPaid;
 
     const { data: loan } = await this.supabase
-        .from('loans')
-        .select('remaining_principal, status')
-        .eq('id', schedule.loan_id)
-        .single();
-        
+      .from('loans')
+      .select('remaining_principal, status')
+      .eq('id', schedule.loan_id)
+      .single();
+
     if (!loan) throw new Error('Loan not found');
 
     const newRemaining = loan.remaining_principal - principalPaid;
     const loanStatus = newRemaining <= 100 ? 'paid' : 'active'; // Tolerance for rounding
-    
-    await this.supabase
-        .from('loans')
-        .update({
-            remaining_principal: newRemaining,
-            status: loanStatus
-        })
-        .eq('id', schedule.loan_id);
 
-    // 5. Accounting
-    // 5a. Principal
-    if (principalPaid > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: schedule.koperasi_id,
-            tx_type: 'loan_repayment',
-            tx_reference: scheduleId,
-            account_debit: targetAccountCode as AccountCode,
-            account_credit: AccountCode.LOAN_RECEIVABLE_FLAT,
-            amount: principalPaid,
-            description: `Angsuran Pokok Pinjaman #${schedule.loan.loan_code} (${schedule.installment_number})`,
-            source_table: 'loan_repayment_schedule',
-            source_id: scheduleId,
-            created_by: recorderId
-        });
+    await this.supabase
+      .from('loans')
+      .update({
+        remaining_principal: newRemaining,
+        status: loanStatus
+      })
+      .eq('id', schedule.loan_id);
+
+    // 5. Accounting (SAK-EP & Ledger-First)
+    // Determine if Financing (Murabahah) or Cash Loan
+    const isFinancing = schedule.loan?.product?.is_financing === true ||
+      schedule.loan?.loan_code?.startsWith('F-') ||
+      false;
+
+    const cashAccId = await AccountingService.getAccountIdByCode(schedule.koperasi_id, targetAccountCode, this.supabase);
+
+    if (!cashAccId) {
+      console.error(`Accounting Error: Target account ${targetAccountCode} not found.`);
+      return; // Cannot post journal without cash account
     }
 
-    // 5b. Interest
-    if (interestPaid > 0) {
-        await this.ledgerService.recordTransaction({
-            koperasi_id: schedule.koperasi_id,
-            tx_type: 'loan_repayment',
-            tx_reference: scheduleId,
-            account_debit: targetAccountCode as AccountCode,
-            account_credit: AccountCode.INTEREST_INCOME_LOAN,
-            amount: interestPaid,
-            description: `Pendapatan Bunga Pinjaman #${schedule.loan.loan_code} (${schedule.installment_number})`,
-            source_table: 'loan_repayment_schedule',
-            source_id: scheduleId,
-            created_by: recorderId
-        });
+    const transactionDate = new Date().toISOString().split('T')[0];
+
+    if (isFinancing) {
+      // --- MURABAHAH REPAYMENT ---
+      // 1. Dr Cash/Bank (Total)
+      // 2. Cr Financing Receivable (Total)
+      // 3. Dr Unearned Income (Margin Portion)
+      // 4. Cr Financing Income (Margin Portion)
+
+      const receivableAccId = await AccountingService.getAccountIdByCode(schedule.koperasi_id, AccountCode.FINANCING_RECEIVABLE, this.supabase);
+      const unearnedIncomeAccId = await AccountingService.getAccountIdByCode(schedule.koperasi_id, AccountCode.UNEARNED_FINANCING_INCOME, this.supabase);
+      const incomeAccId = await AccountingService.getAccountIdByCode(schedule.koperasi_id, AccountCode.FINANCING_INCOME_MARGIN, this.supabase);
+
+      if (receivableAccId && unearnedIncomeAccId && incomeAccId) {
+        await AccountingService.postJournal({
+          koperasi_id: schedule.koperasi_id,
+          business_unit: 'SIMPAN_PINJAM', // Or Unit Usaha Syariah
+          transaction_date: transactionDate,
+          description: `Angsuran Pembiayaan #${schedule.loan.loan_code} (${schedule.installment_number})`,
+          reference_id: scheduleId,
+          reference_type: 'FINANCING_REPAYMENT',
+          lines: [
+            { account_id: cashAccId, debit: amountPaid, credit: 0, description: 'Kas Masuk (Angsuran)' },
+            { account_id: receivableAccId, debit: 0, credit: amountPaid, description: 'Pelunasan Piutang' },
+            { account_id: unearnedIncomeAccId, debit: interestPaid, credit: 0, description: 'Realisasi Margin (Debit)' },
+            { account_id: incomeAccId, debit: 0, credit: interestPaid, description: 'Pendapatan Margin (Kredit)' }
+          ],
+          created_by: recorderId
+        }, this.supabase);
+      } else {
+        console.warn('Accounting Warning: Missing accounts for Financing Repayment journal.');
+      }
+
+    } else {
+      // --- CASH LOAN REPAYMENT ---
+      // 1. Dr Cash/Bank (Total)
+      // 2. Cr Loan Receivable (Principal Portion)
+      // 3. Cr Interest Income (Interest Portion)
+
+      const receivableAccId = await AccountingService.getAccountIdByCode(schedule.koperasi_id, AccountCode.LOAN_RECEIVABLE_FLAT, this.supabase);
+      const incomeAccId = await AccountingService.getAccountIdByCode(schedule.koperasi_id, AccountCode.INTEREST_INCOME_LOAN, this.supabase);
+
+      if (receivableAccId && incomeAccId) {
+        await AccountingService.postJournal({
+          koperasi_id: schedule.koperasi_id,
+          business_unit: 'SIMPAN_PINJAM',
+          transaction_date: transactionDate,
+          description: `Angsuran Pinjaman #${schedule.loan.loan_code} (${schedule.installment_number})`,
+          reference_id: scheduleId,
+          reference_type: 'LOAN_REPAYMENT',
+          lines: [
+            { account_id: cashAccId, debit: amountPaid, credit: 0, description: 'Kas Masuk (Angsuran)' },
+            { account_id: receivableAccId, debit: 0, credit: principalPaid, description: 'Pelunasan Pokok' },
+            { account_id: incomeAccId, debit: 0, credit: interestPaid, description: 'Pendapatan Bunga' }
+          ],
+          created_by: recorderId
+        }, this.supabase);
+      } else {
+        console.warn('Accounting Warning: Missing accounts for Loan Repayment journal.');
+      }
     }
 
     return true;
   }
 
   async processPaymentByLoanId(
-    loanId: string, 
-    totalAmount: number, 
+    loanId: string,
+    totalAmount: number,
     recorderId: string,
     targetAccountCode: string = AccountCode.CASH_ON_HAND
   ) {
     // 1. Fetch Unpaid Schedules
     const { data: schedules, error } = await this.supabase
-        .from('loan_repayment_schedule')
-        .select('*')
-        .eq('loan_id', loanId)
-        .neq('status', 'paid')
-        .order('installment_number', { ascending: true });
-    
+      .from('loan_repayment_schedule')
+      .select('*')
+      .eq('loan_id', loanId)
+      .neq('status', 'paid')
+      .order('installment_number', { ascending: true });
+
     if (error) throw error;
     if (!schedules || schedules.length === 0) {
-        throw new Error('No unpaid installments found for this loan');
+      throw new Error('No unpaid installments found for this loan');
     }
 
     let remainingMoney = totalAmount;
 
     for (const schedule of schedules) {
-        if (remainingMoney <= 0) break;
+      if (remainingMoney <= 0) break;
 
-        const alreadyPaid = schedule.paid_amount || 0;
-        const totalDue = schedule.total_installment;
-        const outstandingForThisSchedule = totalDue - alreadyPaid;
+      const alreadyPaid = schedule.paid_amount || 0;
+      const totalDue = schedule.total_installment;
+      const outstandingForThisSchedule = totalDue - alreadyPaid;
 
-        let paymentForThisSchedule = 0;
+      let paymentForThisSchedule = 0;
 
-        if (remainingMoney >= outstandingForThisSchedule) {
-            paymentForThisSchedule = outstandingForThisSchedule;
-            remainingMoney -= outstandingForThisSchedule;
-        } else {
-            paymentForThisSchedule = remainingMoney;
-            remainingMoney = 0;
-        }
+      if (remainingMoney >= outstandingForThisSchedule) {
+        paymentForThisSchedule = outstandingForThisSchedule;
+        remainingMoney -= outstandingForThisSchedule;
+      } else {
+        paymentForThisSchedule = remainingMoney;
+        remainingMoney = 0;
+      }
 
-        if (paymentForThisSchedule > 0) {
-            await this.recordRepayment(
-                schedule.id, 
-                paymentForThisSchedule, 
-                recorderId, 
-                targetAccountCode
-            );
-        }
+      if (paymentForThisSchedule > 0) {
+        await this.recordRepayment(
+          schedule.id,
+          paymentForThisSchedule,
+          recorderId,
+          targetAccountCode
+        );
+      }
     }
     return true;
   }
 
   // Need to update getLoanDetail to join all these tables
   async getLoanDetail(id: string) {
-     // Fetch application
-     const { data: application } = await this.supabase
-        .from('loan_applications')
-        .select(`
+    // Fetch application
+    const { data: application } = await this.supabase
+      .from('loan_applications')
+      .select(`
             *,
             product:loan_products(*),
             member:member(id, nama_lengkap, nomor_anggota, phone, alamat_lengkap),
             loans(*)
         `)
-        .eq('id', id)
-        .single();
+      .eq('id', id)
+      .single();
 
-     if (!application) return null;
+    if (!application) return null;
 
-     let repayments: any[] = [];
-     if (application.loans && application.loans.length > 0) {
-        // Fetch schedule from active loan
-        const { data: schedule } = await this.supabase
-            .from('loan_repayment_schedule')
-            .select('*')
-            .eq('loan_id', application.loans[0].id)
-            .order('installment_number');
-        repayments = schedule || [];
-     }
+    let repayments: any[] = [];
+    if (application.loans && application.loans.length > 0) {
+      // Fetch schedule from active loan
+      const { data: schedule } = await this.supabase
+        .from('loan_repayment_schedule')
+        .select('*')
+        .eq('loan_id', application.loans[0].id)
+        .order('installment_number');
+      repayments = schedule || [];
+    }
 
-     return {
-        id: application.id,
-        koperasi_id: application.koperasi_id,
-        member_id: application.member_id,
-        loan_type_id: application.product_id,
-        amount: application.amount,
-        purpose: application.purpose,
-        status: application.status,
-        applied_at: application.created_at,
-        disbursed_at: application.disbursed_at,
-        loan_type: {
-            id: application.product.id,
-            name: application.product.name,
-            tenor_months: application.product.max_tenor_months,
-            interest_rate: application.product.interest_rate
-        },
-        member: {
-            id: application.member.id,
-            name: application.member.nama_lengkap,
-            member_no: application.member.nomor_anggota,
-            phone: application.member.phone,
-            address: application.member.alamat_lengkap
-        },
-        repayments: repayments.map(r => ({
-            id: r.id,
-            loan_id: r.loan_id,
-            installment_number: r.installment_number,
-            due_date: r.due_date,
-            amount_principal: r.principal_portion,
-            amount_interest: r.interest_portion,
-            amount_total: r.total_installment,
-            amount_paid: r.paid_amount,
-            status: r.status
-        }))
-     };
+    return {
+      id: application.id,
+      koperasi_id: application.koperasi_id,
+      member_id: application.member_id,
+      loan_type_id: application.product_id,
+      amount: application.amount,
+      purpose: application.purpose,
+      status: application.status,
+      applied_at: application.created_at,
+      disbursed_at: application.disbursed_at,
+      loan_type: {
+        id: application.product.id,
+        name: application.product.name,
+        tenor_months: application.product.max_tenor_months,
+        interest_rate: application.product.interest_rate
+      },
+      member: {
+        id: application.member.id,
+        name: application.member.nama_lengkap,
+        member_no: application.member.nomor_anggota,
+        phone: application.member.phone,
+        address: application.member.alamat_lengkap
+      },
+      repayments: repayments.map(r => ({
+        id: r.id,
+        loan_id: r.loan_id,
+        installment_number: r.installment_number,
+        due_date: r.due_date,
+        amount_principal: r.principal_portion,
+        amount_interest: r.interest_portion,
+        amount_total: r.total_installment,
+        amount_paid: r.paid_amount,
+        status: r.status
+      }))
+    };
   }
 }

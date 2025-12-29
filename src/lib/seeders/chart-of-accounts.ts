@@ -78,6 +78,7 @@ export const STANDARD_COA: COASeedItem[] = [
 
   { code: '5-1100', name: 'BEBAN POKOK PENJUALAN', type: 'expense', normal_balance: 'debit', level: 2, is_header: true, parent_code: '5-0000' },
   { code: AccountCode.COGS, name: 'Harga Pokok Penjualan (HPP)', type: 'expense', normal_balance: 'debit', level: 4, is_header: false, parent_code: '5-1100' },
+  { code: AccountCode.INVENTORY_ADJUSTMENT, name: 'Selisih Stok Opname', type: 'expense', normal_balance: 'debit', level: 4, is_header: false, parent_code: '5-1100' },
 
   { code: '5-2000', name: 'BEBAN OPERASIONAL ORGANISASI', type: 'expense', normal_balance: 'debit', level: 2, is_header: true, parent_code: '5-0000' },
   { code: AccountCode.OPERATIONAL_EXPENSE, name: 'Beban Operasional Umum', type: 'expense', normal_balance: 'debit', level: 4, is_header: false, parent_code: '5-2000' },
@@ -98,49 +99,77 @@ export async function seedCOA(supabase: SupabaseClient, koperasiId: string) {
   let successCount = 0;
   let failCount = 0;
 
+  // Cache for parent IDs: code -> id
+  const accountIdMap = new Map<string, string>();
+
+  // Process sequentially to ensure parents exist before children
   for (const account of STANDARD_COA) {
     try {
+      let parentId = null;
+      if (account.parent_code) {
+        parentId = accountIdMap.get(account.parent_code);
+        
+        // If not in map, try fetching from DB (in case it was seeded previously)
+        if (!parentId) {
+            const { data: parent } = await supabase
+                .from('accounts')
+                .select('id')
+                .eq('koperasi_id', koperasiId)
+                .eq('code', account.parent_code)
+                .maybeSingle();
+            
+            if (parent) {
+                parentId = parent.id;
+                accountIdMap.set(account.parent_code, parentId);
+            }
+        }
+      }
+
       // Check if exists
       const { data: existing } = await supabase
-        .from('chart_of_accounts')
+        .from('accounts')
         .select('id')
         .eq('koperasi_id', koperasiId)
-        .eq('account_code', account.code)
+        .eq('code', account.code)
         .maybeSingle();
 
       if (existing) {
         // Update details
         const { error } = await supabase
-          .from('chart_of_accounts')
+          .from('accounts')
           .update({
-            account_name: account.name,
-            account_type: account.type,
-            normal_balance: account.normal_balance,
-            level: account.level,
-            is_header: account.is_header,
-            parent_code: account.parent_code
+            name: account.name,
+            type: account.type,
+            normal_balance: account.normal_balance.toUpperCase(),
+            // level: account.level, // accounts table might not have level/is_header? Let's check schema assumption.
+            // is_header: account.is_header,
+            parent_id: parentId,
+            description: `Standard Account ${account.code}`
           })
           .eq('id', existing.id);
         
         if (error) throw error;
+        accountIdMap.set(account.code, existing.id);
         // console.log(`   Updated: ${account.code} - ${account.name}`);
       } else {
         // Insert
-        const { error } = await supabase
-          .from('chart_of_accounts')
+        const { data: newAccount, error } = await supabase
+          .from('accounts')
           .insert({
             koperasi_id: koperasiId,
-            account_code: account.code,
-            account_name: account.name,
-            account_type: account.type,
-            normal_balance: account.normal_balance,
-            level: account.level,
-            is_header: account.is_header,
-            parent_code: account.parent_code,
-            is_active: true
-          });
+            code: account.code,
+            name: account.name,
+            type: account.type,
+            normal_balance: account.normal_balance.toUpperCase(),
+            parent_id: parentId,
+            is_active: true,
+            description: `Standard Account ${account.code}`
+          })
+          .select('id')
+          .single();
 
         if (error) throw error;
+        accountIdMap.set(account.code, newAccount.id);
         console.log(`   Created: ${account.code} - ${account.name}`);
       }
       successCount++;

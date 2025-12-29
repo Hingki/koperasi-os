@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { SavingsService } from '@/lib/services/savings-service';
+import { LogService } from '@/lib/services/log-service';
 import { hasAnyRole } from '@/lib/auth/roles';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -23,8 +24,8 @@ export async function createDefaultSavingsProducts() {
 
   // Fallback for MVP if no role
   if (!koperasiId) {
-      const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
-      koperasiId = kop?.id;
+    const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
+    koperasiId = kop?.id;
   }
 
   if (!koperasiId) throw new Error("No Koperasi context found");
@@ -32,40 +33,40 @@ export async function createDefaultSavingsProducts() {
   // 3. Define Default Products
   const defaults = [
     {
-        koperasi_id: koperasiId,
-        code: 'SP-01',
-        name: 'Simpanan Pokok',
-        type: 'pokok',
-        description: 'Simpanan awal saat mendaftar menjadi anggota. Tidak dapat diambil selama menjadi anggota.',
-        interest_rate: 0,
-        min_deposit: 100000,
-        min_balance: 100000,
-        is_withdrawal_allowed: false,
-        created_by: user.id
+      koperasi_id: koperasiId,
+      code: 'SP-01',
+      name: 'Simpanan Pokok',
+      type: 'pokok',
+      description: 'Simpanan awal saat mendaftar menjadi anggota. Tidak dapat diambil selama menjadi anggota.',
+      interest_rate: 0,
+      min_deposit: 100000,
+      min_balance: 100000,
+      is_withdrawal_allowed: false,
+      created_by: user.id
     },
     {
-        koperasi_id: koperasiId,
-        code: 'SW-01',
-        name: 'Simpanan Wajib',
-        type: 'wajib',
-        description: 'Simpanan rutin bulanan anggota. Dapat diambil saat berhenti keanggotaan.',
-        interest_rate: 0,
-        min_deposit: 50000,
-        min_balance: 50000,
-        is_withdrawal_allowed: false,
-        created_by: user.id
+      koperasi_id: koperasiId,
+      code: 'SW-01',
+      name: 'Simpanan Wajib',
+      type: 'wajib',
+      description: 'Simpanan rutin bulanan anggota. Dapat diambil saat berhenti keanggotaan.',
+      interest_rate: 0,
+      min_deposit: 50000,
+      min_balance: 50000,
+      is_withdrawal_allowed: false,
+      created_by: user.id
     },
     {
-        koperasi_id: koperasiId,
-        code: 'SSR-01',
-        name: 'Simpanan Sukarela',
-        type: 'sukarela',
-        description: 'Simpanan sukarela dengan bunga menarik. Dapat disetor dan ditarik kapan saja.',
-        interest_rate: 3.5, // 3.5% per annum
-        min_deposit: 10000,
-        min_balance: 10000,
-        is_withdrawal_allowed: true,
-        created_by: user.id
+      koperasi_id: koperasiId,
+      code: 'SSR-01',
+      name: 'Simpanan Sukarela',
+      type: 'sukarela',
+      description: 'Simpanan sukarela dengan bunga menarik. Dapat disetor dan ditarik kapan saja.',
+      interest_rate: 3.5, // 3.5% per annum
+      min_deposit: 10000,
+      min_balance: 10000,
+      is_withdrawal_allowed: true,
+      created_by: user.id
     }
   ];
 
@@ -75,8 +76,8 @@ export async function createDefaultSavingsProducts() {
     .upsert(defaults, { onConflict: 'koperasi_id, code' });
 
   if (error) {
-      console.error('Error creating default products:', error);
-      throw new Error(error.message);
+    console.error('Error creating default products:', error);
+    throw new Error(error.message);
   }
 
   return { success: true, count: defaults.length };
@@ -110,7 +111,36 @@ export async function processSavingsTransaction(formData: FormData) {
   if (!authorized) throw new Error('Anda tidak memiliki izin');
 
   const service = new SavingsService(supabase);
-  await service.processTransaction(accountId, amount, type, user.id, description);
+  const logService = new LogService(supabase);
+  const startTime = Date.now();
+
+  try {
+    await service.processTransaction(accountId, amount, type, user.id, description);
+
+    await logService.log({
+      action_type: 'SIMPANAN',
+      action_detail: type === 'deposit' ? 'SETOR' : 'TARIK',
+      entity_id: accountId,
+      status: 'SUCCESS',
+      user_id: user.id,
+      metadata: { amount, description, duration_ms: Date.now() - startTime }
+    });
+  } catch (error) {
+    await logService.log({
+      action_type: 'SIMPANAN',
+      action_detail: type === 'deposit' ? 'SETOR' : 'TARIK',
+      entity_id: accountId,
+      status: 'FAILURE',
+      user_id: user.id,
+      metadata: {
+        amount,
+        description,
+        error: error instanceof Error ? error.message : String(error),
+        duration_ms: Date.now() - startTime
+      }
+    });
+    throw error;
+  }
 
   revalidatePath('/dashboard/savings');
   redirect('/dashboard/savings');
@@ -139,8 +169,8 @@ export async function createSavingsProduct(formData: FormData) {
   const { data: userRole } = await supabase.from('user_role').select('koperasi_id').eq('user_id', user.id).single();
   let koperasiId = userRole?.koperasi_id;
   if (!koperasiId) {
-      const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
-      koperasiId = kop?.id;
+    const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
+    koperasiId = kop?.id;
   }
   if (!koperasiId) throw new Error("No Koperasi context found");
 
@@ -157,4 +187,48 @@ export async function createSavingsProduct(formData: FormData) {
 
   revalidatePath('/dashboard/savings/products');
   redirect('/dashboard/savings/products');
+}
+
+export async function distributeSavingsInterest(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const { data: role } = await supabase
+    .from('user_role')
+    .select('koperasi_id, role')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .limit(1)
+    .single();
+
+  const koperasiId = role?.koperasi_id;
+  if (!koperasiId) throw new Error('Konteks koperasi tidak ditemukan');
+
+  const authorized = await hasAnyRole(['admin', 'pengurus', 'bendahara', 'staff'], koperasiId);
+  if (!authorized) throw new Error('Anda tidak memiliki izin');
+
+  const productType = String(formData.get('product_type') || 'sukarela') as 'sukarela' | 'berjangka' | 'rencana';
+  const annualRate = Number(formData.get('annual_rate') || 0);
+
+  if (isNaN(annualRate) || annualRate <= 0) {
+    throw new Error('Suku bunga tahunan tidak valid');
+  }
+
+  const service = new SavingsService(supabase);
+  await service.distributeMonthlyInterest(
+    koperasiId,
+    productType,
+    annualRate,
+    user.id
+  );
+
+  revalidatePath('/dashboard/savings');
+}
+
+export async function getMemberSavingsBalanceAction(memberId: string): Promise<number> {
+  const supabase = await createClient();
+  const service = new SavingsService(supabase);
+  // Default to 'sukarela' as it's the liquid savings for payment
+  return await service.getBalance(memberId, 'sukarela');
 }

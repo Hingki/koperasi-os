@@ -7,8 +7,9 @@ import { placeBidAction } from '@/lib/actions/auction';
 import { Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { Auction } from '@/lib/services/auction-service';
 
-export function BidForm({ auction, minBid }: { auction: any, minBid: number }) {
+export function BidForm({ auction, minBid }: { auction: Auction, minBid: number }) {
   const [amount, setAmount] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();

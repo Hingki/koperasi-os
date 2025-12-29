@@ -3,15 +3,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Minus, User, Users, UserCircle2 } from 'lucide-react';
+import { Trash2, Plus, Minus, Check } from 'lucide-react';
 import { CartItem } from './pos-layout';
 import { searchMembers, searchRetailCustomers } from '@/app/actions/retail-pos';
-import { Check, ChevronsUpDown } from "lucide-react"
+import { ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover"
 
 export function CartSummary({
@@ -45,7 +45,7 @@ export function CartSummary({
     const handleSearchCustomer = async (query: string) => {
         setSearchQuery(query);
         if (query.length < 2) return;
-        
+
         try {
             if (customerType === 'member') {
                 const results = await searchMembers(koperasiId, query);
@@ -99,8 +99,8 @@ export function CartSummary({
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[350px] p-2" align="start">
-                            <Input 
-                                placeholder={`Cari nama ${customerType === 'member' ? 'anggota' : 'pelanggan'}...`} 
+                            <Input
+                                placeholder={`Cari nama ${customerType === 'member' ? 'anggota' : 'pelanggan'}...`}
                                 value={searchQuery}
                                 onChange={(e) => handleSearchCustomer(e.target.value)}
                                 className="mb-2"
@@ -134,11 +134,11 @@ export function CartSummary({
                     </Popover>
                 )}
 
-                
+
                 {selectedCustomer && (
-                     <div className="text-sm bg-red-50 text-red-700 p-2 rounded border border-red-100">
+                    <div className="text-sm bg-red-50 text-red-700 p-2 rounded border border-red-100">
                         Selected: <strong>{selectedCustomer.name}</strong>
-                     </div>
+                    </div>
                 )}
             </div>
 
@@ -153,26 +153,26 @@ export function CartSummary({
                                 <div className="text-xs text-slate-500">Rp {item.price_sell_public.toLocaleString('id-ID')} / {item.unit}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="icon" 
+                                <Button
+                                    variant="outline"
+                                    size="icon"
                                     className="h-6 w-6"
                                     onClick={() => onUpdateQty(item.id, item.qty - 1)}
                                 >
                                     <Minus className="h-3 w-3" />
                                 </Button>
                                 <span className="text-sm font-medium w-6 text-center">{item.qty}</span>
-                                <Button 
-                                    variant="outline" 
-                                    size="icon" 
+                                <Button
+                                    variant="outline"
+                                    size="icon"
                                     className="h-6 w-6"
                                     onClick={() => onUpdateQty(item.id, item.qty + 1)}
                                 >
                                     <Plus className="h-3 w-3" />
                                 </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100"
                                     onClick={() => onRemove(item.id)}
                                 >

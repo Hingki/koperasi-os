@@ -2,8 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { RetailService, POSTransaction, POSTransactionItem, PaymentBreakdown } from '@/lib/services/retail-service';
+import { LogService } from '@/lib/services/log-service';
 import { PharmacyService, PharmacyTransactionInput, PharmacyItemInput } from '@/lib/services/pharmacy-service';
 import { LedgerService } from '@/lib/services/ledger-service';
+import { AccountingService } from '@/lib/services/accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -12,7 +14,7 @@ export async function createSupplier(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
 
@@ -35,7 +37,7 @@ export async function updateSupplier(id: string, formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
 
   await retailService.updateSupplier(id, {
@@ -53,7 +55,7 @@ export async function deleteSupplier(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
 
   await retailService.deleteSupplier(id);
@@ -65,7 +67,7 @@ export async function updateRetailSettingsAction(settings: any) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
 
@@ -119,7 +121,7 @@ export async function getPosTransactionDetailsAction(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   return await retailService.getPosTransactionById(id);
 }
@@ -138,7 +140,7 @@ export async function createSalesReturnAction(payload: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
   if (!koperasiId) throw new Error('Invalid Koperasi ID');
@@ -146,7 +148,7 @@ export async function createSalesReturnAction(payload: {
   // Auto-generate Return Number
   const settings = await retailService.getRetailSettings(koperasiId);
   const returnNumber = `${settings.sales_return_prefix || 'RET'}-${Date.now()}`;
-  
+
   const totalRefund = payload.items.reduce((sum, item) => sum + item.subtotal, 0);
 
   await retailService.createSalesReturn(
@@ -180,7 +182,7 @@ export async function createPurchaseReturnAction(payload: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
   if (!koperasiId) throw new Error('Invalid Koperasi ID');
@@ -196,7 +198,7 @@ export async function createPurchaseReturnAction(payload: {
 
   const settings = await retailService.getRetailSettings(koperasiId);
   const returnNumber = `${settings.purchase_return_prefix || 'RET-PUR'}-${Date.now()}`;
-  
+
   const totalRefund = payload.items.reduce((sum, item) => sum + item.subtotal, 0);
 
   await retailService.createPurchaseReturn(
@@ -224,7 +226,7 @@ export async function createProductAction(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   const koperasiId = formData.get('koperasi_id') as string;
 
@@ -262,8 +264,14 @@ export async function processPosTransaction(
 ) {
   const supabase = await createClient();
   const retailService = new RetailService(supabase);
+  const logService = new LogService(supabase);
+  const startTime = Date.now();
+  let userId: string | undefined;
 
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    userId = user?.id;
+
     if (transaction.koperasi_id && !transaction.invoice_number) {
       const settings = await retailService.getRetailSettings(transaction.koperasi_id);
       transaction.invoice_number = `${settings.sales_invoice_prefix}${Date.now()}`;
@@ -278,9 +286,32 @@ export async function processPosTransaction(
       await retailService.cancelPosTransaction(originalTransactionId);
     }
 
+    await logService.log({
+      action_type: 'POS',
+      action_detail: 'TRANSAKSI',
+      entity_id: result.id,
+      status: 'SUCCESS',
+      user_id: userId,
+      metadata: {
+        total: transaction.final_amount || transaction.total_amount,
+        items_count: items.length,
+        duration_ms: Date.now() - startTime
+      }
+    });
+
     return { success: true, data: result };
   } catch (error: any) {
     console.error('POS Transaction Error:', error);
+    await logService.log({
+      action_type: 'POS',
+      action_detail: 'TRANSAKSI',
+      status: 'FAILURE',
+      user_id: userId,
+      metadata: {
+        error: error.message,
+        duration_ms: Date.now() - startTime
+      }
+    });
     return { success: false, error: error.message };
   }
 }
@@ -309,7 +340,7 @@ export async function getPurchaseDetailsAction(id: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   return await retailService.getPurchaseById(id);
 }
@@ -318,39 +349,43 @@ export async function payPurchaseDebtAction(payload: { purchase_id: string; amou
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
-  const ledger = new LedgerService(supabase);
-  
+
   const { data: purchase, error } = await supabase
     .from('inventory_purchases')
     .select('id, koperasi_id, invoice_number, payment_status')
     .eq('id', payload.purchase_id)
     .single();
-  
+
   if (error || !purchase) throw new Error('Purchase not found');
   if (purchase.payment_status === 'paid') return { success: true }; // Idempotent
-  
-  const creditAccount = payload.payment_method === 'transfer' ? AccountCode.BANK_BCA : AccountCode.CASH_ON_HAND;
-  
-  await ledger.recordTransaction({
-    koperasi_id: purchase.koperasi_id,
-    tx_type: 'retail_purchase_payment',
-    tx_reference: purchase.invoice_number,
-    account_debit: AccountCode.ACCOUNTS_PAYABLE,
-    account_credit: creditAccount,
-    amount: payload.amount,
-    description: `Pelunasan Hutang Pembelian ${purchase.invoice_number}`,
-    source_table: 'inventory_purchases',
-    source_id: purchase.id,
-    created_by: user.id
-  });
-  
+
+  const creditAccountCode = payload.payment_method === 'transfer' ? AccountCode.BANK_BCA : AccountCode.CASH_ON_HAND;
+
+  const apAccId = await AccountingService.getAccountIdByCode(purchase.koperasi_id, AccountCode.ACCOUNTS_PAYABLE, supabase);
+  const creditAccId = await AccountingService.getAccountIdByCode(purchase.koperasi_id, creditAccountCode, supabase);
+
+  if (apAccId && creditAccId) {
+    await AccountingService.postJournal({
+      koperasi_id: purchase.koperasi_id,
+      business_unit: 'RETAIL',
+      transaction_date: new Date().toISOString().split('T')[0],
+      description: `Pelunasan Hutang Pembelian ${purchase.invoice_number}`,
+      reference_id: purchase.id,
+      reference_type: 'RETAIL_PURCHASE_PAYMENT',
+      lines: [
+        { account_id: apAccId, debit: payload.amount, credit: 0 },
+        { account_id: creditAccId, debit: 0, credit: payload.amount }
+      ]
+    }, supabase);
+  }
+
   await supabase
     .from('inventory_purchases')
     .update({ payment_status: 'paid' })
     .eq('id', purchase.id);
-  
+
   revalidatePath('/dashboard/retail/purchases');
   return { success: true };
 }
@@ -369,7 +404,7 @@ export async function createDiscountAction(discount: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   await retailService.createDiscount(discount);
   revalidatePath('/dashboard/retail/discounts');
@@ -380,7 +415,7 @@ export async function updateDiscountStatusAction(id: string, isActive: boolean) 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
-  
+
   const retailService = new RetailService(supabase);
   await retailService.updateDiscount(id, { is_active: isActive });
   revalidatePath('/dashboard/retail/discounts');
@@ -432,29 +467,29 @@ export async function getPharmacySalesConsolidationAction(startDateISO: string, 
 }
 
 export async function createPurchase(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Unauthorized');
-    
-    const retailService = new RetailService(supabase);
-    const koperasiId = user.user_metadata.koperasi_id;
-    const unitUsahaId = user.user_metadata.unit_usaha_id;
-  
-    if (!koperasiId) throw new Error('Invalid Koperasi ID');
-  
-    const itemsStr = formData.get('items') as string;
-    const items = JSON.parse(itemsStr);
-  
-    await retailService.createPurchase({
-      koperasi_id: koperasiId,
-      unit_usaha_id: unitUsahaId,
-      supplier_id: formData.get('supplier_id') as string,
-      invoice_number: formData.get('invoice_number') as string,
-      total_amount: items.reduce((sum: number, item: any) => sum + (item.quantity * item.cost_per_item), 0),
-      payment_status: formData.get('payment_status') as 'paid' | 'debt',
-      created_by: user.id
-    }, items);
-  
-    revalidatePath('/dashboard/retail/purchases');
-    revalidatePath('/dashboard/warehouse');
-  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const retailService = new RetailService(supabase);
+  const koperasiId = user.user_metadata.koperasi_id;
+  const unitUsahaId = user.user_metadata.unit_usaha_id;
+
+  if (!koperasiId) throw new Error('Invalid Koperasi ID');
+
+  const itemsStr = formData.get('items') as string;
+  const items = JSON.parse(itemsStr);
+
+  await retailService.createPurchase({
+    koperasi_id: koperasiId,
+    unit_usaha_id: unitUsahaId,
+    supplier_id: formData.get('supplier_id') as string,
+    invoice_number: formData.get('invoice_number') as string,
+    total_amount: items.reduce((sum: number, item: any) => sum + (item.quantity * item.cost_per_item), 0),
+    payment_status: formData.get('payment_status') as 'paid' | 'debt',
+    created_by: user.id
+  }, items);
+
+  revalidatePath('/dashboard/retail/purchases');
+  revalidatePath('/dashboard/warehouse');
+}

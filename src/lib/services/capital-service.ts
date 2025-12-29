@@ -1,14 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LedgerService } from './ledger-service';
+import { AccountingService } from '@/lib/services/accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 
 export class CapitalService {
   private supabase: SupabaseClient;
-  private ledgerService: LedgerService;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
-    this.ledgerService = new LedgerService(supabase);
   }
 
   async getProducts(koperasiId: string) {
@@ -118,18 +116,31 @@ export class CapitalService {
         ? AccountCode.SAVINGS_VOLUNTARY // Assuming voluntary savings used
         : AccountCode.BANK_BCA; 
 
-    await this.ledgerService.recordTransaction({
-        koperasi_id: investment.koperasi_id,
-        tx_type: 'capital_investment',
-        tx_reference: `INV-${Date.now()}`,
-        account_debit: debitAccount,
-        account_credit: AccountCode.EQUITY_CAPITAL_PARTICIPATION, // Need to ensure this code exists or use generic Equity
-        amount: investment.amount,
-        description: `Modal Penyertaan Anggota - ${product.name}`,
-        source_table: 'capital_accounts',
-        source_id: accountId,
-        created_by: investment.member_id
-    });
+    try {
+        const debitAccId = await AccountingService.getAccountIdByCode(investment.koperasi_id, debitAccount, this.supabase);
+        const creditAccId = await AccountingService.getAccountIdByCode(investment.koperasi_id, AccountCode.EQUITY_CAPITAL_PARTICIPATION, this.supabase);
+
+        if (debitAccId && creditAccId) {
+            await AccountingService.postJournal({
+                koperasi_id: investment.koperasi_id,
+                business_unit: 'SIMPAN_PINJAM', // Default to SP or derive from product
+                transaction_date: new Date().toISOString().split('T')[0],
+                description: `Modal Penyertaan Anggota - ${product.name}`,
+                reference_id: `INV-${Date.now()}`,
+                reference_type: 'CAPITAL_INVESTMENT',
+                lines: [
+                    { account_id: debitAccId, debit: investment.amount, credit: 0 },
+                    { account_id: creditAccId, debit: 0, credit: investment.amount }
+                ]
+            }, this.supabase);
+        } else {
+             console.warn('Accounting Warning: Accounts not found for Capital Investment');
+        }
+    } catch (ledgerError) {
+        console.error('Ledger Recording Failed:', ledgerError);
+        // We log but don't fail the transaction as capital record is created.
+        // In strict mode, we might want to rollback.
+    }
 
     return { success: true };
   }

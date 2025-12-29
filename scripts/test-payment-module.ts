@@ -30,8 +30,34 @@ async function main() {
     
     const referenceId = crypto.randomUUID(); 
     const amount = 50000;
+    const koperasiId = koperasi.id;
     
-    console.log(`Koperasi ID: ${koperasi.id}`);
+    console.log(`Koperasi ID: ${koperasiId}`);
+
+    // Ensure accounts exist for testing
+    async function ensureAccount(code: string, name: string, type: string, normalBalance: 'DEBIT' | 'CREDIT') {
+        const { data } = await supabase.from('accounts').select('id').eq('koperasi_id', koperasiId).eq('code', code).single();
+        if (!data) {
+            console.log(`Seeding account ${code}...`);
+            const { error } = await supabase.from('accounts').insert({
+                koperasi_id: koperasiId,
+                code,
+                name,
+                type,
+                normal_balance: normalBalance,
+                is_active: true
+            });
+            if (error) console.error(`Seeding account ${code} failed:`, error);
+        }
+    }
+    
+    // Try lowercase 'asset' as enum value
+    await ensureAccount('1-1002', 'Bank BCA', 'asset', 'DEBIT');
+    await ensureAccount('1-1101', 'Piutang Usaha', 'asset', 'DEBIT');
+
+    // Debug: Verify accounts
+    const { data: accounts } = await supabase.from('accounts').select('code, id').eq('koperasi_id', koperasiId);
+    console.log('Accounts in DB:', accounts?.map(a => `${a.code}:${a.id}`));
 
     const paymentService = new PaymentService(supabase, 'mock');
 
@@ -56,7 +82,7 @@ async function main() {
         // For now, let's manually patch the transaction with a user ID after creation so webhook has it.
         
         const trx = await paymentService.createQRISPayment(
-            koperasi.id,
+            koperasiId,
             referenceId,
             'retail_sale',
             amount,
@@ -79,24 +105,38 @@ async function main() {
         const updatedTrx = await paymentService.processWebhook(payload);
         console.log('Updated Status:', updatedTrx.status);
 
-        // 4. Verify Ledger Entry
-        console.log('\n3. Verifying Ledger Entry...');
-        const { data: ledgerEntry } = await supabase
-            .from('ledger_entry')
-            .select('*')
-            .eq('source_id', trx.id)
+        // 4. Verify Ledger Entry (Accounting Service)
+        console.log('\n3. Verifying Ledger Entry (Accounting Service)...');
+        
+        // New Schema: journals -> journal_lines
+        const { data: journal } = await supabase
+            .from('journals')
+            .select(`
+                id,
+                description,
+                journal_lines (
+                    id,
+                    debit,
+                    credit,
+                    accounts (code, name)
+                )
+            `)
+            .eq('reference_id', trx.id)
             .single();
             
-        if (ledgerEntry) {
-            console.log('Ledger Entry Found:', ledgerEntry.id);
-            console.log('Debit:', ledgerEntry.account_debit);
-            console.log('Credit:', ledgerEntry.account_credit);
+        if (journal) {
+            console.log('Journal Found:', journal.id);
+            console.log('Description:', journal.description);
+            journal.journal_lines.forEach((line: any) => {
+                console.log(`- ${line.accounts.code} (${line.accounts.name}): Debit ${line.debit}, Credit ${line.credit}`);
+            });
         } else {
-            console.error('Ledger Entry Missing!');
+            console.error('Journal Entry Missing!');
         }
         
     } catch (e: any) {
-        console.error("Error:", e.message);
+        console.error("Error:", e);
+        if (e.cause) console.error("Cause:", e.cause);
         console.log("NOTE: This error is expected if migration 20251221090000_create_payment_module.sql is not applied.");
     }
 }

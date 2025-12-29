@@ -11,13 +11,13 @@ export interface AccountBalance {
   balance: number;
 }
 
-export function calculateAccountBalances(accounts: any[], entries: any[]): AccountBalance[] {
+export function calculateAccountBalances(accounts: any[], entries: any[], initialBalances: Record<string, number> = {}): AccountBalance[] {
   // 1. Create a map of account balances
   const balanceMap: Record<string, number> = {};
   
-  // Initialize map
+  // Initialize map with initial balances if available
   accounts.forEach(acc => {
-    balanceMap[acc.id] = 0;
+    balanceMap[acc.id] = initialBalances[acc.id] || 0;
   });
 
   // 2. Iterate entries once (O(M))

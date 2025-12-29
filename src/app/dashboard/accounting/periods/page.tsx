@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { PeriodTable } from './period-table';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { OpenPeriodButton } from '@/app/dashboard/accounting/periods/open-period-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,13 +21,11 @@ export default async function PeriodsPage() {
             Kelola tahun fiskal dan periode bulanan.
           </p>
         </div>
-        <Button className="flex items-center gap-2" disabled>
-            <Plus className="h-4 w-4" /> Buka Periode Baru (Auto)
-        </Button>
+        <OpenPeriodButton />
       </div>
 
       <div className="rounded-md border bg-white p-4">
-         <PeriodTable initialPeriods={periods || []} />
+        <PeriodTable initialPeriods={periods || []} />
       </div>
     </div>
   );
