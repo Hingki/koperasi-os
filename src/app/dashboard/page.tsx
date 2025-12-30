@@ -4,9 +4,11 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { koperasiService } from '@/lib/services/koperasi-service';
 import { Suspense } from 'react';
+import { PanduWidget } from '@/components/assistant/PanduWidget';
 import { DashboardStats } from './dashboard-stats';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClaimAdminButton } from '@/components/dashboard/claim-admin-button';
+import { LogService } from '@/lib/services/log-service';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -28,11 +30,21 @@ export default async function DashboardPage() {
   // Fetch Core Data (Koperasi Info) - Keep this blocking as it's essential for context
   const koperasiId = user.user_metadata?.koperasi_id;
   const isValidUUID = koperasiId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(koperasiId);
-  
+
   const koperasi = isValidUUID
     ? await koperasiService.getKoperasi(koperasiId, supabase)
     : null;
   const koperasiName = koperasi?.nama || 'Koperasi';
+
+  const logService = new LogService(supabase);
+  await logService.log({
+    action_type: 'SYSTEM',
+    action_detail: 'PAGE_ACCESS',
+    status: 'SUCCESS',
+    user_id: user.id,
+    user_role: isAdmin ? 'admin' : 'member',
+    metadata: { route: '/dashboard' }
+  });
 
   return (
     <div className="space-y-8">
@@ -46,10 +58,10 @@ export default async function DashboardPage() {
             Selamat datang di Sistem Manajemen <span className="font-semibold text-red-600">{koperasiName}</span>
           </p>
         </div>
-        
+
         {/* Setup Alert for Admin if data incomplete */}
         {isAdmin && (!koperasi?.nomor_badan_hukum || !koperasi?.alamat) && (
-          <Link 
+          <Link
             href="/dashboard/settings"
             prefetch={false}
             className="inline-flex items-center rounded-lg bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 ring-1 ring-inset ring-amber-600/20"
@@ -62,25 +74,33 @@ export default async function DashboardPage() {
 
         {/* Dev Helper: Always show Claim Admin Access button if not admin, for debugging */}
         {!isAdmin && (
-           <ClaimAdminButton />
+          <ClaimAdminButton />
         )}
       </div>
-      
+
+
+
       {/* Stats Grid with Suspense */}
       <Suspense fallback={<StatsGridSkeleton />}>
         <DashboardStats koperasiId={koperasiId} isAdmin={isAdmin} />
       </Suspense>
-      
+
+      {isAdmin && (
+        <div className="grid gap-4 md:grid-cols-1">
+          <PanduWidget />
+        </div>
+      )}
+
       {/* Placeholder for future charts/tables */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <div className="col-span-4 h-[400px] rounded-xl bg-slate-50/50 border border-dashed border-slate-200 flex items-center justify-center text-slate-400">
-            Chart Area (Coming Soon)
+          Chart Area (Coming Soon)
         </div>
         <div className="col-span-3 h-[400px] rounded-xl bg-slate-50/50 border border-dashed border-slate-200 flex items-center justify-center text-slate-400">
-            Recent Activity (Coming Soon)
+          Recent Activity (Coming Soon)
         </div>
       </div>
-      
+
       {/* Version Indicator */}
       <div className="text-center text-xs text-slate-300 pb-4">
         v0.1.6-secure

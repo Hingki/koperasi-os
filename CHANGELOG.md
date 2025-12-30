@@ -1,65 +1,31 @@
+﻿# Changelog
+
+Semua perubahan penting pada proyek **Koperasi-OS** akan didokumentasikan di sini.
+Format mengikuti Keep a Changelog dan Semantic Versioning.
+
 ## [Unreleased]
+
+### Changes
+
+- docs: add fast run scripts notes; speed up lint & deploy commands
 - fix: resolve ERR_ABORTED, fix admin access logic, and add governance pages
-
-### Developer Notes: Fast Run Scripts
-- Lint cepat: `npm run lint` menggunakan cache (`.eslintcache`) dan hanya memeriksa `src/**` dan `scripts/**`.
-- Typecheck cepat: `npm run typecheck` menjalankan `tsc --noEmit` untuk cek tipe tanpa bundling.
-- Deploy Preview cepat: `npm run deploy:preview` memanfaatkan build di Vercel (remote cache), tanpa build lokal.
-- Deploy Production cepat: `npm run deploy:prod` langsung `vercel deploy --prod` dengan cache build Vercel.
-- Build lokal: gunakan `npm run build` hanya saat perlu verifikasi lokal; lint saat build dinonaktifkan via `next.config.js`.
-
-## [Unreleased]
 - feat: implement pilot observability system
-
-## [Unreleased]
 - fix: harden grantAdminAccess server action to prevent crash on missing member
-
-## [Unreleased]
 - refactor: move RBAC check to server layout for instant UI sync v0.1.7
-
-## [Unreleased]
 - fix: add missing import for ClaimAdminButton in dashboard
-
-## [Unreleased]
 - chore: restore RBAC and fix admin claim button v0.1.6
-
-## [Unreleased]
 - chore: cleanup debug banner and finalize v0.1.5
-
-## [Unreleased]
 - hotfix: v0.1.3 remove all admin checks and vercel.json
-
-## [Unreleased]
 - hotfix: force requiresAdmin to false for presentation stability
-
-## [Unreleased]
 - hotfix: bypass admin check for sidebar and disable crashy button for presentation
-
-## [Unreleased]
 - chore: add version indicator to verify deployment
-
-## [Unreleased]
 - fix: resolve typescript errors and push dashboard admin button fixes
-
-## [Unreleased]
 - refactor: consolidate middleware to src/middleware.ts and remove duplicate
-
-## [Unreleased]
 - fix: resolve build error by aligning server action signature
-
-## [Unreleased]
 - chore: force show claim admin button for debugging
-
-## [Unreleased]
 - fix: revert role checking to user_role only
-
-## [Unreleased]
 - fix: update role checking to use members table for admin access
-
-## [Unreleased]
 - docs: cleanup changelog
-
-## [Unreleased]
 - fix: safe env var check in middleware to prevent build crash
 - fix: use safe fallback for missing env vars to prevent build crash
 - fix: sanitize env vars to strip quotes and whitespace
@@ -68,14 +34,16 @@
 - fix: resolve next.js 16 build errors and prepare for deployment
 - Merge remote-tracking branch 'origin/main'
 
-# Changelog
+### Developer Notes: Fast Run Scripts
 
-Semua perubahan penting pada proyek **Koperasi-OS** akan didokumentasikan di sini.
-Format mengikuti Keep a Changelog dan Semantic Versioning.
-
-## [Unreleased]
+- Lint cepat: `npm run lint` menggunakan cache (`.eslintcache`) dan hanya memeriksa `src/**` dan `scripts/**`.
+- Typecheck cepat: `npm run typecheck` menjalankan `tsc --noEmit` untuk cek tipe tanpa bundling.
+- Deploy Preview cepat: `npm run deploy:preview` memanfaatkan build di Vercel (remote cache), tanpa build lokal.
+- Deploy Production cepat: `npm run deploy:prod` langsung `vercel deploy --prod` dengan cache build Vercel.
+- Build lokal: gunakan `npm run build` hanya saat perlu verifikasi lokal; lint saat build dinonaktifkan via `next.config.mjs`.
 
 ### Added
+
 - **Accounting Reports Suite**:
   - **SHU Report**: Automated Sisa Hasil Usaha calculation with allocation simulation.
   - **Unit Balance Sheet**: Balance sheet filtered by business unit (USP vs Waserda).
@@ -91,7 +59,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - **Role-Based Access**: Dedicated login flow and routing for members vs admins.
   - **Dashboard**: Personal summary of savings, loans, and upcoming installments.
   - **Savings**: View account balances and transaction history.
-  - **Loans**: 
+  - **Loans**:
     - List of active and past loans.
     - Detailed view with repayment schedule and progress bar.
     - Online Loan Application form with server-side validation.
@@ -108,6 +76,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Added `getIndentClass` helper to replace inline styles in reports.
 
 ### Fixed
+
 - **Critical Bugs**:
   - Resolved "22P02" invalid input syntax for UUID errors on loan and settings pages.
   - Fixed `net::ERR_ABORTED` errors on `/dashboard/settings` and `/dashboard/members` due to slow rendering/unfiltered queries.
@@ -118,31 +87,3 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
