@@ -1,4 +1,14 @@
-﻿## [Unreleased]
+## [Unreleased]
+- fix: resolve ERR_ABORTED, fix admin access logic, and add governance pages
+
+### Developer Notes: Fast Run Scripts
+- Lint cepat: `npm run lint` menggunakan cache (`.eslintcache`) dan hanya memeriksa `src/**` dan `scripts/**`.
+- Typecheck cepat: `npm run typecheck` menjalankan `tsc --noEmit` untuk cek tipe tanpa bundling.
+- Deploy Preview cepat: `npm run deploy:preview` memanfaatkan build di Vercel (remote cache), tanpa build lokal.
+- Deploy Production cepat: `npm run deploy:prod` langsung `vercel deploy --prod` dengan cache build Vercel.
+- Build lokal: gunakan `npm run build` hanya saat perlu verifikasi lokal; lint saat build dinonaktifkan via `next.config.js`.
+
+## [Unreleased]
 - feat: implement pilot observability system
 
 ## [Unreleased]
@@ -108,6 +118,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
