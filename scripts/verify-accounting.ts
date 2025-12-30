@@ -30,15 +30,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Let's use SERVICE ROLE for setup to guarantee permissions, then switch if needed.
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!serviceRoleKey || serviceRoleKey.length < 20) {
-    // If Service Role Key is invalid, use Anon Key but warn
-    // For local dev/demo, anon key might work if RLS is loose, but for admin tasks it often fails.
-    // However, the error "Invalid API key" suggests the key itself is malformed or wrong for the project.
-    // The provided SUPABASE_SERVICE_ROLE_KEY in .env.local seems to be a placeholder "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" which is too short/invalid.
-    console.error('⚠️ SUPABASE_SERVICE_ROLE_KEY in .env.local is likely invalid (placeholder).');
-    console.error('   Switching to NEXT_PUBLIC_SUPABASE_ANON_KEY for attempt (might fail RLS).');
+  // If Service Role Key is invalid, we CANNOT proceed with admin operations safely.
+  // The previous fallback to ANON key is incorrect for admin tasks.
+  console.error('❌ CRITICAL ERROR: SUPABASE_SERVICE_ROLE_KEY is missing or invalid in .env.local');
+  console.error('   Admin operations (like creating test users or bypassing RLS) require this key.');
+  console.error('   Please update .env.local with a valid service role key from Supabase Dashboard > Project Settings > API.');
+  process.exit(1);
 }
-const apiKey = (serviceRoleKey && serviceRoleKey.length > 50) ? serviceRoleKey : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const adminClient = createClient(supabaseUrl, apiKey!);
+const apiKey = serviceRoleKey;
+const adminClient = createClient(supabaseUrl, apiKey);
 
 async function runTests() {
   console.log('Starting Accounting Core Verification...');
@@ -46,25 +46,25 @@ async function runTests() {
   // 0. Setup: Create Koperasi & User (Mocking context)
   // For simplicity, we'll pick an existing Koperasi or create a dummy one.
   console.log('0. Setup Context...');
-  
+
   // Create a dummy user ID for testing
   const testUserId = '00000000-0000-0000-0000-000000000000'; // Mock ID
   const testKoperasiId = '11111111-1111-1111-1111-111111111111'; // Mock ID
-  
+
   // We need to ensure these exist or RLS/FK will fail.
   // In a real env, we'd query existing. For this script, let's try to insert if not exists (using adminClient)
-  
+
   // Insert dummy koperasi (if table exists and accessible, otherwise skip if using existing DB)
   // Assuming 'koperasi' table exists from previous context (not shown in this session but likely exists)
   // If not, we might fail. Let's try to fetch ANY koperasi first.
-  
+
   let koperasiId = testKoperasiId;
   const { data: koperasiList } = await adminClient.from('koperasi').select('id').limit(1);
   if (koperasiList && koperasiList.length > 0) {
     koperasiId = koperasiList[0].id;
     console.log(`Using existing Koperasi ID: ${koperasiId}`);
   } else {
-     console.warn('No Koperasi found. Tests might fail due to FK constraints if not handled.');
+    console.warn('No Koperasi found. Tests might fail due to FK constraints if not handled.');
   }
 
   // Get a real user to use for "created_by"
@@ -90,25 +90,25 @@ async function runTests() {
     });
 
     if (error) {
-        console.log('✅ PASSED: Transaction rejected as expected.');
-        console.log(`   Error: ${error.message}`);
+      console.log('✅ PASSED: Transaction rejected as expected.');
+      console.log(`   Error: ${error.message}`);
     } else {
-        console.error('❌ FAILED: Unbalanced transaction was accepted!');
+      console.error('❌ FAILED: Unbalanced transaction was accepted!');
     }
   } catch (e: any) {
-     console.log('✅ PASSED: Transaction rejected (Exception).');
-     console.log(`   Error: ${e.message}`);
+    console.log('✅ PASSED: Transaction rejected (Exception).');
+    console.log(`   Error: ${e.message}`);
   }
 
   // --- TEST CASE 3: Happy Path (Create Accounts & Post Balanced) ---
   // We do this before Period Lock to ensure we have data.
   console.log('\n--- Test Case 3: Happy Path ---');
-  
+
   // 3.1 Create Accounts
   console.log('Creating Test Accounts...');
   const acc1Code = `1-${Date.now()}`;
   const acc2Code = `2-${Date.now()}`;
-  
+
   const { data: acc1, error: err1 } = await adminClient.from('accounts').insert({
     koperasi_id: koperasiId,
     code: acc1Code,
@@ -136,24 +136,24 @@ async function runTests() {
   // 3.2 Post Balanced Journal
   console.log('Posting Balanced Journal...');
   const { data: journalId, error: postError } = await adminClient.rpc('post_journal_entry', {
-      p_koperasi_id: koperasiId,
-      p_business_unit: 'TEST',
-      p_transaction_date: '2025-01-02',
-      p_description: 'Setoran Modal Awal',
-      p_reference_id: null,
-      p_reference_type: null,
-      p_lines: [
-        { account_id: acc1.id, debit: 1000000, credit: 0 },
-        { account_id: acc2.id, debit: 0, credit: 1000000 }
-      ],
-      p_created_by: userId
+    p_koperasi_id: koperasiId,
+    p_business_unit: 'TEST',
+    p_transaction_date: '2025-01-02',
+    p_description: 'Setoran Modal Awal',
+    p_reference_id: null,
+    p_reference_type: null,
+    p_lines: [
+      { account_id: acc1.id, debit: 1000000, credit: 0 },
+      { account_id: acc2.id, debit: 0, credit: 1000000 }
+    ],
+    p_created_by: userId
   });
 
   if (postError) {
-      console.error('❌ FAILED: Valid transaction rejected!');
-      console.error(postError);
+    console.error('❌ FAILED: Valid transaction rejected!');
+    console.error(postError);
   } else {
-      console.log(`✅ PASSED: Journal Posted ID: ${journalId}`);
+    console.log(`✅ PASSED: Journal Posted ID: ${journalId}`);
   }
 
   // 3.3 Verify Trial Balance Logic (Manual Aggregation Check)
@@ -161,55 +161,55 @@ async function runTests() {
   const { data: lines } = await adminClient.from('journal_lines')
     .select('debit, credit, account_id')
     .eq('journal_id', journalId);
-    
+
   const totalDebit = lines?.reduce((sum, line) => sum + line.debit, 0);
   const totalCredit = lines?.reduce((sum, line) => sum + line.credit, 0);
 
   if (totalDebit === 1000000 && totalCredit === 1000000) {
-      console.log('✅ PASSED: Trial Balance is Balanced (1,000,000)');
+    console.log('✅ PASSED: Trial Balance is Balanced (1,000,000)');
   } else {
-      console.error(`❌ FAILED: Balance mismatch. D: ${totalDebit}, C: ${totalCredit}`);
+    console.error(`❌ FAILED: Balance mismatch. D: ${totalDebit}, C: ${totalCredit}`);
   }
 
   // --- TEST CASE 2: Period Lock ---
   console.log('\n--- Test Case 2: Period Lock ---');
-  
+
   // 2.1 Create Closed Period
   const closedDate = '2024-12-01';
   const { error: periodError } = await adminClient.from('accounting_periods').insert({
-      koperasi_id: koperasiId,
-      name: 'Closed Period Dec 2024',
-      start_date: '2024-12-01',
-      end_date: '2024-12-31',
-      is_closed: true
+    koperasi_id: koperasiId,
+    name: 'Closed Period Dec 2024',
+    start_date: '2024-12-01',
+    end_date: '2024-12-31',
+    is_closed: true
   });
-  
+
   if (periodError && !periodError.message.includes('unique')) {
-      console.error('Warning: Failed to create period (might exist):', periodError.message);
+    console.error('Warning: Failed to create period (might exist):', periodError.message);
   }
 
   // 2.2 Try to post in closed period
   const { error: closedPostError } = await adminClient.rpc('post_journal_entry', {
-      p_koperasi_id: koperasiId,
-      p_business_unit: 'TEST',
-      p_transaction_date: closedDate, // Inside closed period
-      p_description: 'Should Fail',
-      p_reference_id: null,
-      p_reference_type: null,
-      p_lines: [
-        { account_id: acc1.id, debit: 500, credit: 0 },
-        { account_id: acc2.id, debit: 0, credit: 500 }
-      ],
-      p_created_by: userId
+    p_koperasi_id: koperasiId,
+    p_business_unit: 'TEST',
+    p_transaction_date: closedDate, // Inside closed period
+    p_description: 'Should Fail',
+    p_reference_id: null,
+    p_reference_type: null,
+    p_lines: [
+      { account_id: acc1.id, debit: 500, credit: 0 },
+      { account_id: acc2.id, debit: 0, credit: 500 }
+    ],
+    p_created_by: userId
   });
 
   if (closedPostError && closedPostError.message.includes('closed')) {
-      console.log('✅ PASSED: Locked period rejected transaction.');
-      console.log(`   Error: ${closedPostError.message}`);
+    console.log('✅ PASSED: Locked period rejected transaction.');
+    console.log(`   Error: ${closedPostError.message}`);
   } else if (closedPostError) {
-      console.log(`✅ PASSED: Rejected (Reason: ${closedPostError.message})`);
+    console.log(`✅ PASSED: Rejected (Reason: ${closedPostError.message})`);
   } else {
-      console.error('❌ FAILED: Transaction accepted in CLOSED period!');
+    console.error('❌ FAILED: Transaction accepted in CLOSED period!');
   }
 
   // --- TEST CASE 4: Immutable Journal ---
@@ -227,19 +227,19 @@ async function runTests() {
   // If "Manage journals" allows ALL, then an admin COULD delete via Supabase client directly.
   // WE SHOULD FIX THIS POLICY to restrict DELETE/UPDATE if we want true Immutability at DB level.
   // For this test, let's try to DELETE the journal we created using the client.
-  
+
   const { error: deleteError } = await adminClient
     .from('journals')
     .delete()
     .eq('id', journalId);
 
   if (deleteError) {
-       console.log('✅ PASSED: Direct DELETE failed (RLS/Foreign Key restriction).'); 
-       // Note: It might fail due to FK in journal_lines first, or RLS.
-       console.log(`   Error: ${deleteError.message}`);
+    console.log('✅ PASSED: Direct DELETE failed (RLS/Foreign Key restriction).');
+    // Note: It might fail due to FK in journal_lines first, or RLS.
+    console.log(`   Error: ${deleteError.message}`);
   } else {
-       console.warn('⚠️ WARNING: Direct DELETE succeeded! RLS Policy might be too permissive ("FOR ALL").');
-       console.warn('   Action: We should change RLS to only allow INSERT/SELECT for true immutability.');
+    console.warn('⚠️ WARNING: Direct DELETE succeeded! RLS Policy might be too permissive ("FOR ALL").');
+    console.warn('   Action: We should change RLS to only allow INSERT/SELECT for true immutability.');
   }
 
   console.log('\n--- Verification Complete ---');

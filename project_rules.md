@@ -31,7 +31,10 @@
   - Diskon transaksi: mendukung nominal dan persen, dikalkulasi ke `final_amount`.
   - Produk konsinyasi: penandaan visual dan tetap tercatat di transaksi.
   - UI menampilkan harga anggota/umum secara jelas dan konsisten.
- - Service: gunakan `PaymentService` untuk mencatat pembayaran dan jurnal.
+- Service: gunakan `PaymentService` untuk mencatat pembayaran dan jurnal.
+- **Payment Gateway**:
+  - PaymentService (integrasi Midtrans/Xendit)
+  - ReconciliationService (auto-match mutasi bank)
 
 ## 4. Coding Conventions
 
