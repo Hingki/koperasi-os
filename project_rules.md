@@ -31,7 +31,7 @@
   - Diskon transaksi: mendukung nominal dan persen, dikalkulasi ke `final_amount`.
   - Produk konsinyasi: penandaan visual dan tetap tercatat di transaksi.
   - UI menampilkan harga anggota/umum secara jelas dan konsisten.
- - Service: gunakan `PaymentService` untuk mencatat pembayaran dan jurnal.
+  - Service: gunakan `PaymentService` untuk mencatat pembayaran dan jurnal.
 
 ## 4. Coding Conventions
 
@@ -69,3 +69,35 @@
 - Pelaporan
   - Konsolidasi laporan per unit usaha ke koperasi
   - Laporan SAK-EP, jurnal otomatis via `LedgerService`
+
+## 7. Pilot Governance Lock (Operasional RW Terbatas)
+
+- Mode: Pilot Operasional RW Terbatas (7–14 hari). Fokus observasi manusia & alur, bukan optimasi sistem.
+
+- Notifikasi Registrasi
+  - Semua event registrasi (anggota/pengurus/pengawas) diarahkan ke satu email pusat: [hingkicandra@gmail.com](mailto:hingkicandra@gmail.com).
+  - Tidak ada distribusi notifikasi ke banyak role dan tidak ada notifikasi real-time agresif.
+  - Status: Observability Only. Implementasi teknis ditunda. Dicatat sebagai keputusan arsitektur.
+
+- Lisensi
+  - Sistem belum memiliki model lisensi final.
+  - Dilarang menambahkan: hardcode lisensi, watermark permanen, enforcement logic.
+  - Lisensi adalah keputusan pasca pilot (POST-PILOT DECISION).
+
+- Responsive UI (PC/Laptop/Mobile)
+  - Sistem wajib usable di desktop dan mobile.
+  - Dilarang melakukan redesign atau optimasi UX lanjutan selama pilot.
+  - Prinsip: Functional > Pretty. Kriteria aman: tidak overflow dan tidak broken layout.
+  - Peningkatan UI dicatat sebagai backlog pasca pilot.
+
+- Larangan Global
+  - Tidak ada fitur baru, tidak ada AI tambahan, tidak ada logika bisnis baru.
+  - Tidak ada asumsi "karena pilot maka demo".
+
+- Output yang Diharapkan
+  - Pembaruan dokumentasi internal / TODO / Governance note.
+  - Bukan code, bukan commit fitur.
+
+- Backlog Pasca Pilot
+  - Review dan peningkatan responsivitas UI jika ditemukan isu saat observasi.
+  - Perumusan model lisensi dan kebijakan notifikasi permanen multi-role.

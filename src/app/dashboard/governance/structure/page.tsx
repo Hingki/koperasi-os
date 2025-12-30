@@ -5,7 +5,7 @@ export default function StructurePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Struktur Organisasi</h1>
-        <p className="text-muted-foreground">
+        <p className="text-slate-700">
           Visualisasi struktur organisasi koperasi.
         </p>
       </div>
@@ -16,7 +16,7 @@ export default function StructurePage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center min-h-[300px] border-2 border-dashed rounded-lg">
-            <p className="text-muted-foreground">Fitur visualisasi struktur organisasi akan segera hadir.</p>
+            <p className="text-slate-700">Fitur visualisasi struktur organisasi akan segera hadir.</p>
           </div>
         </CardContent>
       </Card>

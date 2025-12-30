@@ -6,6 +6,9 @@ import { redirect } from 'next/navigation';
 import { AnnouncementBanner } from '@/components/member/announcement-banner';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { TuntunWidget } from '@/components/assistant/TuntunWidget';
+import { PilotBanner } from '@/components/shared/pilot-banner';
+import { LogService } from '@/lib/services/log-service';
 
 export default async function MemberDashboardPage() {
   const supabase = await createClient();
@@ -27,6 +30,16 @@ export default async function MemberDashboardPage() {
       </div>
     );
   }
+
+  const logService = new LogService(supabase);
+  await logService.log({
+    action_type: 'SYSTEM',
+    action_detail: 'PAGE_ACCESS',
+    status: 'SUCCESS',
+    user_id: user.id,
+    user_role: 'member',
+    metadata: { route: '/member/dashboard' }
+  });
 
   // 2. Fetch Stats in Parallel
   const [
@@ -70,15 +83,16 @@ export default async function MemberDashboardPage() {
   // Calculate Totals
   const totalSavings = savingsResult.data?.reduce((sum, acc) => sum + acc.balance, 0) || 0;
   const totalLoans = loansResult.data?.reduce((sum, loan) => sum + loan.remaining_principal, 0) || 0;
-  
+
   const nextInstallment = installmentsResult.data?.[0];
   const nextInstallmentAmount = nextInstallment?.total_installment || 0;
-  const nextInstallmentDate = nextInstallment?.due_date 
+  const nextInstallmentDate = nextInstallment?.due_date
     ? new Date(nextInstallment.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })
     : '-';
 
   return (
     <div className="space-y-6">
+      <PilotBanner route="/member/dashboard" />
       <div className="flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Anggota</h2>
@@ -93,6 +107,8 @@ export default async function MemberDashboardPage() {
       </div>
 
       <AnnouncementBanner />
+
+      <TuntunWidget />
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -140,9 +156,8 @@ export default async function MemberDashboardPage() {
                 {recentTxResult.data.map((tx, i) => (
                   <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50">
                     <div className="flex items-center gap-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                        tx.type === 'deposit' ? 'bg-emerald-100' : 'bg-red-100'
-                      }`}>
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${tx.type === 'deposit' ? 'bg-emerald-100' : 'bg-red-100'
+                        }`}>
                         {tx.type === 'deposit' ? (
                           <ArrowDownLeft className="h-5 w-5 text-emerald-600" />
                         ) : (
@@ -154,15 +169,14 @@ export default async function MemberDashboardPage() {
                           {tx.type === 'deposit' ? 'Setoran Simpanan' : 'Penarikan Simpanan'}
                         </p>
                         <p className="text-sm text-slate-500">
-                          {new Date(tx.created_at).toLocaleDateString('id-ID', { 
-                            day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                          {new Date(tx.created_at).toLocaleDateString('id-ID', {
+                            day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
                           })}
                         </p>
                       </div>
                     </div>
-                    <div className={`font-semibold ${
-                      tx.type === 'deposit' ? 'text-emerald-600' : 'text-slate-900'
-                    }`}>
+                    <div className={`font-semibold ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-slate-900'
+                      }`}>
                       {tx.type === 'deposit' ? '+' : '-'}{formatCurrency(tx.amount)}
                     </div>
                   </div>

@@ -1,6 +1,8 @@
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { PilotBanner } from '@/components/shared/pilot-banner';
+import { UiErrorLogger } from '@/components/shared/ui-error-logger';
 
 export default async function DashboardLayout({
   children,
@@ -34,7 +36,7 @@ export default async function DashboardLayout({
       .from('accounts')
       .select('id', { count: 'exact', head: true })
       .eq('koperasi_id', koperasiId);
-    
+
     // If count is null (error) or 0, then not ready
     coaReady = (count || 0) > 0;
 
@@ -46,7 +48,7 @@ export default async function DashboardLayout({
       .lte('start_date', today)
       .gte('end_date', today)
       .maybeSingle();
-    
+
     periodLocked = !!period?.is_closed;
   }
 
@@ -55,7 +57,9 @@ export default async function DashboardLayout({
       <Sidebar user={user} isAdmin={isAdmin} coaReady={coaReady} periodLocked={periodLocked} />
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
-            {children}
+          <PilotBanner route="/dashboard" />
+          <UiErrorLogger route="/dashboard" />
+          {children}
         </div>
       </main>
     </div>
