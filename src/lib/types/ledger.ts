@@ -23,6 +23,7 @@ export enum AccountCode {
   CONSIGNMENT_PAYABLE = '2-1102', // Hutang Konsinyasi
   VAT_OUT = '2-1201', // PPN Keluaran
   UNEARNED_FINANCING_INCOME = '2-1301', // Pendapatan Ditangguhkan (Margin Murabahah)
+  ESCROW_LIABILITY = '2-1300', // Hutang Transaksi / Dana Titipan
 
   // EQUITY (3)
   RETAINED_EARNINGS = '3-1001',

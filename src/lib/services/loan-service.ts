@@ -284,6 +284,7 @@ export class LoanService {
     const dueDate = new Date(startDate);
     dueDate.setMonth(dueDate.getMonth() + tenorMonths);
     const loanCode = `L-${Date.now()}`;
+    const loanId = crypto.randomUUID();
     const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
 
     // A. Ledger Gatekeeper (Ledger-First)
@@ -294,7 +295,8 @@ export class LoanService {
         amount,
         application.member_id,
         loanCode,
-        disburserId
+        disburserId,
+        loanId
       );
       journalId = await AccountingService.postJournal(journalDTO, this.supabase);
     } catch (error: any) {
@@ -309,6 +311,7 @@ export class LoanService {
       const res = await this.supabase
         .from('loans')
         .insert({
+          id: loanId,
           koperasi_id: application.koperasi_id,
           application_id: application.id,
           member_id: application.member_id,
@@ -335,6 +338,7 @@ export class LoanService {
         const res = await this.supabase
           .from('loans')
           .insert({
+            id: loanId,
             koperasi_id: application.koperasi_id,
             application_id: application.id,
             member_id: application.member_id,
@@ -516,9 +520,8 @@ export class LoanService {
     if (updateError) throw updateError;
 
     // 4. Update Loan Balance (Principal reduction)
-    // We assume proportional payment for accounting:
-    // Ratio = PrincipalPortion / TotalInstallment
-    // If total_installment is 0 (should not happen), avoid NaN
+    // DEPRECATED: Balance is updated via Ledger Trigger (update_loan_balance_from_ledger)
+    // We calculate logic only for verification if needed, but do not write.
     const totalInstallment = schedule.total_installment || 1;
     const ratio = schedule.principal_portion / totalInstallment;
 
@@ -526,6 +529,7 @@ export class LoanService {
     const principalPaid = amountPaid * ratio;
     const interestPaid = amountPaid - principalPaid;
 
+    /* DIRECT UPDATE REMOVED FOR LEDGER-FIRST COMPLIANCE
     const { data: loan } = await this.supabase
       .from('loans')
       .select('remaining_principal, status')
@@ -535,7 +539,7 @@ export class LoanService {
     if (!loan) throw new Error('Loan not found');
 
     const newRemaining = loan.remaining_principal - principalPaid;
-    const loanStatus = newRemaining <= 100 ? 'paid' : 'active'; // Tolerance for rounding
+    const loanStatus = newRemaining <= 100 ? 'paid' : 'active';
 
     await this.supabase
       .from('loans')
@@ -544,6 +548,7 @@ export class LoanService {
         status: loanStatus
       })
       .eq('id', schedule.loan_id);
+    */
 
     // 5. Accounting (SAK-EP & Ledger-First)
     // Determine if Financing (Murabahah) or Cash Loan
@@ -610,7 +615,14 @@ export class LoanService {
           reference_type: 'LOAN_REPAYMENT',
           lines: [
             { account_id: cashAccId, debit: amountPaid, credit: 0, description: 'Kas Masuk (Angsuran)' },
-            { account_id: receivableAccId, debit: 0, credit: principalPaid, description: 'Pelunasan Pokok' },
+            {
+              account_id: receivableAccId,
+              debit: 0,
+              credit: principalPaid,
+              description: 'Pelunasan Pokok',
+              entity_id: schedule.loan_id,
+              entity_type: 'loan'
+            },
             { account_id: incomeAccId, debit: 0, credit: interestPaid, description: 'Pendapatan Bunga' }
           ],
           created_by: recorderId

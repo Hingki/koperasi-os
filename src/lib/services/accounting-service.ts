@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { Account, JournalEntry, JournalLine, LedgerBalance, TrialBalanceItem } from '@/types/accounting';
 import { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import { AccountCode } from '@/lib/types/ledger';
 
 export interface CreateAccountDTO {
   koperasi_id: string;
@@ -17,6 +18,8 @@ export interface JournalLineDTO {
   debit: number;
   credit: number;
   description?: string;
+  entity_id?: string;
+  entity_type?: string;
 }
 
 export interface CreateJournalDTO {
@@ -31,6 +34,9 @@ export interface CreateJournalDTO {
 }
 
 export const AccountingService = {
+  // Hook for testing
+  _getClient: () => createClient(),
+
   /**
    * Helper to get Account ID by Code (Server-Side safe)
    */
@@ -40,7 +46,7 @@ export const AccountingService = {
       return null;
     }
 
-    const supabase = client || createClient();
+    const supabase = client || this._getClient();
 
     try {
       const { data, error } = await supabase
@@ -211,6 +217,83 @@ export const AccountingService = {
     };
 
     return await this.postJournal(reversalEntry, client);
+  },
+
+  /**
+   * Reverse Escrow Transaction (Refund)
+   * Alias for voidJournal with specific semantic meaning
+   */
+  async reverseEscrow(journalId: string, reason: string, client?: SupabaseClient) {
+    return await this.voidJournal(journalId, `ESCROW REVERSAL: ${reason}`, client);
+  },
+
+  /**
+   * Settle Escrow Transaction (Revenue Recognition)
+   * Moves funds from Escrow (Liability) to Revenue/Tax/etc.
+   * 
+   * @param originalJournalId The ID of the locked journal (Debit Member, Credit Escrow)
+   * @param settlementLines The breakdown of where the Escrow funds should go (Revenue, Tax, etc.) AND any COGS lines.
+   */
+  async settleEscrow(
+    originalJournalId: string, 
+    settlementLines: JournalLineDTO[], 
+    client?: SupabaseClient
+  ) {
+    const supabase = client || createClient();
+
+    // 1. Get original journal to find Escrow amount
+    const { data: journal, error: fetchError } = await supabase
+      .from('journals')
+      .select(`*, journal_lines(*)`)
+      .eq('id', originalJournalId)
+      .single();
+
+    if (fetchError || !journal) {
+      throw new Error('Original journal not found for settlement');
+    }
+
+    // 2. Determine Escrow Account and Amount from Original Journal
+    // We look for the Credit side (which was Escrow Liability)
+    // We sum all credits to be safe, assuming the original journal was purely Funding -> Escrow
+    const escrowCreditLines = journal.journal_lines.filter((line: any) => Number(line.credit) > 0);
+    if (escrowCreditLines.length === 0) throw new Error('Invalid original journal: No credit lines found');
+
+    const totalEscrowAmount = escrowCreditLines.reduce((sum: number, line: any) => sum + Number(line.credit), 0);
+    
+    // We pick the first account as the Escrow Account ID (assuming single escrow account used)
+    const escrowAccountId = escrowCreditLines[0].account_id;
+
+    // 3. Prepare Settlement Debit Line (Debit Escrow)
+    const debitEscrowLine: JournalLineDTO = {
+      account_id: escrowAccountId,
+      debit: totalEscrowAmount,
+      credit: 0,
+      description: `Settlement: Debiting Escrow Liability`
+    };
+
+    // 4. Combine with provided settlement lines (Revenue Credits, COGS Debits/Inventory Credits)
+    // Note: The provided settlementLines should handle the Credit side of the Revenue, 
+    // and potentially Debit/Credit for COGS/Inventory.
+    // The sum of Credits in settlementLines (for Revenue) should match totalEscrowAmount 
+    // IF COGS is balanced within itself.
+    // Let's trust the caller (MarketplaceService) to provide balanced lines relative to the Escrow Debit.
+    // The total entry must be balanced: 
+    // Debit Escrow + Debit COGS = Credit Revenue + Credit Inventory
+    
+    const finalLines = [debitEscrowLine, ...settlementLines];
+
+    const settlementEntry: CreateJournalDTO = {
+      koperasi_id: journal.koperasi_id,
+      business_unit: journal.business_unit,
+      transaction_date: new Date().toISOString().split('T')[0],
+      description: `SETTLEMENT: ${journal.description}`,
+      reference_id: journal.id,
+      reference_type: 'MARKETPLACE_SETTLEMENT',
+      lines: finalLines,
+      created_by: journal.created_by
+    };
+
+    return await this.postJournal(settlementEntry, client);
   },
 
   /**

@@ -3,7 +3,7 @@ import { TrialBalanceTable } from './trial-balance-table';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, TrendingUp, PieChart, Activity, Calculator, Banknote, Building2, Calendar, Receipt, Archive, Layers } from 'lucide-react';
+import { FileText, TrendingUp, PieChart, Activity, Calculator, Banknote, Building2, Calendar, Receipt, Archive, Layers, Download, Search, AlertTriangle } from 'lucide-react';
 
 export default async function ReportsPage() {
   console.log('[ReportsPage] Starting render...');
@@ -101,6 +101,42 @@ export default async function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-xs text-muted-foreground">Jurnal Transaksi</div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/dashboard/accounting/reports/export" prefetch={false}>
+          <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Export Data</CardTitle>
+              <Download className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-muted-foreground">CSV: Marketplace, Ledger, Escrow</div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/dashboard/accounting/audit/inspector" prefetch={false}>
+          <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Audit Inspector</CardTitle>
+              <Search className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-muted-foreground">Trace Transaction ID</div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/dashboard/accounting/audit/simulator" prefetch={false}>
+          <Card className="hover:bg-slate-50 transition-colors cursor-pointer h-full border-blue-200 bg-blue-50/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-blue-900">Audit Simulator</CardTitle>
+              <PlayCircle className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-blue-700">Safety Layer Check</div>
             </CardContent>
           </Card>
         </Link>

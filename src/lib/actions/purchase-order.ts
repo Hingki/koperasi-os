@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { RetailService } from '@/lib/services/retail-service';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
 import { revalidatePath } from 'next/cache';
 
 export async function createPurchaseOrderAction(payload: {
@@ -71,9 +72,46 @@ export async function receivePurchaseOrderAction(
     if (!user) throw new Error('Unauthorized');
   
     const retailService = new RetailService(supabase);
+    const marketplaceService = new MarketplaceService(supabase);
 
     try {
-        await retailService.receivePurchaseOrder(poId, items, invoiceNumber, user.id);
+        // 1. Fetch PO Details
+        const po = await retailService.getPurchaseOrderById(poId);
+        if (!po) throw new Error('PO not found');
+        if (po.status === 'received') throw new Error('Purchase Order already received');
+
+        // 2. Prepare Purchase Items
+        let totalAmount = 0;
+        const purchaseItems = items.map(ri => {
+            const poItem = po.items.find((i: any) => i.product_id === ri.product_id);
+            const cost = poItem ? poItem.cost_per_item : 0;
+            const subtotal = cost * ri.quantity;
+            totalAmount += subtotal;
+
+            return {
+                product_id: ri.product_id,
+                quantity: ri.quantity,
+                cost_per_item: cost,
+                subtotal: subtotal
+            };
+        });
+
+        // 3. Process Purchase via MarketplaceService (Ledger + Operational)
+        await marketplaceService.processPurchase({
+            koperasi_id: po.koperasi_id,
+            unit_usaha_id: po.unit_usaha_id,
+            supplier_id: po.supplier_id,
+            invoice_number: invoiceNumber,
+            total_amount: totalAmount,
+            payment_status: 'debt', // PO is usually debt/AP
+            notes: `Received from PO ${po.po_number}`,
+            created_by: user.id,
+            po_id: po.id
+        }, purchaseItems);
+
+        // 4. Update PO Status
+        await retailService.updatePurchaseOrderStatus(poId, 'received', user.id);
+
         revalidatePath('/dashboard/retail/purchase-orders');
         revalidatePath('/dashboard/retail/purchases');
         revalidatePath('/dashboard/retail/stock');

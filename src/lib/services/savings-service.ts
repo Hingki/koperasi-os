@@ -2,9 +2,23 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { AccountingService } from '@/lib/services/accounting-service';
 import { LedgerIntentService } from '@/lib/services/ledger-intent-service';
 import { AccountCode } from '@/lib/types/ledger';
+import { randomUUID } from 'crypto';
 
 export class SavingsService {
   constructor(private supabase: SupabaseClient) { }
+
+  async getVoluntaryAccount(memberId: string) {
+    const { data: account, error } = await this.supabase
+      .from('savings_accounts')
+      .select('id, koperasi_id, balance, product:savings_products!inner(type)')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .eq('product.type', 'sukarela')
+      .single();
+
+    if (error) return null;
+    return account;
+  }
 
   async getBalance(memberId: string, type: 'sukarela' = 'sukarela'): Promise<number> {
     const { data, error } = await this.supabase
@@ -23,7 +37,8 @@ export class SavingsService {
     memberId: string,
     amount: number,
     description: string,
-    userId?: string
+    userId?: string,
+    skipLedger: boolean = false
   ) {
     // 1. Get Account (Voluntary)
     const { data: account, error: accountError } = await this.supabase
@@ -39,7 +54,21 @@ export class SavingsService {
 
     const newBalance = account.balance - amount;
 
-    // 2. Update Balance
+    // 2. Update Balance via Process Transaction (Ledger First)
+    // We delegate to processTransaction which now handles Ledger correctly.
+    // Note: This treats it as a Cash Withdrawal. If this is for internal payment, 
+    // we assume a "Cash Wash" approach for now (Withdrawal -> Payment).
+    await this.processTransaction(
+      account.id,
+      amount,
+      'withdrawal',
+      userId || 'system',
+      description,
+      'CASH',
+      skipLedger // Respect skipLedger flag
+    );
+
+    /* OLD DIRECT UPDATE REMOVED
     const { error: updateError } = await this.supabase
       .from('savings_accounts')
       .update({
@@ -52,35 +81,8 @@ export class SavingsService {
     if (updateError) throw new Error('Failed to update savings balance');
 
     // 3. Record Savings Transaction (Read Model)
-    const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
-    try {
-      await this.supabase.from('savings_transactions').insert({
-        koperasi_id: account.koperasi_id,
-        account_id: account.id,
-        member_id: memberId,
-        type: 'withdrawal',
-        amount: -amount,
-        balance_after: newBalance,
-        description: description,
-        created_by: userId,
-        is_test_transaction: isDemoMode
-      });
-    } catch (err: any) {
-      if (String(err?.message || '').includes('column "is_test_transaction"')) {
-        await this.supabase.from('savings_transactions').insert({
-          koperasi_id: account.koperasi_id,
-          account_id: account.id,
-          member_id: memberId,
-          type: 'withdrawal',
-          amount: -amount,
-          balance_after: newBalance,
-          description: description,
-          created_by: userId
-        });
-      } else {
-        throw err;
-      }
-    }
+    // ... (Old logic was here)
+    */
   }
 
   async processTransaction(
@@ -143,6 +145,7 @@ export class SavingsService {
     // 4. Perform Transaction (Ledger-First Sequence)
     const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
     let journalId: string | null = null;
+    const transactionId = randomUUID(); // Generate ID upfront for consistency
 
     // A. Ledger Execution (The Gatekeeper)
     if (!skipLedger) {
@@ -151,16 +154,19 @@ export class SavingsService {
         if (type === 'deposit') {
           journalDTO = await LedgerIntentService.prepareSavingsDeposit(
             account.koperasi_id,
+            transactionId,
             amount,
+            paymentMethod === 'CASH' ? 'cash' : 'transfer',
             account.member_id,
             accountId,
-            paymentMethod,
             userId
           );
         } else {
           journalDTO = await LedgerIntentService.prepareSavingsWithdrawal(
             account.koperasi_id,
+            transactionId,
             amount,
+            paymentMethod === 'CASH' ? 'cash' : 'transfer',
             account.member_id,
             accountId,
             userId
@@ -182,6 +188,7 @@ export class SavingsService {
 
     // Construct transaction data
     const txData = {
+      id: transactionId, // Use the pre-generated ID
       koperasi_id: account.koperasi_id,
       account_id: accountId,
       member_id: account.member_id,
@@ -240,6 +247,25 @@ export class SavingsService {
     }
 
     // C. Update Account Balance (State Change)
+    // DEPRECATED: Balance is now updated via Ledger Trigger (update_savings_balance_from_ledger)
+    // We only need to fetch the latest balance for the return value and consistency check.
+
+    const { data: updatedAccount, error: fetchError } = await this.supabase
+      .from('savings_accounts')
+      .select('balance')
+      .eq('id', accountId)
+      .single();
+
+    if (fetchError || !updatedAccount) {
+      // If we can't fetch, we can't be sure, but Ledger post succeeded.
+      // We'll return the estimated balance.
+      console.warn(`Could not fetch updated balance for account ${accountId} after ledger post.`);
+    } else {
+      newBalance = updatedAccount.balance;
+    }
+
+    /* 
+    // OLD LOGIC REMOVED
     const { error: updateError } = await this.supabase
       .from('savings_accounts')
       .update({
@@ -248,23 +274,7 @@ export class SavingsService {
         updated_at: new Date().toISOString()
       })
       .eq('id', accountId);
-
-    if (updateError) {
-      // SUPER CRITICAL: Ledger Posted, Transaction Recorded, but Balance NOT updated.
-      // We should try to rollback transaction record at least.
-      await this.supabase.from('savings_transactions').delete().eq('id', tx.id);
-
-      if (journalId) {
-        try {
-          await AccountingService.voidJournal(journalId, 'Balance update failed', this.supabase);
-          console.log(`Journal ${journalId} reversed due to balance update failure.`);
-        } catch (voidError) {
-          console.error(`CRITICAL: Failed to post reversal for journal ${journalId} after balance error!`, voidError);
-        }
-      }
-
-      throw new Error(`CRITICAL STATE ERROR: Balance update failed after ledger post. Please contact support. Ref Journal: ${journalId}`);
-    }
+    */
 
     return { transaction: tx, newBalance };
   }
@@ -377,8 +387,20 @@ export class SavingsService {
               reference_id: `AUTODEBET-${sourceAcc.member_id}-${Date.now()}`,
               reference_type: 'SAVINGS_AUTODEBIT',
               lines: [
-                { account_id: debitAccId, debit: amount, credit: 0 },
-                { account_id: creditAccId, debit: 0, credit: amount }
+                { 
+                  account_id: debitAccId, 
+                  debit: amount, 
+                  credit: 0,
+                  entity_id: sourceAcc.id,
+                  entity_type: 'savings_account'
+                },
+                { 
+                  account_id: creditAccId, 
+                  debit: 0, 
+                  credit: amount,
+                  entity_id: destAcc.id,
+                  entity_type: 'savings_account'
+                }
               ]
             }, this.supabase);
           }
@@ -465,7 +487,13 @@ export class SavingsService {
             reference_type: 'SAVINGS_INTEREST',
             lines: [
               { account_id: debitAccId, debit: interestAmount, credit: 0 },
-              { account_id: creditAccId, debit: 0, credit: interestAmount }
+              { 
+                account_id: creditAccId, 
+                debit: 0, 
+                credit: interestAmount,
+                entity_id: account.id,
+                entity_type: 'savings_account'
+              }
             ],
             created_by: userId
           }, this.supabase);

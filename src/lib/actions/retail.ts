@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { RetailService, POSTransaction, POSTransactionItem, PaymentBreakdown } from '@/lib/services/retail-service';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
 import { LogService } from '@/lib/services/log-service';
 import { PharmacyService, PharmacyTransactionInput, PharmacyItemInput } from '@/lib/services/pharmacy-service';
 import { LedgerService } from '@/lib/services/ledger-service';
@@ -142,6 +143,7 @@ export async function createSalesReturnAction(payload: {
   if (!user) throw new Error('Unauthorized');
 
   const retailService = new RetailService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
   if (!koperasiId) throw new Error('Invalid Koperasi ID');
 
@@ -151,15 +153,16 @@ export async function createSalesReturnAction(payload: {
 
   const totalRefund = payload.items.reduce((sum, item) => sum + item.subtotal, 0);
 
-  await retailService.createSalesReturn(
+  await marketplaceService.processSalesReturn(
+    koperasiId,
+    user.id,
     {
       koperasi_id: koperasiId,
       transaction_id: payload.transaction_id,
       return_number: returnNumber,
       reason: payload.reason,
       status: payload.status,
-      total_refund_amount: totalRefund,
-      created_by: user.id
+      total_refund_amount: totalRefund
     },
     payload.items
   );
@@ -184,6 +187,7 @@ export async function createPurchaseReturnAction(payload: {
   if (!user) throw new Error('Unauthorized');
 
   const retailService = new RetailService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
   if (!koperasiId) throw new Error('Invalid Koperasi ID');
 
@@ -201,20 +205,18 @@ export async function createPurchaseReturnAction(payload: {
 
   const totalRefund = payload.items.reduce((sum, item) => sum + item.subtotal, 0);
 
-  await retailService.createPurchaseReturn(
+  await marketplaceService.processPurchaseReturn(
+    koperasiId,
+    user.id,
     {
       koperasi_id: koperasiId,
       unit_usaha_id: purchase.unit_usaha_id,
       purchase_id: payload.purchase_id,
-      supplier_id: purchase.supplier_id, // Might be null if purchase has no supplier? But createPurchaseReturn requires string. 
-      // We assume purchase has supplier_id if it's being returned.
-      // If purchase.supplier_id is null, we might need to handle it or cast.
-      // But let's assume valid data flow.
+      supplier_id: purchase.supplier_id,
       return_number: returnNumber,
       reason: payload.reason,
       status: payload.status,
-      total_refund_amount: totalRefund,
-      created_by: user.id
+      total_refund_amount: totalRefund
     },
     payload.items
   );
@@ -260,10 +262,12 @@ export async function processPosTransaction(
   transaction: Partial<POSTransaction>,
   items: Partial<POSTransactionItem>[],
   payments?: PaymentBreakdown[],
-  originalTransactionId?: string
+  originalTransactionId?: string,
+  idempotencyKey?: string
 ) {
   const supabase = await createClient();
   const retailService = new RetailService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
   const logService = new LogService(supabase);
   const startTime = Date.now();
   let userId: string | undefined;
@@ -271,6 +275,8 @@ export async function processPosTransaction(
   try {
     const { data: { user } } = await supabase.auth.getUser();
     userId = user?.id;
+    const koperasiId = transaction.koperasi_id || user?.user_metadata?.koperasi_id;
+    if (!koperasiId) throw new Error('Koperasi ID Missing');
 
     if (transaction.koperasi_id && !transaction.invoice_number) {
       const settings = await retailService.getRetailSettings(transaction.koperasi_id);
@@ -280,16 +286,26 @@ export async function processPosTransaction(
     const defaultPayments: PaymentBreakdown[] = payments && payments.length > 0
       ? payments
       : [{ method: (transaction.payment_method as PaymentBreakdown['method']) || 'cash', amount: transaction.final_amount || transaction.total_amount || 0 }];
-    const result = await retailService.processTransaction(transaction, items, defaultPayments);
+    
+    // NEW: Use MarketplaceService for orchestration
+    const result = await marketplaceService.checkoutRetail(
+        koperasiId,
+        userId || 'system',
+        transaction as any, 
+        items as any[],
+        defaultPayments,
+        idempotencyKey
+    );
 
+    // Legacy Support: Handle originalTransactionId
     if (originalTransactionId) {
-      await retailService.cancelPosTransaction(originalTransactionId);
+       await retailService.cancelPosTransaction(originalTransactionId);
     }
 
     await logService.log({
       action_type: 'POS',
       action_detail: 'TRANSAKSI',
-      entity_id: result.id,
+      entity_id: result.operational.transaction.id,
       status: 'SUCCESS',
       user_id: userId,
       metadata: {
@@ -299,7 +315,7 @@ export async function processPosTransaction(
       }
     });
 
-    return { success: true, data: result };
+    return { success: true, data: result.operational.transaction };
   } catch (error: any) {
     console.error('POS Transaction Error:', error);
     await logService.log({
@@ -472,6 +488,7 @@ export async function createPurchase(formData: FormData) {
   if (!user) throw new Error('Unauthorized');
 
   const retailService = new RetailService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
   const koperasiId = user.user_metadata.koperasi_id;
   const unitUsahaId = user.user_metadata.unit_usaha_id;
 
@@ -480,7 +497,7 @@ export async function createPurchase(formData: FormData) {
   const itemsStr = formData.get('items') as string;
   const items = JSON.parse(itemsStr);
 
-  await retailService.createPurchase({
+  await marketplaceService.processPurchase({
     koperasi_id: koperasiId,
     unit_usaha_id: unitUsahaId,
     supplier_id: formData.get('supplier_id') as string,

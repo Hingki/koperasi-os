@@ -146,15 +146,15 @@ export class MemberService {
         created_by: userId
       });
 
+      // Update Status ONLY (Balance updated by Ledger Trigger)
       const { error: updateError } = await this.supabase.from('savings_accounts').update({
-        balance: 0,
+        // balance: 0, // Handled by Trigger
         status: 'closed',
         closed_at: new Date().toISOString()
       }).eq('id', detail.accountId);
 
       if (updateError && updateError.message.includes('column')) {
         await this.supabase.from('savings_accounts').update({
-          balance: 0,
           status: 'closed'
         }).eq('id', detail.accountId);
       } else if (updateError) {

@@ -1,6 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ReportService } from './report-service';
-import { LedgerService } from './ledger-service';
 
 export interface SHUDistributionConfig {
   cadangan_koperasi: number; // e.g. 0.40 (40%)

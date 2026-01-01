@@ -1,5 +1,4 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LedgerService } from './ledger-service';
 import { PaymentService } from './payment-service';
 import { AccountingService } from './accounting-service';
 import { AccountCode } from '@/lib/types/ledger';

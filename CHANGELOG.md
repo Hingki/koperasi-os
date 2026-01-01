@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- docs: update changelog
+
+## [Unreleased]
 - fix: resolve diagnostics, blur text, and api key validation
 
 # Changelog
@@ -84,4 +87,5 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 

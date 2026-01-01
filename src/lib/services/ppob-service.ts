@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { AccountingService } from './accounting-service';
+import { AccountingService, CreateJournalDTO } from './accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 
 export interface PpobProduct {
@@ -31,59 +31,143 @@ export class PpobService {
    * Get Active PPOB Products
    */
   async getProducts(koperasiId: string, category?: string) {
-    // We allow global products (koperasi_id is null) or specific to koperasi
-    let query = this.supabase
-      .from('ppob_products')
-      .select('*')
-      .eq('is_active', true)
-      .or(`koperasi_id.eq.${koperasiId},koperasi_id.is.null`);
+    try {
+      // Try strict multi-tenant query first
+      let query = this.supabase
+        .from('ppob_products')
+        .select('*')
+        .eq('is_active', true)
+        .or(`koperasi_id.eq.${koperasiId},koperasi_id.is.null`);
 
-    if (category) {
-      query = query.eq('category', category);
+      if (category) {
+        query = query.eq('category', category);
+      }
+
+      const { data, error } = await query.order('price_sell', { ascending: true });
+      if (error) throw error;
+      return data as PpobProduct[];
+    } catch (error: any) {
+      // Fallback for schema mismatch (missing koperasi_id)
+      if (error.message?.includes('koperasi_id')) {
+        console.warn('⚠️ PPOBService: Schema mismatch (missing koperasi_id), falling back to global query.');
+        let query = this.supabase
+          .from('ppob_products')
+          .select('*')
+          .eq('is_active', true);
+
+        if (category) {
+          query = query.eq('category', category);
+        }
+        
+        // Note: 'price_sell' might also be 'price' in old schema
+        const { data, error: fbError } = await query;
+        if (fbError) throw fbError;
+        
+        // Map old schema to new interface if needed
+        return data.map((p: any) => ({
+            ...p,
+            price_sell: p.price_sell || p.price,
+            price_buy: p.price_buy || (p.price_sell || p.price) * 0.98,
+            code: p.code || p.id
+        })) as PpobProduct[];
+      }
+      throw error;
     }
-
-    const { data, error } = await query.order('price_sell', { ascending: true });
-    if (error) throw error;
-    return data as PpobProduct[];
   }
 
   /**
-   * Create and Process PPOB Transaction
+   * Validate PPOB Transaction (Stage 3 Helper)
+   * Returns product details and cost for Marketplace Lock
    */
-  async purchaseProduct(data: PpobTransactionData) {
+  async validateForMarketplace(data: PpobTransactionData) {
     // 1. Get Product Details
-    // Prioritize Koperasi specific product over global
-    const { data: products, error: prodError } = await this.supabase
-      .from('ppob_products')
-      .select('*')
-      .or(`code.eq.${data.product_code},id.eq.${data.product_code}`) // Support ID or Code lookup
-      .eq('is_active', true)
-      .or(`koperasi_id.eq.${data.koperasi_id},koperasi_id.is.null`)
-      .order('koperasi_id', { ascending: false }); // Koperasi specific first (if not null)
+    try {
+      const { data: products, error: prodError } = await this.supabase
+        .from('ppob_products')
+        .select('*')
+        .or(`code.eq.${data.product_code},id.eq.${data.product_code}`)
+        .eq('is_active', true)
+        .or(`koperasi_id.eq.${data.koperasi_id},koperasi_id.is.null`)
+        .order('koperasi_id', { ascending: false });
 
-    if (prodError || !products || products.length === 0) throw new Error('Product not found');
+      if (prodError) throw prodError;
+      if (!products || products.length === 0) throw new Error('Product not found');
+      
+      return this._checkBalance(products[0], data.account_id);
 
-    // Take the first one (most specific)
-    const product = products[0];
+    } catch (error: any) {
+        // Fallback for schema mismatch
+        if (error.message?.includes('koperasi_id') || error.message?.includes('code')) {
+             console.warn('⚠️ PPOBService: Schema mismatch, trying fallback query.');
+             
+             // Try fetching by ID only if code fails
+             let query = this.supabase
+                .from('ppob_products')
+                .select('*')
+                .eq('is_active', true);
+             
+             // If we suspect 'code' column is missing, we can't use .or(code.eq...)
+             // But we don't know for sure.
+             // Let's try to find by ID first (assuming product_code passed is actually ID or Code)
+             // Ideally we should try: .eq('id', data.product_code)
+             
+             const { data: byId, error: idError } = await this.supabase
+                .from('ppob_products')
+                .select('*')
+                .eq('id', data.product_code)
+                .eq('is_active', true);
 
-    // 2. Check Member Balance (Simpanan Sukarela or specified account)
+             if (byId && byId.length > 0) {
+                 const p = byId[0];
+                 const mapped = {
+                     ...p,
+                     price_sell: p.price_sell || p.price,
+                     price_buy: p.price_buy || (p.price_sell || p.price) * 0.98,
+                     code: p.code || p.id
+                 };
+                 return this._checkBalance(mapped, data.account_id);
+             }
+
+             // If not found by ID, maybe it was a Code?
+             // But if 'code' column is missing, we can't search by it.
+             // We can only hope it was an ID.
+             
+             throw new Error('Product not found (fallback)');
+        }
+        throw error;
+    }
+  }
+
+  async _checkBalance(product: any, accountId: string) {
     const { data: account, error: accError } = await this.supabase
       .from('savings_accounts')
-      .select('balance, account_number, product:savings_products(name)')
-      .eq('id', data.account_id)
+      .select('balance, account_number')
+      .eq('id', accountId)
       .single();
 
     if (accError || !account) throw new Error('Savings account not found');
 
-    const totalCost = product.price_sell + (product.admin_fee || 0);
+    const totalCost = (product.price_sell || product.price) + (product.admin_fee || 0);
 
     if (account.balance < totalCost) {
       throw new Error('Insufficient balance');
     }
 
-    // 3. Start Transaction
+    return { product, totalCost };
+  }
 
-    // A. Create PPOB Transaction Record (Pending)
+  /**
+   * Fulfill PPOB Transaction (Stage 3 Helper)
+   * - Records operational transaction
+   * - Calls Provider
+   * - DOES NOT touch Ledger
+   */
+  async fulfillMarketplace(
+    data: PpobTransactionData, 
+    product: PpobProduct, 
+    lockJournalId: string
+  ) {
+    // 1. Create PPOB Transaction Record (Pending)
     const { data: trx, error: trxError } = await this.supabase
       .from('ppob_transactions')
       .insert({
@@ -97,12 +181,13 @@ export class PpobService {
         customer_number: data.customer_number,
         price: product.price_sell,
         admin_fee: product.admin_fee || 0,
-        total_amount: totalCost,
+        total_amount: product.price_sell + (product.admin_fee || 0),
         status: 'pending',
+        journal_id: lockJournalId, // Link to Lock Journal
         metadata: {
           base_price: product.price_buy
         },
-        created_by: data.member_id // Member initiated
+        created_by: data.member_id
       })
       .select()
       .single();
@@ -110,86 +195,25 @@ export class PpobService {
     if (trxError) throw new Error(`Failed to init transaction: ${trxError.message}`);
 
     try {
-      // B. Debit Savings Account (Atomic RPC)
-      const { error: rpcError } = await this.supabase.rpc('decrement_savings_balance', {
-        p_account_id: data.account_id,
-        p_amount: totalCost
-      });
-
-      if (rpcError) throw new Error(`Balance update failed: ${rpcError.message}`);
-
-      // C. Call Provider API (Mock for now)
-      // In real world, call Fonnte/Digiflazz here.
-      // If fail, we must refund (increment_savings_balance) and set status failed.
-      const providerSuccess = true;
+      // 2. Call Provider API (Mock)
+      let providerSuccess = true;
+      if (data.customer_number === 'FAIL_ME') {
+        providerSuccess = false;
+      }
 
       if (!providerSuccess) {
-        // Refund
-        await this.supabase.rpc('increment_savings_balance', {
-          p_account_id: data.account_id,
-          p_amount: totalCost
-        });
-        await this.supabase.from('ppob_transactions').update({ status: 'failed' }).eq('id', trx.id);
         throw new Error('Provider transaction failed');
       }
 
-      // D. Update Transaction Status
+      // 3. Update Transaction Status
       await this.supabase
         .from('ppob_transactions')
         .update({ status: 'success' })
         .eq('id', trx.id);
 
-      // E. Ledger Entries (Double Entry)
-
-      // 1. Revenue Recognition: Debit Savings (Liability Decrease) -> Credit Revenue PPOB
-      const debitAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.SAVINGS_VOLUNTARY, this.supabase);
-      const creditAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.PPOB_REVENUE, this.supabase);
-
-      if (debitAccId && creditAccId) {
-        await AccountingService.postJournal({
-          koperasi_id: data.koperasi_id,
-          business_unit: 'PPOB',
-          transaction_date: new Date().toISOString().split('T')[0],
-          description: `Pembelian PPOB ${product.name} - ${data.customer_number}`,
-          reference_id: trx.id,
-          reference_type: 'PPOB_TRANSACTION',
-          lines: [
-            { account_id: debitAccId, debit: totalCost, credit: 0 },
-            { account_id: creditAccId, debit: 0, credit: totalCost }
-          ]
-        }, this.supabase);
-      }
-
-      // 2. Cost Recognition: Debit Expense PPOB -> Credit PPOB Deposit (Asset)
-      // Only if we have a buy price (cost)
-      if (product.price_buy > 0) {
-        const expenseAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, '5-1102', this.supabase); // Beban Pokok PPOB
-        // Prefer PPOB_DEPOSIT, fallback to CASH_ON_HAND if not found
-        let creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.PPOB_DEPOSIT, this.supabase);
-        if (!creditCostAccId) {
-          creditCostAccId = await AccountingService.getAccountIdByCode(data.koperasi_id, AccountCode.CASH_ON_HAND, this.supabase);
-        }
-
-        if (expenseAccId && creditCostAccId) {
-          await AccountingService.postJournal({
-            koperasi_id: data.koperasi_id,
-            business_unit: 'PPOB',
-            transaction_date: new Date().toISOString().split('T')[0],
-            description: `HPP PPOB ${product.name}`,
-            reference_id: trx.id,
-            reference_type: 'PPOB_TRANSACTION_COST',
-            lines: [
-              { account_id: expenseAccId, debit: product.price_buy, credit: 0 },
-              { account_id: creditCostAccId, debit: 0, credit: product.price_buy }
-            ]
-          }, this.supabase);
-        }
-      }
-
       return { success: true, transaction: trx };
 
     } catch (err: any) {
-      // If failed after PPOB record creation but before success, update status
       if (trx) {
         await this.supabase
           .from('ppob_transactions')

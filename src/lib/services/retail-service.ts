@@ -1,7 +1,4 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { AccountingService, CreateJournalDTO, JournalLineDTO } from './accounting-service';
-import { LedgerIntentService } from './ledger-intent-service';
-import { AccountCode, AccountingEventType } from '@/lib/types/ledger';
 import { PaymentService } from './payment-service';
 import { SavingsService } from './savings-service';
 import { LoyaltyService } from './loyalty-service';
@@ -82,6 +79,7 @@ export interface POSTransactionItem {
 export type PaymentBreakdown = {
   method: 'cash' | 'qris' | 'savings_balance';
   amount: number;
+  account_id?: string;
 };
 
 export type RetailSettings = {
@@ -433,7 +431,7 @@ export class RetailService {
     return data;
   }
 
-  async createPurchase(
+  async createPurchaseRecord(
     purchase: {
       koperasi_id: string;
       unit_usaha_id: string;
@@ -454,26 +452,8 @@ export class RetailService {
     }[]
   ) {
     const { tax_amount, ...purchasePayload } = purchase;
-    const tax = tax_amount || 0;
-
-    // 1. Ledger Gatekeeper (Ledger-First)
-    let journalId: string | null = null;
-    try {
-      const journalDTO = await LedgerIntentService.prepareRetailPurchase(
-        purchase.koperasi_id,
-        purchase.invoice_number,
-        purchase.total_amount,
-        tax,
-        purchase.payment_status,
-        purchase.created_by
-      );
-      journalId = await AccountingService.postJournal(journalDTO, this.supabase);
-    } catch (error: any) {
-      console.error("Ledger Gatekeeper Failed:", error);
-      throw new Error(`Pembelian Ditolak oleh Sistem Akuntansi: ${error.message}`);
-    }
-
-    // 2. Create Purchase Header
+    
+    // 1. Create Purchase Header
     const { data: purchaseData, error: purchaseError } = await this.supabase
       .from('inventory_purchases')
       .insert(purchasePayload)
@@ -481,17 +461,10 @@ export class RetailService {
       .single();
 
     if (purchaseError) {
-      if (journalId) {
-        try {
-          await AccountingService.voidJournal(journalId, 'Purchase creation failed', this.supabase);
-        } catch (e) {
-          console.error('Failed to reverse journal after purchase error', e);
-        }
-      }
-      throw new Error(`System Error: Ledger posted (ID: ${journalId}) but Purchase creation failed: ${purchaseError.message}`);
+      throw new Error(`Purchase creation failed: ${purchaseError.message}`);
     }
 
-    // 3. Create Purchase Items
+    // 2. Create Purchase Items
     const itemsWithId = items.map(item => ({
       ...item,
       purchase_id: purchaseData.id
@@ -503,7 +476,7 @@ export class RetailService {
 
     if (itemsError) throw itemsError;
 
-    // 4. Update Product Stock & Average Cost
+    // 3. Update Product Stock & Average Cost
     for (const item of items) {
       const { data: product } = await this.supabase
         .from('inventory_products')
@@ -624,50 +597,7 @@ export class RetailService {
     return data;
   }
 
-  async receivePurchaseOrder(
-    poId: string,
-    receivedItems: { product_id: string; quantity: number }[],
-    invoiceNumber: string,
-    userId: string
-  ) {
-    const po = await this.getPurchaseOrderById(poId);
-    if (!po) throw new Error('PO not found');
 
-    if (po.status === 'received') {
-      throw new Error('Purchase Order already received');
-    }
-
-    let totalAmount = 0;
-    const purchaseItems = receivedItems.map(ri => {
-      const poItem = po.items.find((i: any) => i.product_id === ri.product_id);
-      const cost = poItem ? poItem.cost_per_item : 0;
-      const subtotal = cost * ri.quantity;
-      totalAmount += subtotal;
-
-      return {
-        product_id: ri.product_id,
-        quantity: ri.quantity,
-        cost_per_item: cost,
-        subtotal: subtotal
-      };
-    });
-
-    const purchase = await this.createPurchase({
-      koperasi_id: po.koperasi_id,
-      unit_usaha_id: po.unit_usaha_id,
-      supplier_id: po.supplier_id,
-      invoice_number: invoiceNumber,
-      total_amount: totalAmount,
-      payment_status: 'debt',
-      notes: `Received from PO ${po.po_number}`,
-      created_by: userId,
-      po_id: po.id
-    }, purchaseItems);
-
-    await this.updatePurchaseOrderStatus(poId, 'received');
-
-    return purchase;
-  }
 
   // Purchase Returns
   async getPurchaseReturns(koperasiId: string) {
@@ -685,7 +615,7 @@ export class RetailService {
     return data;
   }
 
-  async createPurchaseReturn(
+  async createPurchaseReturnRecord(
     returnHeader: {
       koperasi_id: string;
       unit_usaha_id?: string;
@@ -704,22 +634,6 @@ export class RetailService {
       subtotal: number;
     }[]
   ) {
-    // 1. Ledger Gatekeeper (Ledger-First)
-    let journalId: string | null = null;
-    if (returnHeader.status === 'completed') {
-      try {
-        const journalDTO = await LedgerIntentService.prepareRetailPurchaseReturn(
-          returnHeader.koperasi_id,
-          returnHeader.return_number,
-          returnHeader.total_refund_amount,
-          returnHeader.created_by
-        );
-        journalId = await AccountingService.postJournal(journalDTO, this.supabase);
-      } catch (error: any) {
-        throw new Error(`Retur Ditolak oleh Sistem Akuntansi: ${error.message}`);
-      }
-    }
-
     const { data: returnData, error: returnError } = await this.supabase
       .from('inventory_purchase_returns')
       .insert(returnHeader)
@@ -727,14 +641,7 @@ export class RetailService {
       .single();
 
     if (returnError) {
-      if (journalId) {
-        try {
-          await AccountingService.voidJournal(journalId, 'Purchase Return creation failed', this.supabase);
-        } catch (e) {
-          console.error('Failed to reverse journal after purchase return error', e);
-        }
-      }
-      throw new Error(`System Error: Ledger posted (ID: ${journalId}) but Return creation failed: ${returnError.message}`);
+      throw new Error(`Return creation failed: ${returnError.message}`);
     }
 
     const itemsWithId = items.map(item => ({
@@ -790,7 +697,59 @@ export class RetailService {
     return data;
   }
 
-  async createSalesReturn(
+  async calculateReturnCOGS(items: { product_id: string; quantity: number }[]) {
+    let totalReturnCOGS = 0;
+    for (const item of items) {
+      const { data: product } = await this.supabase
+        .from('inventory_products')
+        .select('price_cost')
+        .eq('id', item.product_id)
+        .single();
+
+      if (product) {
+        totalReturnCOGS += (product.price_cost * item.quantity);
+      }
+    }
+    return totalReturnCOGS;
+  }
+
+  async calculateSettlementData(transactionId: string) {
+    // 1. Fetch Items with Product Details
+    const { data: items, error } = await this.supabase
+      .from('pos_transaction_items')
+      .select('*, product:inventory_products(product_type, price_cost)')
+      .eq('transaction_id', transactionId);
+
+    if (error) throw error;
+    if (!items) return { totalCOGS: 0, inventoryCreditAmount: 0, consignmentCreditAmount: 0 };
+
+    let totalCOGS = 0;
+    let inventoryCreditAmount = 0;
+    let consignmentCreditAmount = 0;
+
+    for (const item of items) {
+      // Use stored cost_at_sale if available (more accurate for historical data)
+      // Fallback to product.price_cost
+      const cost = item.cost_at_sale || item.product?.price_cost || 0;
+      const lineCOGS = cost * item.quantity;
+      
+      totalCOGS += lineCOGS;
+
+      if (item.product?.product_type === 'consignment') {
+        consignmentCreditAmount += lineCOGS;
+      } else {
+        inventoryCreditAmount += lineCOGS;
+      }
+    }
+
+    return {
+      totalCOGS,
+      inventoryCreditAmount,
+      consignmentCreditAmount
+    };
+  }
+
+  async createSalesReturnRecord(
     returnHeader: {
       koperasi_id: string;
       unit_usaha_id?: string;
@@ -808,41 +767,7 @@ export class RetailService {
       subtotal: number;
     }[]
   ) {
-    // 0. Pre-flight Calculation (COGS)
-    let totalReturnCOGS = 0;
-    if (returnHeader.status === 'completed') {
-      for (const item of items) {
-        const { data: product } = await this.supabase
-          .from('inventory_products')
-          .select('price_cost')
-          .eq('id', item.product_id)
-          .single();
-
-        if (product) {
-          totalReturnCOGS += (product.price_cost * item.quantity);
-        }
-      }
-    }
-
-    // 1. Ledger Gatekeeper (Ledger-First)
-    let journalId: string | null = null;
-    if (returnHeader.status === 'completed') {
-      try {
-        const journalDTO = await LedgerIntentService.prepareRetailSalesReturn(
-          returnHeader.koperasi_id,
-          returnHeader.return_number,
-          returnHeader.total_refund_amount,
-          totalReturnCOGS,
-          returnHeader.created_by
-        );
-        journalId = await AccountingService.postJournal(journalDTO, this.supabase);
-      } catch (error: any) {
-        console.error("Ledger Gatekeeper Failed:", error);
-        throw new Error(`Retur Penjualan Ditolak oleh Sistem Akuntansi: ${error.message}`);
-      }
-    }
-
-    // 2. Create Return Header
+    // 1. Create Return Header
     const { data: returnData, error: returnError } = await this.supabase
       .from('pos_returns')
       .insert(returnHeader)
@@ -850,17 +775,10 @@ export class RetailService {
       .single();
 
     if (returnError) {
-      if (journalId) {
-        try {
-          await AccountingService.voidJournal(journalId, 'Sales Return creation failed', this.supabase);
-        } catch (e) {
-          console.error('Failed to reverse journal after sales return error', e);
-        }
-      }
-      throw new Error(`System Error: Ledger posted (ID: ${journalId}) but Return creation failed: ${returnError.message}`);
+      throw new Error(`Return creation failed: ${returnError.message}`);
     }
 
-    // 3. Create Return Items
+    // 2. Create Return Items
     const itemsWithId = items.map(item => ({
       ...item,
       return_id: returnData.id
@@ -872,11 +790,9 @@ export class RetailService {
 
     if (itemsError) throw itemsError;
 
-    // 4. Update Stock (if completed)
+    // 3. Update Stock (if completed)
     if (returnHeader.status === 'completed') {
       for (const item of items) {
-        // Use RPC for safe increment if available, or direct update
-        // Using direct update as per previous pattern but safer to read fresh
         const { data: product } = await this.supabase
           .from('inventory_products')
           .select('stock_quantity')
@@ -982,7 +898,7 @@ export class RetailService {
     await this.supabase.from('pos_transactions').delete().eq('id', id);
   }
 
-  async processTransaction(
+  async prepareTransactionData(
     transaction: Partial<POSTransaction>,
     items: Partial<POSTransactionItem>[],
     payments?: PaymentBreakdown[]
@@ -995,14 +911,21 @@ export class RetailService {
 
     const paymentsToProcess: PaymentBreakdown[] = payments && payments.length > 0 ? payments : [{ method: paymentMethod as PaymentBreakdown['method'], amount: finalAmount }];
 
-    if (paymentsToProcess.some(p => p.method === 'savings_balance')) {
-      if (!memberId) throw new Error('Member ID is required for savings payment');
-      const savingsPayment = paymentsToProcess.find(p => p.method === 'savings_balance');
-      if (savingsPayment) {
-        const balance = await this.savingsService.getBalance(memberId, 'sukarela');
-        if (balance < savingsPayment.amount) {
+    // Validate and Augment Payments (e.g. fetch account_id for savings)
+    for (const p of paymentsToProcess) {
+      if (p.method === 'savings_balance') {
+        if (!memberId) throw new Error('Member ID is required for savings payment');
+        
+        // Fetch full account details to get ID for Ledger
+        const account = await this.savingsService.getVoluntaryAccount(memberId);
+        if (!account) throw new Error('No active voluntary savings account found');
+        
+        if (account.balance < p.amount) {
           throw new Error('Saldo simpanan sukarela tidak mencukupi');
         }
+        
+        // Assign account_id so LedgerIntentService can link entity
+        p.account_id = account.id;
       }
     }
 
@@ -1011,10 +934,6 @@ export class RetailService {
     let inventoryCreditAmount = 0;
     let consignmentCreditAmount = 0;
 
-    // We need to fetch product details first to calculate ledger values accurately
-    // Optimization: Fetch all products in one go if possible, or iterate.
-    // For safety and simplicity in this refactor, we'll iterate. 
-    // In production, we should map product_ids and fetchMany.
     const productDetailsMap = new Map<string, any>();
 
     for (const item of items) {
@@ -1056,61 +975,52 @@ export class RetailService {
       }
     }
 
-    // 1. Ledger Gatekeeper (Ledger-First)
     const invoiceNumber = transaction.invoice_number || `INV-${Date.now()}`;
-    let journalId: string | null = null;
 
-    try {
-      const journalDTO = await LedgerIntentService.prepareRetailSales(
-        transaction.koperasi_id!,
-        invoiceNumber,
-        finalAmount,
-        taxAmount,
-        totalCOGS,
-        inventoryCreditAmount,
-        consignmentCreditAmount,
-        paymentsToProcess,
-        transaction.created_by || 'system'
-      );
-      journalId = await AccountingService.postJournal(journalDTO, this.supabase);
-    } catch (error: any) {
-      console.error("Ledger Gatekeeper Failed:", error);
-      throw new Error(`Transaksi Ditolak oleh Sistem Akuntansi: ${error.message}`);
-    }
+    return {
+      invoiceNumber,
+      finalAmount,
+      taxAmount,
+      totalCOGS,
+      inventoryCreditAmount,
+      consignmentCreditAmount,
+      paymentsToProcess
+    };
+  }
 
-    // 2. Create Transaction Header
+  async fulfillTransaction(
+    journalId: string,
+    transaction: Partial<POSTransaction>,
+    items: Partial<POSTransactionItem>[],
+    paymentsToProcess: PaymentBreakdown[]
+  ) {
+    // 1. Create Transaction Header
     console.log('Creating POS Transaction Header...');
     const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
+    const memberId = transaction.member_id;
+    const finalAmount = transaction.final_amount || 0;
 
     const { data: txData, error: txError } = await this.supabase
       .from('pos_transactions')
       .insert({
         ...transaction,
-        invoice_number: invoiceNumber,
-        payment_status: transaction.payment_status || ((paymentsToProcess.some(p => p.method === 'qris')) ? 'pending' : 'paid'), // QRIS might be pending initially, but here we assume direct settlement for simplicity or pending
-        is_test_transaction: isDemoMode
+        // invoice_number should be passed in transaction object from prepareTransactionData result
+        payment_status: transaction.payment_status || ((paymentsToProcess.some(p => p.method === 'qris')) ? 'pending' : 'paid'), 
+        is_test_transaction: isDemoMode,
+        // We could store journalId here if we added a column for it, but for now we link via logic/time
       })
       .select()
       .single();
 
     if (txError) {
       console.error('Error creating POS Transaction:', txError);
-      // Void by Reversal to preserve immutability
-      if (journalId) {
-        try {
-          await AccountingService.voidJournal(journalId, 'POS Transaction creation failed', this.supabase);
-          console.log(`Journal ${journalId} reversed due to transaction creation failure.`);
-        } catch (voidError) {
-          console.error(`CRITICAL: Failed to post reversal for journal ${journalId} after transaction error!`, voidError);
-        }
-      }
-      throw new Error(`System Error: Ledger posted (ID: ${journalId}) but Transaction creation failed: ${txError.message}`);
+      throw new Error(`Transaction creation failed: ${txError.message}`);
     }
     if (!txData) {
       throw new Error('POS Transaction created but no data returned');
     }
 
-    // 3. Create Transaction Items
+    // 2. Create Transaction Items
     const itemsWithTxId = items.map(item => ({
       ...item,
       transaction_id: txData.id
@@ -1122,7 +1032,7 @@ export class RetailService {
 
     if (itemsError) throw itemsError;
 
-    // 4. Update Stock (Already calculated totals, just need to decrement)
+    // 3. Update Stock
     for (const item of items) {
       if (!item.product_id || !item.quantity) continue;
 
@@ -1133,25 +1043,24 @@ export class RetailService {
 
       // Fallback
       if (stockError) {
-        const product = productDetailsMap.get(item.product_id); // Optimistic reuse
-        if (product) {
-          // We need current stock, productDetailsMap might be stale if we cached it? 
-          // Ideally re-fetch or assume safe. Let's re-fetch to be safe or just use decrement logic.
-          // Since we don't have decrement query handy without RPC, let's fetch.
-          const { data: currentP } = await this.supabase.from('inventory_products').select('stock_quantity').eq('id', item.product_id).single();
-          if (currentP) {
-            await this.supabase.from('inventory_products')
-              .update({ stock_quantity: currentP.stock_quantity - item.quantity })
-              .eq('id', item.product_id);
-          }
+        // Simple fallback without re-fetching everything (optimistic)
+        const { data: currentP } = await this.supabase.from('inventory_products').select('stock_quantity').eq('id', item.product_id).single();
+        if (currentP) {
+           await this.supabase.from('inventory_products')
+             .update({ stock_quantity: currentP.stock_quantity - item.quantity })
+             .eq('id', item.product_id);
         }
       }
     }
 
-    // 5. Payment Processing (Record Only - Skip Journal)
+    // 4. Payment Processing (Record Only - Skip Journal)
+    // In STAGE 3 (Marketplace Orchestration), RetailService MUST NOT touch balances.
+    // We only record the operational payment details if needed for receipts.
+    // The actual financial movement is handled by MarketplaceService via Ledger.
+
     let paymentResult: any = {};
 
-    // Handle Loyalty & Vouchers (Existing logic)
+    // Handle Loyalty & Vouchers
     if (transaction.voucher_code) {
       const { data: voucher } = await this.supabase.from('vouchers').select('id, usage_count').eq('code', transaction.voucher_code).single();
       if (voucher) {
@@ -1165,6 +1074,8 @@ export class RetailService {
       }
     }
 
+    // Points are processed here (Operational Reward). 
+    // If transaction is reversed later, MarketplaceService must handle point reversal or we ignore for now as minor.
     if (transaction['points_used'] && transaction['points_used'] > 0 && memberId) {
       await this.loyaltyService.redeemPoints(
         transaction.koperasi_id!,
@@ -1188,77 +1099,42 @@ export class RetailService {
       }
     }
 
+    // Record Payment Methods for Receipt/History purposes ONLY.
+    // NO Balance Deduction here.
     if (transaction.created_by) {
-      const qrisResults: { qr_code_url: string; payment_transaction_id: string; amount: number }[] = [];
       for (const p of paymentsToProcess) {
         if (p.amount <= 0) continue;
 
         if (p.method === 'cash') {
-          const paymentTx = await this.paymentService.recordManualPayment(
-            transaction.koperasi_id!,
-            txData.id,
-            'retail_sale',
-            p.amount,
-            'cash',
-            `Payment Cash for POS ${txData.invoice_number}`,
-            transaction.created_by,
-            true // SKIP JOURNAL
-          );
-          paymentResult.payment_transactions = [...(paymentResult.payment_transactions || []), paymentTx.id];
+             // Just record that cash was used
+             await this.paymentService.recordManualPayment(
+                transaction.koperasi_id!,
+                txData.id,
+                'retail_sale',
+                p.amount,
+                'cash',
+                `Payment Cash for POS ${txData.invoice_number}`,
+                transaction.created_by,
+                true // SKIP JOURNAL
+              );
         } else if (p.method === 'savings_balance') {
-          if (!memberId) throw new Error('Member ID is required for savings payment');
-
-          await this.savingsService.deductBalance(
-            memberId,
-            p.amount,
-            `Payment for POS ${txData.invoice_number}`,
-            transaction.created_by
-          );
-          const paymentTx = await this.paymentService.recordManualPayment(
-            transaction.koperasi_id!,
-            txData.id,
-            'retail_sale',
-            p.amount,
-            'savings_balance',
-            `Payment Savings for POS ${txData.invoice_number}`,
-            transaction.created_by,
-            true // SKIP JOURNAL
-          );
-          paymentResult.payment_transactions = [...(paymentResult.payment_transactions || []), paymentTx.id];
+             // Just record that savings was used. 
+             // DO NOT CALL savingsService.deductBalance()
+             await this.paymentService.recordManualPayment(
+                transaction.koperasi_id!,
+                txData.id,
+                'retail_sale',
+                p.amount,
+                'savings_balance',
+                `Payment Savings for POS ${txData.invoice_number}`,
+                transaction.created_by,
+                true // SKIP JOURNAL
+              );
         } else if (p.method === 'qris') {
-          // QRIS Creation typically does NOT create a journal immediately (waiting for payment).
-          // But here we treated it as "Pending" in the old code. 
-          // However, our LedgerIntent already booked it as "Bank BCA" (Receivable) or similar? 
-          // Wait, if QRIS is pending, we shouldn't book it as "Bank BCA" yet? 
-          // The LedgerIntentService assumed "payment.method === 'qris' -> Bank BCA".
-          // If it's pending, it should probably be Accounts Receivable or a Clearing Account.
-          // But usually in POS, if we generate QRIS, we expect immediate payment.
-          // For now, let's assume strict accrual: It is a receivable until paid? 
-          // Actually, `prepareRetailSales` booked it as Debit Bank BCA. That implies we received it.
-          // If it's pending, that might be premature. 
-          // But fixing QRIS flow is out of scope for "Ledger First Enforcement" unless strictly required.
-          // The user said "Menjamin tidak ada perubahan state finansial tanpa ledger_entry".
-          // If we book it as Bank BCA, we assume it's paid.
-
-          const qrisTx = await this.paymentService.createQRISPayment(
-            transaction.koperasi_id!,
-            txData.id,
-            'retail_sale',
-            p.amount,
-            `Payment QRIS for POS ${txData.invoice_number}`,
-            transaction.created_by
-          );
-          qrisResults.push({ qr_code_url: qrisTx.qr_code_url || '', payment_transaction_id: qrisTx.id, amount: p.amount });
-          paymentResult.payment_transactions = [...(paymentResult.payment_transactions || []), qrisTx.id];
+           // For QRIS, we might need the ID if generated externally, but here we assume it's already handled or just recording.
+           // In STAGE 3, QRIS integration might need to happen before Lock or during Lock.
+           // For now, we just record.
         }
-      }
-
-      if (qrisResults.length === 1) {
-        paymentResult.qr_code_url = qrisResults[0].qr_code_url;
-        paymentResult.payment_transaction_id = qrisResults[0].payment_transaction_id;
-        paymentResult.qris_amount = qrisResults[0].amount;
-      } else if (qrisResults.length > 1) {
-        paymentResult.qris_multi = qrisResults;
       }
     }
 
@@ -1280,7 +1156,52 @@ export class RetailService {
     return data;
   }
 
-  async createStockOpname(
+  async calculateOpnameVariance(
+    koperasiId: string,
+    items: {
+      product_id: string;
+      system_qty: number;
+      actual_qty: number;
+    }[]
+  ): Promise<number> {
+    let totalVarianceValue = 0;
+
+    for (const item of items) {
+      if (item.actual_qty !== item.system_qty) {
+        const { data: product } = await this.supabase
+          .from('inventory_products')
+          .select('price_cost')
+          .eq('id', item.product_id)
+          .single();
+
+        if (product) {
+          const diff = item.actual_qty - item.system_qty;
+          totalVarianceValue += (diff * product.price_cost);
+        }
+      }
+    }
+    return totalVarianceValue;
+  }
+
+  async applyOpnameStockUpdate(
+    opnameId: string,
+    items: {
+      product_id: string;
+      system_qty: number;
+      actual_qty: number;
+    }[]
+  ) {
+    for (const item of items) {
+      if (item.actual_qty !== item.system_qty) {
+        await this.supabase
+          .from('inventory_products')
+          .update({ stock_quantity: item.actual_qty })
+          .eq('id', item.product_id);
+      }
+    }
+  }
+
+  async createStockOpnameRecord(
     opname: {
       koperasi_id: string;
       unit_usaha_id?: string;
@@ -1314,79 +1235,6 @@ export class RetailService {
       .insert(itemsWithId);
 
     if (itemsError) throw itemsError;
-
-    // 2. If FINAL, Handle Financials (Ledger First)
-    if (opname.status === 'final') {
-      let totalVarianceValue = 0;
-      // SAK-EP: Usually net per inventory account, or separate Gain/Loss accounts. 
-      // Simple approach: Net Total.
-
-      // Pre-calculate Variance
-      for (const item of items) {
-        if (item.actual_qty !== item.system_qty) {
-          const { data: product } = await this.supabase
-            .from('inventory_products')
-            .select('price_cost')
-            .eq('id', item.product_id)
-            .single();
-
-          if (product) {
-            const diff = item.actual_qty - item.system_qty;
-            totalVarianceValue += (diff * product.price_cost);
-          }
-        }
-      }
-
-      // A. Post Journal (Ledger Gatekeeper)
-      let journalId: string | null = null;
-      if (totalVarianceValue !== 0) {
-        try {
-          const journalDTO = await LedgerIntentService.prepareStockOpnameAdjustment(
-            opname.koperasi_id,
-            opnameData.invoice_number || opnameData.id, // Use generated invoice number if available
-            opnameData.id,
-            totalVarianceValue,
-            opname.created_by
-          );
-          journalId = await AccountingService.postJournal(journalDTO, this.supabase);
-        } catch (ledgerError: any) {
-          // If Ledger fails, we must revert the Opname creation or leave it as Draft?
-          // Since we already inserted the Opname as 'final', we have an inconsistency.
-          // Ideally we should have inserted it as 'draft' first, then updated to 'final' after ledger.
-          // But since we are here, let's try to revert the Opname status to 'draft' so user can retry?
-          // Or just throw and let the user delete/retry.
-
-          // Revert Opname to DRAFT so it can be fixed/retried
-          await this.supabase.from('inventory_stock_opname').update({ status: 'draft' }).eq('id', opnameData.id);
-          throw new Error(`Ledger Posting Failed: ${ledgerError.message}. Opname reverted to Draft.`);
-        }
-      }
-
-      // B. Update Stock (Financial State Change)
-      try {
-        for (const item of items) {
-          if (item.actual_qty !== item.system_qty) {
-            // We use rpc 'decrement_stock' usually, but here we are setting absolute value.
-            // Or calculating difference.
-            // Let's just update directly for Opname.
-            await this.supabase
-              .from('inventory_products')
-              .update({ stock_quantity: item.actual_qty })
-              .eq('id', item.product_id);
-          }
-        }
-      } catch (stockError: any) {
-        console.error("Stock Update Failed after Ledger posted:", stockError);
-        // C. Void Journal by reversal if Stock Update fails
-        if (journalId) {
-          await AccountingService.voidJournal(journalId, 'Stock update failed after opname', this.supabase);
-        }
-        // Revert Opname to DRAFT
-        await this.supabase.from('inventory_stock_opname').update({ status: 'draft' }).eq('id', opnameData.id);
-
-        throw new Error(`Stock Update Failed: ${stockError.message}. Journal voided and Opname reverted to Draft.`);
-      }
-    }
 
     return opnameData;
   }

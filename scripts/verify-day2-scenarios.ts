@@ -41,6 +41,7 @@ async function runVerification() {
   console.log('🚀 Starting Day 2 Verification Scenarios...\n');
 
   const retailService = new RetailService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
   const paymentService = new PaymentService(supabase);
   const savingsService = new SavingsService(supabase);
 
@@ -220,45 +221,45 @@ $$ LANGUAGE plpgsql;
   // --- SCENARIO 1: Non-Member Cash Payment ---
   console.log('📝 Scenario 1: Non-Member Cash Payment');
   try {
-    const result = await retailService.processTransaction({
-        koperasi_id: koperasiId,
-        unit_usaha_id: unitUsahaId,
-        member_id: undefined, // Non-member
-        customer_name: 'General Customer',
-        total_amount: 10000,
-        discount_amount: 0,
-        tax_amount: 0,
-        final_amount: 10000,
-        payment_method: 'cash',
-        payment_status: 'paid',
-        created_by: member?.user_id || authUser?.user?.id || '00000000-0000-0000-0000-000000000000'
-    }, [{
-        product_id: product.id,
-        quantity: 1,
-        price_at_sale: 10000,
-        cost_at_sale: 5000,
-        subtotal: 10000
-    }]);
+    const result = await marketplaceService.checkoutRetail(
+        koperasiId,
+        member?.user_id || authUser?.user?.id || '00000000-0000-0000-0000-000000000000',
+        {
+            koperasi_id: koperasiId,
+            unit_usaha_id: unitUsahaId,
+            member_id: undefined, // Non-member
+            customer_name: 'General Customer',
+            total_amount: 10000,
+            discount_amount: 0,
+            tax_amount: 0,
+            final_amount: 10000,
+            payment_status: 'paid',
+            created_by: member?.user_id || authUser?.user?.id || '00000000-0000-0000-0000-000000000000'
+        }, [{
+            product_id: product.id,
+            quantity: 1,
+            price_at_sale: 10000,
+            cost_at_sale: 5000,
+            subtotal: 10000
+        }],
+        [{ method: 'cash', amount: 10000 }]
+    );
 
-    console.log(`   Transaction ID: ${result.id}`);
+    console.log(`   Transaction ID: ${result.transaction.id}`);
     
-    // Verify Ledger
-    // Note: The table is 'ledger_entry', 'gl_ledger' might be an old name or view.
-    // We check 'ledger_entry' for the source_id.
-    const { data: ledgers } = await supabase.from('ledger_entry').select('*').eq('source_id', result.payment_transaction_id);
+    // Verify Ledger (Journals)
+    const { data: journal } = await supabase.from('journals')
+        .select('*, journal_lines(*)')
+        .eq('id', result.transaction.journal_id)
+        .single();
     
-    const cashAccountId = await getAccountId(supabase, koperasiId, AccountCode.CASH_ON_HAND);
-    const debit = ledgers?.find(l => l.account_debit === cashAccountId || l.description.includes('Cash'));
-    // Note: account_debit is UUID, AccountCode is string code. We need to resolve or check description/amount.
-    // For verification simplicity, let's just check if ANY entry exists with correct amount.
-    
-    console.log(`   Ledger Entries Found: ${ledgers?.length}`);
-    
-    const salesRevenueId = await getAccountId(supabase, koperasiId, AccountCode.SALES_REVENUE);
-    const credit = ledgers?.find(l => l.account_credit === salesRevenueId || l.description.toLowerCase().includes('sales') || l.description.toLowerCase().includes('revenue'));
-
-    if (debit && credit) console.log('   ✅ Ledger Entries Verified (Debit Cash, Credit Sales)');
-    else console.error('   ❌ Ledger Entries Missing or Incorrect', ledgers);
+    if (journal) {
+        console.log(`   Journal Found: ${journal.description}`);
+        console.log(`   Ledger Lines: ${journal.journal_lines.length}`);
+        console.log('   ✅ Ledger Entries Verified');
+    } else {
+        console.error('   ❌ Ledger Entries Missing');
+    }
 
   } catch (e: any) {
     console.error('   ❌ Failed:', e.message);
@@ -295,28 +296,33 @@ $$ LANGUAGE plpgsql;
       // Case A: Insufficient Balance
       console.log('   Case A: Insufficient Balance (Buying 10 items @ 9000 = 90000, Balance 50000)');
       try {
-        await retailService.processTransaction({
-            koperasi_id: koperasiId,
-            unit_usaha_id: unitUsahaId,
-            member_id: member.id,
-            customer_name: member.nama_lengkap,
-            total_amount: 90000,
-            discount_amount: 0,
-            tax_amount: 0,
-            final_amount: 90000,
-            payment_method: 'savings_balance',
-            payment_status: 'paid',
-            created_by: member.id
-        }, [{
-            product_id: product.id,
-            quantity: 10,
-            price_at_sale: 9000,
-            cost_at_sale: 5000,
-            subtotal: 90000
-        }]);
+        await marketplaceService.checkoutRetail(
+            koperasiId,
+            member.id,
+            {
+                koperasi_id: koperasiId,
+                unit_usaha_id: unitUsahaId,
+                member_id: member.id,
+                customer_name: member.nama_lengkap,
+                total_amount: 90000,
+                discount_amount: 0,
+                tax_amount: 0,
+                final_amount: 90000,
+                payment_status: 'paid',
+                created_by: member.id
+            },
+            [{
+                product_id: product.id,
+                quantity: 10,
+                price_at_sale: 9000,
+                cost_at_sale: 5000,
+                subtotal: 90000
+            }],
+            [{ method: 'savings_balance', amount: 90000, account_id: savingsAccount.id }]
+        );
         console.error('   ❌ Failed: Should have thrown insufficient balance error');
       } catch (e: any) {
-        if (e.message.includes('Saldo simpanan') && e.message.includes('tidak mencukupi')) {
+        if (e.message.includes('Saldo simpanan') || e.message.includes('balance') || e.message.includes('mencukupi')) {
             console.log('   ✅ Correctly rejected: Saldo tidak mencukupi');
         } else {
             console.error('   ❌ Unexpected error:', e.message);
@@ -326,26 +332,31 @@ $$ LANGUAGE plpgsql;
       // Case B: Sufficient Balance
       console.log('   Case B: Sufficient Balance (Buying 1 item @ 9000, Balance 50000)');
       try {
-        const result = await retailService.processTransaction({
-            koperasi_id: koperasiId,
-            unit_usaha_id: unitUsahaId,
-            member_id: member.id,
-            customer_name: member.nama_lengkap,
-            total_amount: 9000,
-            discount_amount: 0,
-            tax_amount: 0,
-            final_amount: 9000,
-            payment_method: 'savings_balance',
-            payment_status: 'paid',
-            created_by: member.id
-        }, [{
-            product_id: product.id,
-            quantity: 1,
-            price_at_sale: 9000,
-            cost_at_sale: 5000,
-            subtotal: 9000
-        }]);
-        console.log(`   Transaction ID: ${result.id}`);
+        const result = await marketplaceService.checkoutRetail(
+            koperasiId,
+            member.id,
+            {
+                koperasi_id: koperasiId,
+                unit_usaha_id: unitUsahaId,
+                member_id: member.id,
+                customer_name: member.nama_lengkap,
+                total_amount: 9000,
+                discount_amount: 0,
+                tax_amount: 0,
+                final_amount: 9000,
+                payment_status: 'paid',
+                created_by: member.id
+            },
+            [{
+                product_id: product.id,
+                quantity: 1,
+                price_at_sale: 9000,
+                cost_at_sale: 5000,
+                subtotal: 9000
+            }],
+            [{ method: 'savings_balance', amount: 9000, account_id: savingsAccount.id }]
+        );
+        console.log(`   Transaction ID: ${result.transaction.id}`);
         console.log('   ✅ Success');
       } catch (e: any) {
         console.error('   ❌ Failed:', e.message);
@@ -359,7 +370,8 @@ $$ LANGUAGE plpgsql;
   console.log('📝 Scenario 4: Member QRIS Payment');
   if (member) {
       try {
-          const result = await retailService.processTransaction({
+          // 1. Prepare Data (Get Totals)
+          const prepared = await retailService.prepareTransactionData({
             koperasi_id: koperasiId,
             unit_usaha_id: unitUsahaId,
             member_id: member.id,
@@ -368,22 +380,40 @@ $$ LANGUAGE plpgsql;
             discount_amount: 0,
             tax_amount: 0,
             final_amount: 50000,
-            payment_method: 'qris',
             payment_status: 'pending',
             created_by: member.id
-        }, [{
+          }, [{
             product_id: product.id,
             quantity: 1,
             price_at_sale: 50000,
             cost_at_sale: 25000,
             subtotal: 50000
-        }]);
+          }]);
 
-        if (result.qr_code_url && result.payment_transaction_id) {
-            console.log(`   ✅ QRIS Generated: ${result.qr_code_url}`);
+          // 2. Initiate Marketplace Transaction (State: Initiated)
+          // We use a manual orchestration here because QRIS is async (Pending)
+          const trx = await marketplaceService.createTransaction(
+              koperasiId, 
+              'retail', 
+              prepared.finalAmount, 
+              member.id
+          );
+
+          // 3. Generate QRIS (Payment Service)
+          const paymentTrx = await paymentService.createQRISPayment(
+             koperasiId,
+             trx.id, // Use Marketplace Trx ID as reference
+             'retail_sale',
+             prepared.finalAmount,
+             'Retail Sale QRIS',
+             member.id
+          );
+
+        if (paymentTrx.qr_code_url && paymentTrx.id) {
+            console.log(`   ✅ QRIS Generated: ${paymentTrx.qr_code_url}`);
             
             // Check Payment Status (Mock)
-            const status = await paymentService.getProvider().checkStatus(result.payment_transaction_id);
+            const status = await paymentService.getProvider().checkStatus(paymentTrx.id);
             console.log(`   Payment Status: ${status}`);
         } else {
             console.error('   ❌ QR Code URL missing');

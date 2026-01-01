@@ -20,6 +20,13 @@ export default function RetailDashboardPage() {
       color: 'bg-red-600',
     },
     {
+      name: 'Closing Harian',
+      description: 'Rekonsiliasi kas dan tutup shift',
+      href: '/dashboard/retail/closing',
+      icon: ClipboardList,
+      color: 'bg-indigo-600',
+    },
+    {
       name: 'Produk',
       description: 'Kelola data barang, harga, dan stok',
       href: '/dashboard/retail/products',

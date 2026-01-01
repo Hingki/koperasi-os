@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -42,8 +42,15 @@ export function CheckoutDialog({
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'cash' | 'qris' | 'savings'>('cash');
     const [successData, setSuccessData] = useState<any>(null);
+    const [idempotencyKey, setIdempotencyKey] = useState<string>('');
     const router = useRouter();
     const { toast } = useToast();
+
+    useEffect(() => {
+        if (open) {
+            setIdempotencyKey(crypto.randomUUID());
+        }
+    }, [open]);
 
     const change = Number(cashAmount) - total;
     const canPay = Number(cashAmount) >= total;
@@ -142,7 +149,13 @@ export function CheckoutDialog({
                 amount: total
             }];
 
-            const res = await processPosTransaction(transactionData, itemsData, paymentData as any, originalTransactionId);
+            const res = await processPosTransaction(
+                transactionData, 
+                itemsData, 
+                paymentData as any, 
+                originalTransactionId, 
+                idempotencyKey
+            );
 
             if (res.success) {
                 setSuccessData(res.data);

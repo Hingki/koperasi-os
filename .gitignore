@@ -44,3 +44,10 @@ next-env.d.ts
 
 certificates
 .env*.local
+
+*.log
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!scripts/tsconfig.script.json

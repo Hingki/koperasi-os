@@ -2,9 +2,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { SavingsService } from '@/lib/services/savings-service';
-import { AccountingService } from '@/lib/services/accounting-service';
-import { AccountCode } from '@/lib/types/ledger';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
 import { revalidatePath } from 'next/cache';
 
 export interface PPOBProduct {
@@ -80,140 +78,35 @@ export async function purchasePPOB(formData: FormData) {
     return { error: 'Data tidak lengkap' };
   }
 
-  let product = await supabase
-    .from('ppob_products')
-    .select('*')
-    .eq('id', productId)
-    .single()
-    .then(({ data }) => data);
+  // 1. Get Account to identify Member & Koperasi
+  const { data: account, error: accError } = await supabase
+      .from('savings_accounts')
+      .select('member_id, koperasi_id')
+      .eq('id', accountId)
+      .single();
+  
+  if (accError || !account) return { error: 'Rekening tidak ditemukan' };
 
-  if (!product) {
-     product = DEFAULT_PPOB_PRODUCTS.find(p => p.id === productId);
-  }
-
-  if (!product) {
-    return { error: 'Produk tidak ditemukan' };
-  }
-
-  const service = new SavingsService(supabase);
+  // 2. Use MarketplaceService for Orchestration
+  const marketplaceService = new MarketplaceService(supabase);
 
   try {
-    // Check if account belongs to user
-    const { data: account, error: accError } = await supabase
-        .from('savings_accounts')
-        .select('member_id, koperasi_id, product:savings_products(type)')
-        .eq('id', accountId)
-        .single();
-    
-    if (accError || !account) return { error: 'Rekening tidak ditemukan' };
-
-    // Helper to map savings type to account code
-    const getSavingsLiabilityAccount = (type: string) => {
-      switch (type) {
-          case 'pokok': return AccountCode.SAVINGS_PRINCIPAL;
-          case 'wajib': return AccountCode.SAVINGS_MANDATORY;
-          case 'sukarela': return AccountCode.SAVINGS_VOLUNTARY;
-          default: return AccountCode.SAVINGS_VOLUNTARY;
-      }
-    };
-
-    const productData = account.product as any;
-    const productType = Array.isArray(productData) ? productData[0]?.type : productData?.type;
-    const savingsAccountCode = getSavingsLiabilityAccount(productType || 'sukarela');
-
-    // Get PPOB Settings
-    const { data: settings } = await supabase
-      .from('ppob_settings')
-      .select('admin_fee')
-      .eq('koperasi_id', account.koperasi_id)
-      .maybeSingle();
-    
-    const globalAdminFee = Number(settings?.admin_fee || 0);
-    const productAdminFee = Number(product.admin_fee || 0);
-    const productPrice = Number(product.price_sell || product.price);
-    
-    const totalAdminFee = globalAdminFee + productAdminFee;
-    const totalAmount = productPrice + totalAdminFee;
-
-    // Determine Ledger Accounts (Defaults)
-    // TODO: Make these configurable in settings
-    const depositAccount = AccountCode.CASH_ON_HAND; // Temporary: Assume paid from cash/deposit
-    const revenueAccount = AccountCode.OTHER_INCOME; 
-
-    const { transaction } = await service.processTransaction(
-      accountId,
-      totalAmount,
-      'withdrawal',
+    const result = await marketplaceService.checkoutPpob(
+      account.koperasi_id,
       user.id,
-      `PPOB: ${product.name} - ${customerNumber}`,
-      'CASH',
-      true // Skip default ledger
+      {
+        member_id: account.member_id,
+        koperasi_id: account.koperasi_id,
+        account_id: accountId,
+        product_code: productId,
+        customer_number: customerNumber
+      }
     );
 
-    // Record Ledger Entries (Smart Accounting)
-    
-    // 1. Payment for Product (Reduces Savings, Reduces Asset/Increases Revenue)
-    // Debit: Savings Liability (AccountCode derived above)
-    // Credit: PPOB Revenue (or Cash if we treat it as pass-through)
-    
-    try {
-        const debitAccId = await AccountingService.getAccountIdByCode(account.koperasi_id, savingsAccountCode, supabase);
-        // TODO: Use specific PPOB Income account if available
-        const creditAccId = await AccountingService.getAccountIdByCode(account.koperasi_id, AccountCode.OTHER_INCOME, supabase);
-
-        if (debitAccId && creditAccId) {
-            await AccountingService.postJournal({
-                koperasi_id: account.koperasi_id,
-                business_unit: 'PPOB',
-                transaction_date: new Date().toISOString().split('T')[0],
-                description: `Pembelian PPOB ${product.name} - ${customerNumber}`,
-                reference_id: transaction.id,
-                reference_type: 'PPOB_TRANSACTION',
-                lines: [
-                    { account_id: debitAccId, debit: totalAmount, credit: 0 },
-                    { account_id: creditAccId, debit: 0, credit: totalAmount }
-                ]
-            }, supabase);
-        } else {
-             console.warn('Accounting Warning: Accounts not found for PPOB Transaction');
-        }
-    } catch (ledgerError) {
-        console.error('Ledger Recording Failed:', ledgerError);
-    }
-
-    // Log PPOB Transaction
-    const { error: logError } = await supabase
-      .from('ppob_transactions')
-      .insert({
-        koperasi_id: account.koperasi_id,
-        member_id: account.member_id,
-        account_id: accountId,
-        category: product.category,
-        provider: product.provider,
-        product_id: product.id,
-        product_name: product.name,
-        customer_number: customerNumber,
-        price: productPrice,
-        admin_fee: totalAdminFee,
-        total_amount: totalAmount,
-        status: 'success',
-        metadata: {
-            price_base: product.price_base || 0,
-            global_fee: globalAdminFee,
-            product_fee: productAdminFee
-        },
-        created_by: user.id
-      });
-    if (logError) {
-      // Non-blocking
-      console.error('Failed to log PPOB transaction', logError);
-    }
-
-    revalidatePath('/member/simpanan');
     revalidatePath('/member/ppob');
-    return { success: true, message: `Pembelian ${product.name} berhasil!` };
-
+    return { success: true, transaction: result.transaction };
   } catch (error: any) {
-    return { error: error.message || 'Transaksi Gagal' };
+    console.error('PPOB Purchase Failed:', error);
+    return { error: error.message };
   }
 }

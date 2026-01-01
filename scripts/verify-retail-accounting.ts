@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { RetailService } from '../src/lib/services/retail-service';
+import { MarketplaceService } from '../src/lib/services/marketplace-service';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -98,7 +99,7 @@ async function main() {
     // 2. Test Purchase (Stock In)
     console.log('\n2. Testing Purchase (Stock In)...');
     const purchaseInvoice = `INV-IN-${Date.now()}`;
-    const purchase = await retailService.createPurchase({
+    const purchase = await retailService.createPurchaseRecord({
         koperasi_id: koperasi.id,
         unit_usaha_id: unitUsaha.id,
         supplier_id: supplier.id,
@@ -140,22 +141,28 @@ async function main() {
 
     // 3. Testing POS Sale (Stock Out)
     console.log('\n3. Testing POS Sale (Stock Out)...');
-    const sale = await retailService.processTransaction({
-        koperasi_id: koperasi.id,
-        unit_usaha_id: unitUsaha!.id,
-        customer_name: 'Test Customer',
-        total_amount: 15000, // 1 * 15000
-        final_amount: 15000,
-        payment_method: 'cash',
-        payment_status: 'paid',
-        created_by: userId
-    }, [{
-        product_id: product.id,
-        quantity: 1,
-        price_at_sale: 15000,
-        cost_at_sale: 10000,
-        subtotal: 15000
-    }]);
+    const checkoutResult = await marketplaceService.checkoutRetail(
+        koperasiId,
+        userId,
+        {
+            koperasi_id: koperasiId,
+            unit_usaha_id: unitUsaha!.id,
+            customer_name: 'Test Customer',
+            total_amount: 15000, // 1 * 15000
+            final_amount: 15000,
+            payment_status: 'paid',
+            created_by: userId
+        }, 
+        [{
+            product_id: product.id,
+            quantity: 1,
+            price_at_sale: 15000,
+            cost_at_sale: 10000,
+            subtotal: 15000
+        }],
+        [{ method: 'cash', amount: 15000 }]
+    );
+    const sale = checkoutResult.operational;
     console.log('Sale Created:', sale.invoice_number);
 
     // Verify Ledger for Sale (Revenue)

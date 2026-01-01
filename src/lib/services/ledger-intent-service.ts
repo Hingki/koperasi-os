@@ -16,6 +16,8 @@ import { AccountCode, AccountingEventType } from '@/lib/types/ledger';
  * - Bypass RLS
  */
 export const LedgerIntentService = {
+  // Hook for testing
+  _getClient: async () => createClient(),
 
   /**
    * Validate and Construct a Journal Entry DTO
@@ -44,7 +46,7 @@ export const LedgerIntentService = {
     }
 
     // 2. Validate Period (Pre-check)
-    const supabase = await createClient();
+    const supabase = await this._getClient();
     const today = new Date().toISOString().split('T')[0];
 
     const { data: period, error } = await supabase
@@ -100,7 +102,283 @@ export const LedgerIntentService = {
     }
   },
 
-  // --- Domain Specific Intent Builders ---
+  // --- Savings Domain Helpers ---
+  
+  async prepareSavingsDeposit(
+    koperasiId: string,
+    transactionId: string,
+    amount: number,
+    method: 'cash' | 'transfer',
+    memberId: string,
+    savingsAccountId: string,
+    userId: string
+  ): Promise<CreateJournalDTO> {
+    const savingsLiabilityAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.SAVINGS_VOLUNTARY);
+    const assetAccId = await AccountingService.getAccountIdByCode(
+      koperasiId, 
+      method === 'cash' ? AccountCode.CASH_ON_HAND : AccountCode.BANK_BCA
+    );
+
+    if (!savingsLiabilityAccId || !assetAccId) throw new Error('GL Account Configuration Missing for Savings Deposit');
+
+    const lines: JournalLineDTO[] = [
+      { 
+        account_id: assetAccId, 
+        debit: amount, 
+        credit: 0, 
+        description: `Setoran Simpanan (${method}) - ${transactionId}` 
+      },
+      { 
+        account_id: savingsLiabilityAccId, 
+        debit: 0, 
+        credit: amount, 
+        description: `Kredit Simpanan - ${transactionId}`,
+        entity_id: savingsAccountId,
+        entity_type: 'savings_account'
+      }
+    ];
+
+    return this.createIntent(
+      koperasiId,
+      'SAVINGS_DEPOSIT',
+      `Setoran Simpanan ${transactionId}`,
+      lines,
+      transactionId,
+      'SAVINGS_TRANSACTION',
+      userId
+    );
+  },
+
+  async prepareSavingsWithdrawal(
+    koperasiId: string,
+    transactionId: string,
+    amount: number,
+    method: 'cash' | 'transfer',
+    memberId: string,
+    savingsAccountId: string,
+    userId: string
+  ): Promise<CreateJournalDTO> {
+    const savingsLiabilityAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.SAVINGS_VOLUNTARY);
+    const assetAccId = await AccountingService.getAccountIdByCode(
+      koperasiId, 
+      method === 'cash' ? AccountCode.CASH_ON_HAND : AccountCode.BANK_BCA
+    );
+
+    if (!savingsLiabilityAccId || !assetAccId) throw new Error('GL Account Configuration Missing for Savings Withdrawal');
+
+    const lines: JournalLineDTO[] = [
+      { 
+        account_id: savingsLiabilityAccId, 
+        debit: amount, 
+        credit: 0, 
+        description: `Debit Simpanan - ${transactionId}`,
+        entity_id: savingsAccountId,
+        entity_type: 'savings_account'
+      },
+      { 
+        account_id: assetAccId, 
+        debit: 0, 
+        credit: amount, 
+        description: `Penarikan Simpanan (${method}) - ${transactionId}` 
+      }
+    ];
+
+    return this.createIntent(
+      koperasiId,
+      'SAVINGS_WITHDRAWAL',
+      `Penarikan Simpanan ${transactionId}`,
+      lines,
+      transactionId,
+      'SAVINGS_TRANSACTION',
+      userId
+    );
+  },
+
+  // STAGE 3: Marketplace Escrow Lock
+  async prepareMarketplaceLock(
+    koperasiId: string,
+    transactionType: 'retail' | 'ppob',
+    referenceId: string, // invoice number or trx id
+    totalAmount: number,
+    payments: { method: string; amount: number; account_id?: string }[], 
+    userId: string
+  ): Promise<CreateJournalDTO> {
+    const lines: JournalLineDTO[] = [];
+    const escrowAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.ESCROW_LIABILITY);
+    
+    if (!escrowAccId) throw new Error('GL Account Configuration Missing: Escrow Liability (2-1300)');
+
+    // 1. Debit Side (Source of Funds)
+    for (const payment of payments) {
+        let accCode = AccountCode.CASH_ON_HAND;
+        if (payment.method === 'qris' || payment.method === 'transfer' || payment.method === 'va') {
+            accCode = AccountCode.BANK_BCA; 
+        } else if (payment.method === 'savings_balance') {
+            accCode = AccountCode.SAVINGS_VOLUNTARY;
+        }
+
+        const debitAccId = await AccountingService.getAccountIdByCode(koperasiId, accCode);
+        if (!debitAccId) throw new Error(`GL Account Missing for Payment Method: ${payment.method}`);
+
+        lines.push({
+            account_id: debitAccId,
+            debit: payment.amount,
+            credit: 0,
+            description: `Payment (${payment.method}) - ${referenceId}`,
+            entity_id: payment.account_id,
+            entity_type: payment.method === 'savings_balance' ? 'savings_account' : undefined
+        });
+    }
+
+    // 2. Credit Side (Escrow Liability)
+    lines.push({
+        account_id: escrowAccId,
+        debit: 0,
+        credit: totalAmount,
+        description: `Escrow Lock - ${referenceId}`
+    });
+
+    return this.createIntent(
+        koperasiId,
+        transactionType === 'retail' ? 'RETAIL_SALE' : 'PAYMENT_RECEIPT', 
+        `Marketplace Lock (${transactionType}) - ${referenceId}`,
+        lines,
+        referenceId,
+        'MARKETPLACE_LOCK',
+        userId
+    );
+  },
+
+  // STAGE 3: Retail Settlement Lines Helper
+  async prepareRetailSettlementLines(
+    koperasiId: string,
+    invoiceNumber: string,
+    finalAmount: number,
+    taxAmount: number,
+    cogsAmount: number,
+    inventoryCreditAmount: number,
+    consignmentCreditAmount: number
+  ): Promise<JournalLineDTO[]> {
+      const lines: JournalLineDTO[] = [];
+      const revenueAmount = finalAmount - taxAmount;
+
+      const revenueAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.SALES_REVENUE);
+      const cogsAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.COGS);
+      const inventoryAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_MERCHANDISE);
+      const consignmentAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.CONSIGNMENT_PAYABLE);
+
+      if (!revenueAccId || !cogsAccId || !inventoryAccId) throw new Error('GL Config Missing for Retail Settlement');
+
+      // Credit Revenue (Offsets Escrow Debit)
+      lines.push({
+          account_id: revenueAccId,
+          debit: 0,
+          credit: revenueAmount,
+          description: `Sales Revenue - ${invoiceNumber}`
+      });
+
+      // Credit Tax (Offsets Escrow Debit)
+      if (taxAmount > 0) {
+          const vatOutAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.VAT_OUT);
+          if (vatOutAccId) {
+             lines.push({
+                 account_id: vatOutAccId,
+                 debit: 0,
+                 credit: taxAmount,
+                 description: `VAT Out - ${invoiceNumber}`
+             });
+          }
+      }
+
+      // COGS Journal (Debit COGS, Credit Inventory/Consignment)
+      // These are strictly internal movements triggered by settlement/fulfillment recognition
+      if (cogsAmount > 0) {
+          lines.push({
+              account_id: cogsAccId,
+              debit: cogsAmount,
+              credit: 0,
+              description: `COGS - ${invoiceNumber}`
+          });
+
+          if (inventoryCreditAmount > 0) {
+              lines.push({
+                  account_id: inventoryAccId,
+                  debit: 0,
+                  credit: inventoryCreditAmount,
+                  description: `Inventory Usage - ${invoiceNumber}`
+              });
+          }
+          if (consignmentCreditAmount > 0 && consignmentAccId) {
+               lines.push({
+                  account_id: consignmentAccId,
+                  debit: 0,
+                  credit: consignmentCreditAmount,
+                  description: `Consignment Payable - ${invoiceNumber}`
+              });
+          }
+      }
+      
+      return lines;
+  },
+
+  // STAGE 3: PPOB Settlement Lines Helper
+  async preparePpobSettlementLines(
+    koperasiId: string,
+    referenceId: string,
+    totalPriceSell: number, // Customer paid this (Revenue)
+    totalPriceBuy: number // We pay this (Expense/Deposit)
+  ): Promise<JournalLineDTO[]> {
+      const lines: JournalLineDTO[] = [];
+      
+      const revenueAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.PPOB_REVENUE);
+      const expenseAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_ADJUSTMENT); // Use specific expense? 5-1102?
+      // Actually PPOB Buy Price is usually deducted from Deposit.
+      // 5-1102 is INVENTORY_ADJUSTMENT.
+      // Standard PPOB Cost: 5-xxxx?
+      // Let's reuse what was in PpobService: 
+      // Expense: 5-1102 (Inventory Adjustment? weird).
+      // Let's use OPERATIONAL_EXPENSE (5-2001) or create PPOB_COST?
+      // AccountCode doesn't have PPOB_COST.
+      // But ledger.ts has 'ppob_cost' in LedgerTransaction type.
+      // Let's use 5-2001 for now or check if there is a better one.
+      // In the previous PPOB code, it used 5-1102. I will stick to it or better find COGS.
+      // Actually, PPOB is a service.
+      
+      // Let's stick to what was there: 
+      // Debit: 5-1102 (if buy > 0)
+      // Credit: PPOB_DEPOSIT (1-1501)
+      
+      const costAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_ADJUSTMENT); // as per previous code
+      const depositAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.PPOB_DEPOSIT);
+
+      if (!revenueAccId || !depositAccId) throw new Error('GL Config Missing for PPOB Settlement');
+
+      // Credit Revenue (Offsets Escrow Debit)
+      lines.push({
+          account_id: revenueAccId,
+          debit: 0,
+          credit: totalPriceSell,
+          description: `PPOB Revenue - ${referenceId}`
+      });
+
+      // Cost Recognition
+      if (totalPriceBuy > 0 && costAccId) {
+          lines.push({
+              account_id: costAccId,
+              debit: totalPriceBuy,
+              credit: 0,
+              description: `PPOB Cost - ${referenceId}`
+          });
+          lines.push({
+              account_id: depositAccId,
+              debit: 0,
+              credit: totalPriceBuy,
+              description: `PPOB Deposit Usage - ${referenceId}`
+          });
+      }
+
+      return lines;
+  },
 
   async prepareStockOpnameAdjustment(
     koperasiId: string,
@@ -282,121 +560,34 @@ export const LedgerIntentService = {
     );
   },
 
-  async prepareRetailSales(
-    koperasiId: string,
-    invoiceNumber: string,
-    totalAmount: number,
-    taxAmount: number,
-    cogsAmount: number, // Total COGS (Regular + Consignment)
-    inventoryCreditAmount: number, // Portion crediting Inventory
-    consignmentCreditAmount: number, // Portion crediting Consignment Payable
-    payments: { method: string; amount: number }[],
-    userId: string
-  ): Promise<CreateJournalDTO> {
-    const lines: JournalLineDTO[] = [];
-
-    // 1. Revenue Side (Debits - Payments)
-    for (const payment of payments) {
-      let accCode = AccountCode.CASH_ON_HAND;
-      if (payment.method === 'qris' || payment.method === 'transfer') accCode = AccountCode.BANK_BCA;
-      else if (payment.method === 'savings_balance') accCode = AccountCode.SAVINGS_VOLUNTARY;
-
-      const accId = await AccountingService.getAccountIdByCode(koperasiId, accCode);
-      if (!accId) throw new Error(`GL Account missing for payment method ${payment.method}`);
-
-      lines.push({
-        account_id: accId,
-        debit: payment.amount,
-        credit: 0,
-        description: `Pembayaran ${payment.method} - ${invoiceNumber}`
-      });
-    }
-
-    // 2. Revenue Side (Credit - Revenue Net & Tax)
-    const revenueAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.SALES_REVENUE);
-    if (!revenueAccId) throw new Error('GL Account missing for Revenue');
-
-    const netRevenue = totalAmount - taxAmount;
-
-    lines.push({
-      account_id: revenueAccId,
-      debit: 0,
-      credit: netRevenue,
-      description: `Pendapatan Penjualan - ${invoiceNumber}`
-    });
-
-    if (taxAmount > 0) {
-      const vatOutAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.VAT_OUT);
-      if (!vatOutAccId) throw new Error('GL Account missing for VAT Out');
-
-      lines.push({
-        account_id: vatOutAccId,
-        debit: 0,
-        credit: taxAmount,
-        description: `PPN Keluaran - ${invoiceNumber}`
-      });
-    }
-
-    // 3. COGS Side (Debit COGS)
-    const cogsAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.COGS);
-    if (!cogsAccId) throw new Error('GL Account missing for COGS');
-
-    if (cogsAmount > 0) {
-      lines.push({ account_id: cogsAccId, debit: cogsAmount, credit: 0, description: `HPP - ${invoiceNumber}` });
-    }
-
-    // 4. Inventory Credit Side
-    if (inventoryCreditAmount > 0) {
-      const inventoryAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_MERCHANDISE);
-      if (!inventoryAccId) throw new Error('GL Account missing for Inventory');
-      lines.push({ account_id: inventoryAccId, debit: 0, credit: inventoryCreditAmount, description: `Persediaan Terjual - ${invoiceNumber}` });
-    }
-
-    // 5. Consignment Credit Side
-    if (consignmentCreditAmount > 0) {
-      const consignmentAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.CONSIGNMENT_PAYABLE);
-      if (!consignmentAccId) throw new Error('GL Account missing for Consignment Payable');
-      lines.push({ account_id: consignmentAccId, debit: 0, credit: consignmentCreditAmount, description: `Hutang Konsinyasi - ${invoiceNumber}` });
-    }
-
-    return this.createIntent(
-      koperasiId,
-      'RETAIL_SALE',
-      `Penjualan Retail ${invoiceNumber}`,
-      lines,
-      invoiceNumber,
-      'RETAIL_SALE',
-      userId
-    );
-  },
-
   async prepareRetailSalesReturn(
     koperasiId: string,
     returnNumber: string,
     refundAmount: number,
-    cogsReversalAmount: number,
+    returnCOGS: number,
     userId: string
   ): Promise<CreateJournalDTO> {
     const revenueAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.SALES_REVENUE);
     const cashAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.CASH_ON_HAND);
+    const cogsAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.COGS);
+    const inventoryAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_MERCHANDISE);
 
-    if (!revenueAccId || !cashAccId) throw new Error('GL Account Configuration Missing for Sales Return (Revenue/Cash)');
+    if (!revenueAccId || !cashAccId || !cogsAccId || !inventoryAccId) {
+        throw new Error('GL Account Configuration Missing for Sales Return');
+    }
 
     const lines: JournalLineDTO[] = [
-      { account_id: revenueAccId, debit: refundAmount, credit: 0, description: `Retur Penjualan - ${returnNumber}` },
-      { account_id: cashAccId, debit: 0, credit: refundAmount, description: `Refund Tunai - ${returnNumber}` }
+        // 1. Refund (Reduce Revenue, Reduce Cash)
+        { account_id: revenueAccId, debit: refundAmount, credit: 0, description: `Retur Penjualan (Rev) - ${returnNumber}` },
+        { account_id: cashAccId, debit: 0, credit: refundAmount, description: `Refund Retur - ${returnNumber}` }
     ];
 
-    if (cogsReversalAmount > 0) {
-      const inventoryAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_MERCHANDISE);
-      const cogsAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.COGS);
-
-      if (!inventoryAccId || !cogsAccId) throw new Error('GL Account Configuration Missing for Sales Return (Inventory/COGS)');
-
-      lines.push(
-        { account_id: inventoryAccId, debit: cogsReversalAmount, credit: 0, description: `Restock Retur - ${returnNumber}` },
-        { account_id: cogsAccId, debit: 0, credit: cogsReversalAmount, description: `Reversal HPP - ${returnNumber}` }
-      );
+    // 2. Stock Restoration (Reduce COGS, Increase Inventory)
+    if (returnCOGS > 0) {
+        lines.push(
+            { account_id: inventoryAccId, debit: returnCOGS, credit: 0, description: `Restock Retur - ${returnNumber}` },
+            { account_id: cogsAccId, debit: 0, credit: returnCOGS, description: `Koreksi HPP Retur - ${returnNumber}` }
+        );
     }
 
     return this.createIntent(
@@ -410,99 +601,89 @@ export const LedgerIntentService = {
     );
   },
 
-  async prepareSavingsDeposit(
+  // Deprecated for Marketplace, use prepareMarketplaceLock + prepareRetailSettlementLines
+  async prepareRetailSales(
     koperasiId: string,
-    amount: number,
-    memberId: string,
-    savingsAccountId: string,
-    paymentMethod: 'CASH' | 'TRANSFER',
+    invoiceNumber: string,
+    totalAmount: number,
+    taxAmount: number,
+    cogsAmount: number, // Total COGS (Regular + Consignment)
+    inventoryCreditAmount: number, // Portion crediting Inventory
+    consignmentCreditAmount: number, // Portion crediting Consignment Payable
+    payments: { method: string; amount: number; account_id?: string }[],
     userId: string
   ): Promise<CreateJournalDTO> {
-    const cashAccountCode = paymentMethod === 'CASH' ? AccountCode.CASH_ON_HAND : AccountCode.BANK_BCA; // Default to BCA for transfer, should be dynamic
+    const lines: JournalLineDTO[] = [];
 
-    // In a real app, we fetch the specific product's GL account mapping.
-    // For now, use standard mappings.
-    const savingsLiabilityAccount = AccountCode.SAVINGS_VOLUNTARY; // Default fallback
+    // 1. Revenue Side (Debits - Payments)
+    for (const payment of payments) {
+      let accCode = AccountCode.CASH_ON_HAND;
+      if (payment.method === 'qris' || payment.method === 'transfer') {
+        accCode = AccountCode.BANK_BCA; 
+      } else if (payment.method === 'savings_balance') {
+        accCode = AccountCode.SAVINGS_VOLUNTARY;
+      }
 
-    // Get Account IDs
-    const debitAccId = await AccountingService.getAccountIdByCode(koperasiId, cashAccountCode);
-    const creditAccId = await AccountingService.getAccountIdByCode(koperasiId, savingsLiabilityAccount);
+      const debitAccId = await AccountingService.getAccountIdByCode(koperasiId, accCode);
+      if (!debitAccId) throw new Error(`GL Account Missing for Payment Method: ${payment.method}`);
 
-    if (!debitAccId || !creditAccId) throw new Error('GL Account Configuration Missing');
+      lines.push({
+        account_id: debitAccId,
+        debit: payment.amount,
+        credit: 0,
+        description: `Pembayaran ${payment.method} - ${invoiceNumber}`,
+        entity_id: payment.account_id,
+        entity_type: payment.method === 'savings_balance' ? 'savings_account' : undefined
+      });
+    }
 
-    const lines: JournalLineDTO[] = [
-      { account_id: debitAccId, debit: amount, credit: 0, description: 'Setoran Simpanan' },
-      { account_id: creditAccId, debit: 0, credit: amount, description: 'Kredit Simpanan Anggota' }
-    ];
+    // 2. Revenue Side (Credits - Sales & Tax)
+    const revenueAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.SALES_REVENUE);
+    if (!revenueAccId) throw new Error('GL Account Configuration Missing for Retail Sales');
+
+    const revenueAmount = totalAmount - taxAmount;
+    lines.push({
+      account_id: revenueAccId,
+      debit: 0,
+      credit: revenueAmount,
+      description: `Pendapatan Penjualan - ${invoiceNumber}`
+    });
+
+    if (taxAmount > 0) {
+      const vatOutAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.VAT_OUT);
+      if (vatOutAccId) {
+        lines.push({ account_id: vatOutAccId, debit: 0, credit: taxAmount, description: `PPN Keluaran - ${invoiceNumber}` });
+      }
+    }
+
+    // 3. COGS Side (Debit COGS, Credit Inventory/Consignment)
+    if (cogsAmount > 0) {
+      const cogsAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.COGS);
+      const inventoryAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.INVENTORY_MERCHANDISE);
+      const consignmentAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.CONSIGNMENT_PAYABLE);
+
+      if (!cogsAccId || !inventoryAccId) throw new Error('GL Account Configuration Missing for COGS');
+
+      lines.push({ account_id: cogsAccId, debit: cogsAmount, credit: 0, description: `HPP - ${invoiceNumber}` });
+
+      if (inventoryCreditAmount > 0) {
+        lines.push({ account_id: inventoryAccId, debit: 0, credit: inventoryCreditAmount, description: `Persediaan Keluar - ${invoiceNumber}` });
+      }
+
+      if (consignmentCreditAmount > 0) {
+        if (!consignmentAccId) throw new Error('GL Account Configuration Missing for Consignment');
+        lines.push({ account_id: consignmentAccId, debit: 0, credit: consignmentCreditAmount, description: `Hutang Konsinyasi - ${invoiceNumber}` });
+      }
+    }
 
     return this.createIntent(
       koperasiId,
-      'SAVINGS_DEPOSIT',
-      `Setoran Simpanan - ${memberId}`,
+      'RETAIL_SALE',
+      `Penjualan Ritel ${invoiceNumber}`,
       lines,
-      savingsAccountId,
-      'savings_account',
-      userId
-    );
-  },
-
-  async prepareSavingsWithdrawal(
-    koperasiId: string,
-    amount: number,
-    memberId: string,
-    savingsAccountId: string,
-    userId: string
-  ): Promise<CreateJournalDTO> {
-    const cashAccountCode = AccountCode.CASH_ON_HAND;
-    const savingsLiabilityAccount = AccountCode.SAVINGS_VOLUNTARY;
-
-    const debitAccId = await AccountingService.getAccountIdByCode(koperasiId, savingsLiabilityAccount);
-    const creditAccId = await AccountingService.getAccountIdByCode(koperasiId, cashAccountCode);
-
-    if (!debitAccId || !creditAccId) throw new Error('GL Account Configuration Missing');
-
-    const lines: JournalLineDTO[] = [
-      { account_id: debitAccId, debit: amount, credit: 0, description: 'Debit Simpanan Anggota' },
-      { account_id: creditAccId, debit: 0, credit: amount, description: 'Penarikan Tunai' }
-    ];
-
-    return this.createIntent(
-      koperasiId,
-      'SAVINGS_WITHDRAWAL',
-      `Penarikan Simpanan - ${memberId}`,
-      lines,
-      savingsAccountId,
-      'savings_account',
-      userId
-    );
-  },
-
-  async prepareLoanDisbursement(
-    koperasiId: string,
-    amount: number,
-    memberId: string,
-    loanCode: string,
-    userId: string
-  ): Promise<CreateJournalDTO> {
-    const debitAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.LOAN_RECEIVABLE_FLAT);
-    const creditAccId = await AccountingService.getAccountIdByCode(koperasiId, AccountCode.CASH_ON_HAND);
-
-    if (!debitAccId || !creditAccId) throw new Error('GL Account Configuration Missing for Loan Disbursement');
-
-    const lines: JournalLineDTO[] = [
-      { account_id: debitAccId, debit: amount, credit: 0, description: 'Piutang Pinjaman' },
-      { account_id: creditAccId, debit: 0, credit: amount, description: 'Pencairan ke Kas' }
-    ];
-
-    return this.createIntent(
-      koperasiId,
-      'LOAN_DISBURSEMENT',
-      `Pencairan Pinjaman #${loanCode} (${memberId})`,
-      lines,
-      loanCode,
-      'loan_disbursement',
+      invoiceNumber,
+      'RETAIL_SALE',
       userId
     );
   }
-
 };

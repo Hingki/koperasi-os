@@ -2,15 +2,18 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { RetailService, POSTransaction, POSTransactionItem, PaymentBreakdown } from '@/lib/services/retail-service';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
 
 export async function processPosTransaction(
   transaction: Partial<POSTransaction>,
   items: Partial<POSTransactionItem>[],
   payments: PaymentBreakdown[],
-  originalTransactionId?: string // For resuming/replacing
+  originalTransactionId?: string, // For resuming/replacing
+  idempotencyKey?: string
 ) {
   const supabase = await createClient();
   const retailService = new RetailService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
 
   try {
     // Auto-numbering
@@ -19,14 +22,25 @@ export async function processPosTransaction(
         transaction.invoice_number = `${settings.sales_invoice_prefix}${Date.now()}`;
     }
 
-    const result = await retailService.processTransaction(transaction, items, payments);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    // STAGE 3: Use Marketplace Service for Orchestration
+    const result = await marketplaceService.checkoutRetail(
+      transaction.koperasi_id!,
+      user.id,
+      transaction,
+      items,
+      payments,
+      idempotencyKey
+    );
 
     // If successful and there was an original transaction (e.g. Kiosk pending), cancel/delete it
     if (originalTransactionId) {
         await retailService.cancelPosTransaction(originalTransactionId);
     }
 
-    return { success: true, data: result };
+    return { success: true, data: result.operational };
   } catch (error: any) {
     console.error('POS Transaction Error:', error);
     return { success: false, error: error.message };

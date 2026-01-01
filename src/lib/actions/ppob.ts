@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server';
-import { PpobService, PpobTransactionData } from '@/lib/services/ppob-service';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
 import { revalidatePath } from 'next/cache';
 
 export async function purchasePpobProduct(formData: FormData) {
@@ -31,19 +31,23 @@ export async function purchasePpobProduct(formData: FormData) {
     return { error: 'Member not found' };
   }
 
-  const service = new PpobService(supabase);
+  const marketplaceService = new MarketplaceService(supabase);
 
   try {
-    const result = await service.purchaseProduct({
-      member_id: member.id,
-      koperasi_id: member.koperasi_id,
-      account_id: accountId,
-      product_code: productCode,
-      customer_number: customerNumber
-    });
+    const result = await marketplaceService.checkoutPpob(
+      member.koperasi_id,
+      user.id,
+      {
+        member_id: member.id,
+        koperasi_id: member.koperasi_id,
+        account_id: accountId,
+        product_code: productCode,
+        customer_number: customerNumber
+      }
+    );
 
     revalidatePath('/member/ppob');
-    return { success: true, transaction: result.transaction };
+    return { success: true, transaction: result.operational.transaction };
   } catch (err: any) {
     return { error: err.message };
   }
