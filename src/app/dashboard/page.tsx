@@ -22,7 +22,7 @@ export default async function DashboardPage() {
     .select('role')
     .eq('user_id', user.id);
 
-  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
+  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff', 'wakil_ketua_usaha', 'wakil_ketua_keanggotaan'];
   const isAdmin = roles?.some(r => adminRoles.includes(r.role)) || false;
 
   // Fetch Core Data (Koperasi Info) - Keep this blocking as it's essential for context

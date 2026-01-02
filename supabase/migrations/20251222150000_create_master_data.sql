@@ -1,5 +1,5 @@
 -- Master Data: Customers, Employees, Fixed Assets, Email Settings
--- Aligns with SmartScoop Data Master features
+
 
 -- Management Board (Pengurus)
 CREATE TABLE IF NOT EXISTS management_board (

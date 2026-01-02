@@ -23,11 +23,11 @@ export default function ExportPage() {
 
   useEffect(() => {
     const fetchUser = async () => {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.koperasi_id) {
-            setKoperasiId(user.user_metadata.koperasi_id);
-        }
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata?.koperasi_id) {
+        setKoperasiId(user.user_metadata.koperasi_id);
+      }
     };
     fetchUser();
   }, []);
@@ -42,13 +42,13 @@ export default function ExportPage() {
       const startDate = date.toISOString();
       const endDate = date.toISOString(); // Action handles end of day
 
-      const data = await getExportData(reportType, startDate, endDate, koperasiId);
+      const data = await getExportData(reportType, startDate, endDate);
 
       if (!data || data.length === 0) {
         toast({
-            title: "No Data",
-            description: "Tidak ada data untuk periode yang dipilih.",
-            variant: "destructive"
+          title: "No Data",
+          description: "Tidak ada data untuk periode yang dipilih.",
+          variant: "destructive"
         });
         setLoading(false);
         return;
@@ -59,8 +59,8 @@ export default function ExportPage() {
       const csvContent = [
         headers.join(','),
         ...data.map((row: any) => headers.map(header => {
-            const val = row[header];
-            return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
+          const val = row[header];
+          return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
         }).join(','))
       ].join('\n');
 
@@ -103,55 +103,55 @@ export default function ExportPage() {
 
       <Card className="max-w-md">
         <CardHeader>
-            <CardTitle>Parameter Export</CardTitle>
-            <CardDescription>Pilih jenis laporan dan tanggal.</CardDescription>
+          <CardTitle>Parameter Export</CardTitle>
+          <CardDescription>Pilih jenis laporan dan tanggal.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="space-y-2">
-                <label className="text-sm font-medium">Jenis Laporan</label>
-                <Select value={reportType} onValueChange={(v: any) => setReportType(v)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Pilih laporan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="marketplace">Marketplace Transactions (Core)</SelectItem>
-                        <SelectItem value="ledger">Ledger Journals (Accounting)</SelectItem>
-                        <SelectItem value="escrow">Escrow Movements (Dana Titipan)</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Jenis Laporan</label>
+            <Select value={reportType} onValueChange={(v: any) => setReportType(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih laporan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="marketplace">Marketplace Transactions (Core)</SelectItem>
+                <SelectItem value="ledger">Ledger Journals (Accounting)</SelectItem>
+                <SelectItem value="escrow">Escrow Movements (Dana Titipan)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="space-y-2">
-                <label className="text-sm font-medium">Tanggal</label>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !date && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date ? format(date, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={setDate}
-                            initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Tanggal</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
-            <Button className="w-full" onClick={handleDownload} disabled={loading || !koperasiId}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Download className="mr-2 h-4 w-4" />
-                Download CSV
-            </Button>
+          <Button className="w-full" onClick={handleDownload} disabled={loading || !koperasiId}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Download className="mr-2 h-4 w-4" />
+            Download CSV
+          </Button>
         </CardContent>
       </Card>
     </div>

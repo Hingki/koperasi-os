@@ -31,10 +31,10 @@ export default function LoginPage() {
       // Determine redirect based on role
       const redirectPath = await getUserRoleRedirectPath();
       
-      // Refresh first to update root layout (auth state)
-      router.refresh();
-      // Then navigate
-      router.replace(redirectPath);
+      // Navigate directly - router.refresh() is implicitly handled by Next.js on navigation
+      // Using window.location.href as a fallback for hard refresh to clear any stale auth state
+      // if router.replace fails or behaves unexpectedly
+      window.location.href = redirectPath;
     } catch (err: any) {
       setError(err.message);
     } finally {

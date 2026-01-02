@@ -5,7 +5,6 @@ import { RetailService, POSTransaction, POSTransactionItem, PaymentBreakdown } f
 import { MarketplaceService } from '@/lib/services/marketplace-service';
 import { LogService } from '@/lib/services/log-service';
 import { PharmacyService, PharmacyTransactionInput, PharmacyItemInput } from '@/lib/services/pharmacy-service';
-import { LedgerService } from '@/lib/services/ledger-service';
 import { AccountingService } from '@/lib/services/accounting-service';
 import { AccountCode } from '@/lib/types/ledger';
 import { revalidatePath } from 'next/cache';
@@ -286,26 +285,26 @@ export async function processPosTransaction(
     const defaultPayments: PaymentBreakdown[] = payments && payments.length > 0
       ? payments
       : [{ method: (transaction.payment_method as PaymentBreakdown['method']) || 'cash', amount: transaction.final_amount || transaction.total_amount || 0 }];
-    
+
     // NEW: Use MarketplaceService for orchestration
     const result = await marketplaceService.checkoutRetail(
-        koperasiId,
-        userId || 'system',
-        transaction as any, 
-        items as any[],
-        defaultPayments,
-        idempotencyKey
+      koperasiId,
+      userId || 'system',
+      transaction as any,
+      items as any[],
+      defaultPayments,
+      idempotencyKey
     );
 
     // Legacy Support: Handle originalTransactionId
     if (originalTransactionId) {
-       await retailService.cancelPosTransaction(originalTransactionId);
+      await retailService.cancelPosTransaction(originalTransactionId);
     }
 
     await logService.log({
       action_type: 'POS',
       action_detail: 'TRANSAKSI',
-      entity_id: result.operational.transaction.id,
+      entity_id: result.operational.id,
       status: 'SUCCESS',
       user_id: userId,
       metadata: {
@@ -315,7 +314,7 @@ export async function processPosTransaction(
       }
     });
 
-    return { success: true, data: result.operational.transaction };
+    return { success: true, data: result.operational };
   } catch (error: any) {
     console.error('POS Transaction Error:', error);
     await logService.log({

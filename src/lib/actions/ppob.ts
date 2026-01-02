@@ -47,7 +47,7 @@ export async function purchasePpobProduct(formData: FormData) {
     );
 
     revalidatePath('/member/ppob');
-    return { success: true, transaction: result.operational.transaction };
+    return { success: true, transaction: result.transaction };
   } catch (err: any) {
     return { error: err.message };
   }

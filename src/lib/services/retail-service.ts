@@ -178,6 +178,73 @@ export class RetailService {
     return data;
   }
 
+  async createStockOpname(
+    opname: {
+      koperasi_id: string;
+      notes?: string;
+      status: 'draft' | 'final';
+      created_by: string;
+    },
+    items: {
+      product_id: string;
+      system_qty: number;
+      actual_qty: number;
+      notes?: string;
+    }[]
+  ) {
+    // 1. Create Opname Header
+    const { data: opnameData, error: opnameError } = await this.supabase
+      .from('inventory_stock_opname')
+      .insert(opname)
+      .select()
+      .single();
+
+    if (opnameError) throw opnameError;
+
+    // 2. Create Opname Items
+    const itemsWithId = items.map(item => ({
+      ...item,
+      opname_id: opnameData.id,
+      difference: item.actual_qty - item.system_qty
+    }));
+
+    const { error: itemsError } = await this.supabase
+      .from('inventory_stock_opname_items')
+      .insert(itemsWithId);
+
+    if (itemsError) throw itemsError;
+
+    // 3. Update Stock if final
+    if (opname.status === 'final') {
+      for (const item of itemsWithId) {
+        if (item.difference !== 0) {
+          await this.adjustStock(item.product_id, item.difference, 'opname_adjustment', opnameData.id);
+        }
+      }
+    }
+
+    return opnameData;
+  }
+
+  async adjustStock(productId: string, quantity: number, type: string, referenceId: string) {
+    const { data: product } = await this.supabase
+      .from('inventory_products')
+      .select('stock_quantity')
+      .eq('id', productId)
+      .single();
+
+    if (product) {
+      const newStock = product.stock_quantity + quantity;
+      await this.supabase
+        .from('inventory_products')
+        .update({ stock_quantity: newStock })
+        .eq('id', productId);
+
+      // Log movement (optional but good for audit)
+      // This is simplified; ideally use a proper inventory movement log table
+    }
+  }
+
   // Categories
   async getCategories(koperasiId: string) {
     const { data, error } = await this.supabase
@@ -452,7 +519,7 @@ export class RetailService {
     }[]
   ) {
     const { tax_amount, ...purchasePayload } = purchase;
-    
+
     // 1. Create Purchase Header
     const { data: purchaseData, error: purchaseError } = await this.supabase
       .from('inventory_purchases')
@@ -732,7 +799,7 @@ export class RetailService {
       // Fallback to product.price_cost
       const cost = item.cost_at_sale || item.product?.price_cost || 0;
       const lineCOGS = cost * item.quantity;
-      
+
       totalCOGS += lineCOGS;
 
       if (item.product?.product_type === 'consignment') {
@@ -915,15 +982,15 @@ export class RetailService {
     for (const p of paymentsToProcess) {
       if (p.method === 'savings_balance') {
         if (!memberId) throw new Error('Member ID is required for savings payment');
-        
+
         // Fetch full account details to get ID for Ledger
         const account = await this.savingsService.getVoluntaryAccount(memberId);
         if (!account) throw new Error('No active voluntary savings account found');
-        
+
         if (account.balance < p.amount) {
           throw new Error('Saldo simpanan sukarela tidak mencukupi');
         }
-        
+
         // Assign account_id so LedgerIntentService can link entity
         p.account_id = account.id;
       }
@@ -1005,7 +1072,7 @@ export class RetailService {
       .insert({
         ...transaction,
         // invoice_number should be passed in transaction object from prepareTransactionData result
-        payment_status: transaction.payment_status || ((paymentsToProcess.some(p => p.method === 'qris')) ? 'pending' : 'paid'), 
+        payment_status: transaction.payment_status || ((paymentsToProcess.some(p => p.method === 'qris')) ? 'pending' : 'paid'),
         is_test_transaction: isDemoMode,
         // We could store journalId here if we added a column for it, but for now we link via logic/time
       })
@@ -1046,9 +1113,9 @@ export class RetailService {
         // Simple fallback without re-fetching everything (optimistic)
         const { data: currentP } = await this.supabase.from('inventory_products').select('stock_quantity').eq('id', item.product_id).single();
         if (currentP) {
-           await this.supabase.from('inventory_products')
-             .update({ stock_quantity: currentP.stock_quantity - item.quantity })
-             .eq('id', item.product_id);
+          await this.supabase.from('inventory_products')
+            .update({ stock_quantity: currentP.stock_quantity - item.quantity })
+            .eq('id', item.product_id);
         }
       }
     }
@@ -1106,34 +1173,34 @@ export class RetailService {
         if (p.amount <= 0) continue;
 
         if (p.method === 'cash') {
-             // Just record that cash was used
-             await this.paymentService.recordManualPayment(
-                transaction.koperasi_id!,
-                txData.id,
-                'retail_sale',
-                p.amount,
-                'cash',
-                `Payment Cash for POS ${txData.invoice_number}`,
-                transaction.created_by,
-                true // SKIP JOURNAL
-              );
+          // Just record that cash was used
+          await this.paymentService.recordManualPayment(
+            transaction.koperasi_id!,
+            txData.id,
+            'retail_sale',
+            p.amount,
+            'cash',
+            `Payment Cash for POS ${txData.invoice_number}`,
+            transaction.created_by,
+            true // SKIP JOURNAL
+          );
         } else if (p.method === 'savings_balance') {
-             // Just record that savings was used. 
-             // DO NOT CALL savingsService.deductBalance()
-             await this.paymentService.recordManualPayment(
-                transaction.koperasi_id!,
-                txData.id,
-                'retail_sale',
-                p.amount,
-                'savings_balance',
-                `Payment Savings for POS ${txData.invoice_number}`,
-                transaction.created_by,
-                true // SKIP JOURNAL
-              );
+          // Just record that savings was used. 
+          // DO NOT CALL savingsService.deductBalance()
+          await this.paymentService.recordManualPayment(
+            transaction.koperasi_id!,
+            txData.id,
+            'retail_sale',
+            p.amount,
+            'savings_balance',
+            `Payment Savings for POS ${txData.invoice_number}`,
+            transaction.created_by,
+            true // SKIP JOURNAL
+          );
         } else if (p.method === 'qris') {
-           // For QRIS, we might need the ID if generated externally, but here we assume it's already handled or just recording.
-           // In STAGE 3, QRIS integration might need to happen before Lock or during Lock.
-           // For now, we just record.
+          // For QRIS, we might need the ID if generated externally, but here we assume it's already handled or just recording.
+          // In STAGE 3, QRIS integration might need to happen before Lock or during Lock.
+          // For now, we just record.
         }
       }
     }

@@ -16,6 +16,8 @@ export type UserRoleType =
   | 'bendahara'
   | 'ketua'
   | 'wakil_ketua'
+  | 'wakil_ketua_usaha'
+  | 'wakil_ketua_keanggotaan'
   | 'sekretaris'
   | 'anggota'
   | 'staff';
@@ -28,6 +30,8 @@ export const ROLE_HIERARCHY: Record<UserRoleType, number> = {
   admin: 100,
   ketua: 90,
   wakil_ketua: 85,
+  wakil_ketua_usaha: 85,
+  wakil_ketua_keanggotaan: 85,
   pengurus: 80,
   sekretaris: 75,
   bendahara: 75,
@@ -175,7 +179,7 @@ export async function isAdmin(koperasiId?: string): Promise<boolean> {
  * @returns true if user is pengurus level or higher
  */
 export async function isPengurus(koperasiId?: string): Promise<boolean> {
-  return hasAnyRole(['admin', 'ketua', 'pengurus'], koperasiId);
+  return hasAnyRole(['admin', 'ketua', 'wakil_ketua', 'wakil_ketua_usaha', 'wakil_ketua_keanggotaan', 'pengurus'], koperasiId);
 }
 
 /**

@@ -21,7 +21,7 @@ export default async function DashboardLayout({
     .eq('user_id', user.id)
     .eq('is_active', true);
 
-  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
+  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff', 'wakil_ketua_usaha', 'wakil_ketua_keanggotaan'];
   const isAdmin = roles?.some(r => adminRoles.includes(r.role)) || false;
   const koperasiId = roles?.[0]?.koperasi_id;
 

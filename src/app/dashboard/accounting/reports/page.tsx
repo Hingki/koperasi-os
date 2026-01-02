@@ -3,11 +3,27 @@ import { TrialBalanceTable } from './trial-balance-table';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, TrendingUp, PieChart, Activity, Calculator, Banknote, Building2, Calendar, Receipt, Archive, Layers, Download, Search, AlertTriangle } from 'lucide-react';
+import { FileText, TrendingUp, PieChart, Activity, Calculator, Banknote, Building2, Calendar, Receipt, Archive, Layers, Download, Search, AlertTriangle, PlayCircle } from 'lucide-react';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default async function ReportsPage() {
   console.log('[ReportsPage] Starting render...');
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const koperasiId = user?.user_metadata?.koperasi_id;
+
+  // Check for Stuck Transactions (Senior Engineer Monitoring)
+  let stuckCount = 0;
+  if (koperasiId) {
+    try {
+        const marketplaceService = new MarketplaceService(supabase);
+        const stuck = await marketplaceService.listStuckTransactions(koperasiId);
+        stuckCount = stuck.length;
+    } catch (e) {
+        console.error('Failed to check stuck transactions', e);
+    }
+  }
 
   // Fetch Accounts
   const { data: accounts, error: accountsError } = await supabase

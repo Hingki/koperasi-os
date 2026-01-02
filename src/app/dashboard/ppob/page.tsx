@@ -1,5 +1,7 @@
 import { getPPOBTransactionsAdmin } from "@/lib/actions/ppob-admin";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { Search } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export default async function PPOBTransactionsPage() {
   const { data: transactions } = await getPPOBTransactionsAdmin();
@@ -31,6 +34,7 @@ export default async function PPOBTransactionsPage() {
               <TableHead>Admin</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -52,18 +56,25 @@ export default async function PPOBTransactionsPage() {
                       tx.status === "success"
                         ? "default"
                         : tx.status === "pending"
-                        ? "secondary"
-                        : "destructive"
+                          ? "secondary"
+                          : "destructive"
                     }
                   >
                     {tx.status}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  <Link href={`/dashboard/accounting/audit/inspector?id=${tx.id}`} title="Inspect Audit Trail">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </TableCell>
               </TableRow>
             ))}
             {transactions?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Belum ada transaksi.
                 </TableCell>
               </TableRow>

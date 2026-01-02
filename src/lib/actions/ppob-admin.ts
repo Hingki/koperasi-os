@@ -2,13 +2,25 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { getUserRoles } from '@/lib/auth/roles';
 
-export async function getPPOBProductsAdmin() {
+// Helper to check permission
+async function checkPPOBAdminAccess() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
 
-  const koperasiId = user.user_metadata.koperasi_id;
+  const roles = await getUserRoles(user.id);
+  // Allowed roles: admin, ketua, bendahara
+  if (!roles.includes('admin') && !roles.includes('ketua') && !roles.includes('bendahara')) {
+    throw new Error('Forbidden: Insufficient privileges');
+  }
+
+  return { supabase, user, koperasiId: user.user_metadata.koperasi_id };
+}
+
+export async function getPPOBProductsAdmin() {
+  const { supabase, koperasiId } = await checkPPOBAdminAccess();
 
   const { data, error } = await supabase
     .from('ppob_products')
@@ -22,11 +34,7 @@ export async function getPPOBProductsAdmin() {
 }
 
 export async function createPPOBProductAction(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
-  
-  const koperasiId = user.user_metadata.koperasi_id;
+  const { supabase, koperasiId } = await checkPPOBAdminAccess();
 
   const rawData = {
     koperasi_id: koperasiId,
@@ -49,7 +57,7 @@ export async function createPPOBProductAction(formData: FormData) {
 }
 
 export async function updatePPOBProductAction(id: string, formData: FormData) {
-  const supabase = await createClient();
+  const { supabase } = await checkPPOBAdminAccess();
   
   const rawData = {
     code: formData.get('code') as string,
@@ -74,7 +82,7 @@ export async function updatePPOBProductAction(id: string, formData: FormData) {
 }
 
 export async function deletePPOBProductAction(id: string, formData: FormData) {
-    const supabase = await createClient();
+    const { supabase } = await checkPPOBAdminAccess();
     const { error } = await supabase.from('ppob_products').delete().eq('id', id);
     if (error) {
         console.error('Error deleting PPOB product:', error);
@@ -84,10 +92,7 @@ export async function deletePPOBProductAction(id: string, formData: FormData) {
 }
 
 export async function getPPOBSettings() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Unauthorized');
-    const koperasiId = user.user_metadata.koperasi_id;
+    const { supabase, koperasiId } = await checkPPOBAdminAccess();
 
     const { data, error } = await supabase
         .from('ppob_settings')

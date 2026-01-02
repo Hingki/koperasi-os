@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import { RetailService } from '../src/lib/services/retail-service';
-import { MarketplaceService } from '../src/lib/services/marketplace-service';
+import { RetailService } from '@/lib/services/retail-service';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
 import dotenv from 'dotenv';
 import path from 'path';
+import { AccountCode } from '@/lib/types/ledger';
 
 // Load .env first
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -25,10 +26,11 @@ async function main() {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const retailService = new RetailService(supabase);
+    const marketplaceService = new MarketplaceService(supabase);
 
     // 1. Setup Data
     console.log('1. Setting up test data...');
-    
+
     // Get a valid User ID for created_by FK
     let userId;
     // Try admin API if service key
@@ -36,7 +38,7 @@ async function main() {
         const { data: { users } } = await supabase.auth.admin.listUsers();
         userId = users?.[0]?.id;
     }
-    
+
     if (!userId) {
         // Fallback if no admin access or no users: Try to find a member linked to user? 
         // Or just use a random UUID and hope FK is not enforced or we can't proceed.
@@ -48,8 +50,9 @@ async function main() {
 
     // Get Koperasi
     const { data: koperasi } = await supabase.from('koperasi').select('id').limit(1).single();
-    if (!koperasi) throw new Error('No Koperasi found');
-    console.log('Koperasi ID:', koperasi.id);
+    const koperasiId = koperasi?.id;
+    if (!koperasiId) throw new Error('No Koperasi found');
+    console.log('Koperasi ID:', koperasiId);
 
     // Get Unit Usaha
     let { data: unitUsaha } = await supabase.from('unit_usaha').select('id').eq('koperasi_id', koperasi.id).limit(1).single();
@@ -61,7 +64,7 @@ async function main() {
             kode_unit: 'UNIT-RETAIL-TEST',
             jenis_unit: 'sembako'
         }).select().single();
-        
+
         if (unitError) {
             console.error('Failed to create Unit Usaha:', unitError);
             throw unitError;
@@ -129,13 +132,13 @@ async function main() {
         .eq('reference_id', purchase.id)
         .eq('reference_type', 'RETAIL_PURCHASE')
         .maybeSingle();
-    
+
     if (!purchaseJournal) {
         console.error('Purchase Ledger Entry Missing!');
     } else {
         console.log('Purchase Ledger Entry Found:', purchaseJournal.lines.length, 'lines');
         purchaseJournal.lines.forEach((line: any) => {
-             console.log(` - ${line.account.code} (${line.account.name}): Dr ${line.debit} Cr ${line.credit}`);
+            console.log(` - ${line.account.code} (${line.account.name}): Dr ${line.debit} Cr ${line.credit}`);
         });
     }
 
@@ -152,7 +155,7 @@ async function main() {
             final_amount: 15000,
             payment_status: 'paid',
             created_by: userId
-        }, 
+        },
         [{
             product_id: product.id,
             quantity: 1,
@@ -163,7 +166,7 @@ async function main() {
         [{ method: 'cash', amount: 15000 }]
     );
     const sale = checkoutResult.operational;
-    console.log('Sale Created:', sale.invoice_number);
+    console.log('Sale Created:', sale.id);
 
     // Verify Ledger for Sale (Revenue)
     const { data: saleRevenueJournal } = await supabase
@@ -183,7 +186,7 @@ async function main() {
     console.log('Sale Revenue Ledger:', saleRevenueJournal ? 'Found' : 'Missing');
     if (saleRevenueJournal) {
         saleRevenueJournal.lines.forEach((line: any) => {
-             console.log(` - ${line.account.code} (${line.account.name}): Dr ${line.debit} Cr ${line.credit}`);
+            console.log(` - ${line.account.code} (${line.account.name}): Dr ${line.debit} Cr ${line.credit}`);
         });
     }
 
@@ -205,7 +208,7 @@ async function main() {
     console.log('Sale COGS Ledger:', saleCOGSJournal ? 'Found' : 'Missing');
     if (saleCOGSJournal) {
         saleCOGSJournal.lines.forEach((line: any) => {
-             console.log(` - ${line.account.code} (${line.account.name}): Dr ${line.debit} Cr ${line.credit}`);
+            console.log(` - ${line.account.code} (${line.account.name}): Dr ${line.debit} Cr ${line.credit}`);
         });
     }
 

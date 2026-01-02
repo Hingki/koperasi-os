@@ -50,9 +50,13 @@ export async function middleware(request: NextRequest) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.replace(/['"`\s]/g, '');
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Middleware Error: Missing Supabase Environment Variables');
-    // Allow public routes to load even without Supabase (e.g. for initial setup/debugging)
-    // This prevents a hard crash on the landing page if env vars are missing
+    // Only warn in development, but don't crash middleware
+    // This allows public pages to load even if Supabase config is broken
+    if (process.env.NODE_ENV === 'development') {
+       console.warn('Middleware Warning: Missing Supabase Environment Variables');
+    }
+    
+    // If it's a public route, just let it pass without auth check
     if (
       pathname === '/' || 
       pathname === '/login' || 
@@ -62,6 +66,8 @@ export async function middleware(request: NextRequest) {
     ) {
       return NextResponse.next();
     }
+    
+    // For protected routes, we can't proceed without Supabase
     return NextResponse.json(
       { error: 'Configuration Error: Missing Supabase Environment Variables' },
       { status: 500 }
@@ -149,9 +155,10 @@ export async function middleware(request: NextRequest) {
         .select('role')
         .eq('user_id', user!.id)
         .eq('koperasi_id', koperasiId)
-        .eq('role', 'admin')
+        .in('role', ['admin', 'wakil_ketua_usaha', 'wakil_ketua_keanggotaan'])
         .eq('is_active', true)
         .is('deleted_at', null)
+        .limit(1)
         .single();
 
       if (!adminRole) {
@@ -175,7 +182,7 @@ export async function middleware(request: NextRequest) {
         .select('role')
         .eq('user_id', user!.id)
         .eq('koperasi_id', koperasiId)
-        .in('role', ['admin', 'ketua', 'pengurus'])
+        .in('role', ['admin', 'ketua', 'pengurus', 'wakil_ketua_usaha', 'wakil_ketua_keanggotaan'])
         .eq('is_active', true)
         .is('deleted_at', null)
         .limit(1)

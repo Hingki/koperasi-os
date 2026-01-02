@@ -18,7 +18,7 @@ export async function getUserRoleRedirectPath() {
     .eq('is_active', true);
 
   // If has admin or pengurus role, go to dashboard
-  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff'];
+  const adminRoles = ['admin', 'pengurus', 'ketua', 'bendahara', 'staff', 'wakil_ketua_usaha', 'wakil_ketua_keanggotaan'];
   const hasAdminRole = roles?.some(r => adminRoles.includes(r.role));
 
   if (hasAdminRole) {

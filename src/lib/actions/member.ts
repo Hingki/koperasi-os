@@ -2,13 +2,42 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createMemberSchema } from '@/lib/validations/member';
+import { MemberService } from '@/lib/services/member-service';
+import { hasAnyRole } from '@/lib/auth/roles';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
+export async function approveMember(memberId: string) {
+  const supabase = await createClient();
+  const memberService = new MemberService(supabase);
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  // Get Member to find Koperasi ID
+  const { data: member } = await supabase.from('member').select('koperasi_id').eq('id', memberId).single();
+  if (!member) return { success: false, error: 'Member not found' };
+
+  // Check Permissions
+  // "Pendaftaran & pengesahan anggota: hanya admin, ketua, bendahara, pengurus"
+  const authorized = await hasAnyRole(['admin', 'ketua', 'bendahara', 'pengurus'], member.koperasi_id);
+  if (!authorized) return { success: false, error: 'Permission denied' };
+
+  try {
+    await memberService.approve(memberId, user.id);
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/dashboard/members');
+  return { success: true };
+}
+
 export async function createMember(formData: FormData) {
   const supabase = await createClient();
-  
+  const memberService = new MemberService(supabase);
+
   // 1. Auth Check
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -31,26 +60,41 @@ export async function createMember(formData: FormData) {
 
   // 3. Get Koperasi ID
   const { data: userRoles } = await supabase.from('user_role').select('koperasi_id, role').eq('user_id', user.id).eq('is_active', true);
-  
+
   const activeRole = userRoles?.find(r => ['admin', 'bendahara', 'staff'].includes(r.role)) || userRoles?.[0];
   let koperasiId = activeRole?.koperasi_id;
   if (!koperasiId) {
-      const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
-      koperasiId = kop?.id;
+    const { data: kop } = await supabase.from('koperasi').select('id').limit(1).single();
+    koperasiId = kop?.id;
   }
-  
+
   if (!koperasiId) throw new Error("No Koperasi context found");
 
-  // 4. Insert Member
-  const { error } = await supabase.from('member').insert({
-    koperasi_id: koperasiId,
-    ...validatedData,
-    nomor_anggota: `M-${Date.now().toString().slice(-6)}`,
-    status: 'active',
-    tanggal_daftar: new Date().toISOString()
-  });
+  // 4. Create Member via Service (Enforce Number Generation)
+  try {
+    // 4a. Register as Pending first (No Number)
+    const newMember = await memberService.register({
+      koperasi_id: koperasiId,
+      nama_lengkap: validatedData.nama_lengkap,
+      nik: validatedData.nik,
+      phone: validatedData.phone,
+      alamat_lengkap: validatedData.alamat_lengkap,
+      member_type: 'regular',
+      status: 'pending',
+      metadata: {
+        nama_ibu_kandung: validatedData.nama_ibu_kandung,
+        tempat_lahir: validatedData.tempat_lahir,
+        tanggal_lahir: validatedData.tanggal_lahir,
+        pekerjaan: validatedData.pekerjaan,
+        created_by: user.id
+      }
+    });
 
-  if (error) {
+    // 4b. Immediately Approve to Generate Number & Activate
+    // Admin action implies immediate activation
+    await memberService.approve(newMember.id, user.id);
+
+  } catch (error: any) {
     console.error("Create Member Error:", error);
     throw new Error(error.message);
   }
@@ -113,6 +157,7 @@ const completeRegistrationSchema = z.object({
 
 export async function completeMemberRegistration(formData: FormData) {
   const supabase = await createClient();
+  const memberService = new MemberService(supabase);
 
   // 1. Auth Check
   const { data: { user } } = await supabase.auth.getUser();
@@ -141,26 +186,24 @@ export async function completeMemberRegistration(formData: FormData) {
 
   if (!koperasiId) return { success: false, error: 'Sistem error: Koperasi tidak ditemukan' };
 
-  // 4. Create Member
-  const isDemoMode = process.env.NEXT_PUBLIC_APP_MODE === 'demo';
-  const { data: member, error } = await supabase.from('member').insert({
-    koperasi_id: koperasiId,
-    user_id: user.id,
-    nama_lengkap: result.data.nama_lengkap,
-    nik: result.data.nik,
-    phone: result.data.phone,
-    alamat_lengkap: result.data.alamat_lengkap,
-    email: user.email,
-    nomor_anggota: `M-${Date.now().toString().slice(-6)}`,
-    status: 'active',
-    tanggal_daftar: new Date().toISOString(),
-    is_test_transaction: isDemoMode
-  }).select().single();
-
-  if (error) {
+  // 4. Create Member via Service (Pending)
+  let member;
+  try {
+    member = await memberService.register({
+      user_id: user.id,
+      koperasi_id: koperasiId,
+      nama_lengkap: result.data.nama_lengkap,
+      nik: result.data.nik,
+      phone: result.data.phone,
+      alamat_lengkap: result.data.alamat_lengkap,
+      email: user.email,
+      member_type: 'regular',
+      status: 'pending', // Self-registration requires approval
+    });
+  } catch (error: any) {
     console.error('Complete Registration Error:', error);
-    if (error.code === '23505') { // Unique violation
-        return { success: false, error: 'NIK atau Data sudah terdaftar' };
+    if (error.message.includes('NIK')) {
+      return { success: false, error: 'NIK sudah terdaftar' };
     }
     return { success: false, error: 'Gagal membuat profil anggota' };
   }
@@ -172,10 +215,10 @@ export async function completeMemberRegistration(formData: FormData) {
     role: 'anggota',
     member_id: member.id
   });
-  
+
   // Ignore role error if it already exists (though unlikely for new member)
   if (roleError && roleError.code !== '23505') {
-      console.error("Role creation error", roleError);
+    console.error("Role creation error", roleError);
   }
 
   // 6. Update User Metadata

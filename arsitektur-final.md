@@ -73,7 +73,7 @@ Setiap transaksi finansial → Ledger Entry dulu → Baru update state
 
 > Catatan Implementasi Pembayaran: Saat ini QRIS menggunakan provider mock melalui `PaymentService` dan route API untuk polling status. Migrasi ke Edge Functions akan dilakukan untuk provider nyata (Xendit/Midtrans) dan webhook yang aman.
 
-## 🧭 Feature Alignment Smartscoop & Koperasi OS
+## 🧭 Feature Scope
 
 - Retail POS
   - Voucher dan Point, Discount, Donasi, Split Bill

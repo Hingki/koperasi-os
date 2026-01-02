@@ -25,7 +25,7 @@
 - **Member vs Public:**
   - Retail module supports dual pricing (`price_sell_member` vs `price_sell_public`).
   - Savings payment method available only for Members.
-- **Retail POS Alignment (Kopdesa/Smartscoop):**
+- **Retail POS Features:**
   - Barcode scanning via scanner modal dan lookup server action.
   - Pembayaran: Tunai, QRIS (dengan polling status), Saldo Simpanan Anggota.
   - Diskon transaksi: mendukung nominal dan persen, dikalkulasi ke `final_amount`.
@@ -50,7 +50,7 @@
 - `src/lib/actions`: Server Actions (form handlers).
 - `src/lib/utils`: Helper functions.
 
-## 6. Feature Alignment (Smartscoop & Kopdesa)
+## 6. Feature Scope
 
 - Retail POS
   - Voucher dan Point

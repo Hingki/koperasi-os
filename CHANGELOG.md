@@ -1,4 +1,10 @@
 ﻿## [Unreleased]
+- feat(auth): add auth callback route handler for supabase ssr
+
+## [Unreleased]
+- feat(stage-4): implement operational and audit readiness layers
+
+## [Unreleased]
 - docs: update changelog
 
 ## [Unreleased]
@@ -87,5 +93,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
+
 
 

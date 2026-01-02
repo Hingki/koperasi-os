@@ -1,16 +1,16 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 
 console.log('STARTING SCRIPT...');
 
 try { fs.writeFileSync('debug_start.txt', 'Script started ' + new Date().toISOString() + '\n'); } catch (e) {}
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { MarketplaceService } from '../src/lib/services/marketplace-service';
-import { RetailService } from '../src/lib/services/retail-service';
-import { PpobService } from '../src/lib/services/ppob-service';
-import { AccountingService } from '../src/lib/services/accounting-service';
-import { LedgerIntentService } from '../src/lib/services/ledger-intent-service';
-import { AccountCode } from '../src/lib/types/ledger';
+import { MarketplaceService } from '@/lib/services/marketplace-service';
+import { RetailService } from '@/lib/services/retail-service';
+import { PpobService } from '@/lib/services/ppob-service';
+import { AccountingService } from '@/lib/services/accounting-service';
+import { LedgerIntentService } from '@/lib/services/ledger-intent-service';
+import { AccountCode } from '@/lib/types/ledger';
 import dotenv from 'dotenv';
 
 import path from 'path';

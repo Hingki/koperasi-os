@@ -20,7 +20,7 @@ const DEFAULT_PPOB_PRODUCTS: PPOBProduct[] = [
   { id: 'tsel_25', category: 'pulsa', provider: 'Telkomsel', name: 'Pulsa 25.000', price: 27000, description: 'Menambah masa aktif 30 hari' },
   { id: 'tsel_50', category: 'pulsa', provider: 'Telkomsel', name: 'Pulsa 50.000', price: 52000, description: 'Menambah masa aktif 45 hari' },
   { id: 'tsel_100', category: 'pulsa', provider: 'Telkomsel', name: 'Pulsa 100.000', price: 102000, description: 'Menambah masa aktif 60 hari' },
-  
+
   { id: 'isat_10', category: 'pulsa', provider: 'Indosat', name: 'Pulsa 10.000', price: 12000, description: 'Menambah masa aktif 15 hari' },
   { id: 'isat_25', category: 'pulsa', provider: 'Indosat', name: 'Pulsa 25.000', price: 27000, description: 'Menambah masa aktif 30 hari' },
 
@@ -36,24 +36,24 @@ export async function getPPOBProducts() {
   const supabase = await createClient();
   try {
     const { data, error } = await supabase
-        .from('ppob_products')
-        .select('*')
-        .eq('is_active', true)
-        .order('price_sell', { ascending: true });
-    
+      .from('ppob_products')
+      .select('*')
+      .eq('is_active', true)
+      .order('price_sell', { ascending: true });
+
     if (error || !data || data.length === 0) {
-        return DEFAULT_PPOB_PRODUCTS;
+      return DEFAULT_PPOB_PRODUCTS;
     }
-    
+
     // Map DB fields to PPOBProduct interface
     return data.map((p: any) => ({
-        id: p.id,
-        category: p.category,
-        provider: p.provider,
-        name: p.name,
-        price: p.price_sell,
-        description: p.description,
-        admin_fee: p.admin_fee || 0
+      id: p.id,
+      category: p.category,
+      provider: p.provider,
+      name: p.name,
+      price: p.price_sell,
+      description: p.description,
+      admin_fee: p.admin_fee || 0
     })) as PPOBProduct[];
 
   } catch (err) {
@@ -80,12 +80,25 @@ export async function purchasePPOB(formData: FormData) {
 
   // 1. Get Account to identify Member & Koperasi
   const { data: account, error: accError } = await supabase
-      .from('savings_accounts')
-      .select('member_id, koperasi_id')
-      .eq('id', accountId)
-      .single();
-  
+    .from('savings_accounts')
+    .select('member_id, koperasi_id')
+    .eq('id', accountId)
+    .single();
+
   if (accError || !account) return { error: 'Rekening tidak ditemukan' };
+
+  // 1.5 Verify Account Ownership (Security & Audit)
+  // Ensure the authenticated user owns this member profile
+  const { data: member } = await supabase
+    .from('member')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('id', account.member_id)
+    .single();
+
+  if (!member) {
+    return { error: 'Unauthorized: Rekening ini bukan milik Anda' };
+  }
 
   // 2. Use MarketplaceService for Orchestration
   const marketplaceService = new MarketplaceService(supabase);
@@ -107,6 +120,16 @@ export async function purchasePPOB(formData: FormData) {
     return { success: true, transaction: result.transaction };
   } catch (error: any) {
     console.error('PPOB Purchase Failed:', error);
-    return { error: error.message };
+    let friendlyError = error.message;
+
+    if (error.message?.includes('Provider transaction failed')) {
+      friendlyError = 'Transaksi gagal di sisi Provider. Silakan coba lagi nanti atau hubungi CS.';
+    } else if (error.message?.includes('Insufficient balance')) {
+      friendlyError = 'Saldo rekening tidak mencukupi.';
+    } else if (error.message?.includes('Product not found')) {
+      friendlyError = 'Produk sedang tidak tersedia.';
+    }
+
+    return { error: friendlyError };
   }
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { MarketplaceTransaction } from '@/lib/services/marketplace-service';
+import { LogService } from '@/lib/services/log-service';
 
 export interface ClosingSummary {
   total_transactions: number;
@@ -63,8 +64,21 @@ export async function submitClosing(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
 
-  // Log closing (In real implementation, save to DB)
-  console.log('Closing submitted:', data);
+  const logService = new LogService(supabase);
+
+  await logService.log({
+    action_type: 'POS',
+    action_detail: 'SHIFT_CLOSING',
+    entity_id: user.id, // Linked to the operator
+    user_id: user.id,
+    status: 'SUCCESS',
+    metadata: {
+      ...data.summary,
+      actual_cash: data.actual_cash,
+      variance: data.actual_cash - data.summary.cash_amount,
+      notes: data.notes
+    }
+  });
 
   return { success: true };
 }

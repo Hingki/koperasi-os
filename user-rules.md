@@ -11,8 +11,8 @@
 - **"Super App" Feel:** The interface should feel like a modern mobile super app (e.g., Gojek/Grab style dashboard).
 - **Responsive:** Mobile-first priority. Many users will access via phone.
 - **Reference Models:**
-  - **Kopdesa.com:** Reference for features (POS, PPOB, Sembako).
-  - **SmartCoop.id:** Reference for loan workflow and cooperative standards.
+  - **Modern POS:** Reference for features (POS, PPOB, Sembako).
+  - **Cooperative Standard:** Reference for loan workflow and cooperative standards.
 
 ## 3. Specific Feature Requirements
 
@@ -39,9 +39,9 @@
   - Delivery Order, stok opname gudang, penimbangan, lelang online.
 - **Notifikasi & Integrasi:**
   - Pengaturan Email (SMTP) dan WhatsApp Blast untuk informasi transaksi.
-- **Integrasi Rujukan:**
-  - **Kopdesa (POS retail)**: gaya grid produk, penanda harga dan status, aksi cepat pembayaran.
-  - **Smartscoop (pinjaman/keanggotaan)**: alur persetujuan ketat, compliance laporan.
+- **Fitur Referensi:**
+  - **Retail POS**: gaya grid produk, penanda harga dan status, aksi cepat pembayaran.
+  - **Simpan Pinjam**: alur persetujuan ketat, compliance laporan.
 
 ## 4. Development Workflow
 

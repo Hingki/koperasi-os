@@ -5,3 +5,12 @@ dist
 .trae
 .log
 .figma
+.next
+coverage
+screenshots
+docs
+**/*.md
+**/*.txt
+**/*.pdf
+tests
+playwright.config.ts
