@@ -1,5 +1,4 @@
-
-import { createClient } from '@/lib/supabase/server';
+﻿import { createClient } from '@/lib/supabase/server';
 import { VirtualAccountManager } from './va-manager';
 import { getMemberVAs } from '@/lib/actions/digital-payment';
 import { redirect } from 'next/navigation';
@@ -55,7 +54,7 @@ export default async function DigitalPaymentPage() {
             
             <VirtualAccountManager accounts={accounts} loans={loans} existingVAs={vas} />
 
-            <div className="mt-8 p-4 bg-amber-50 border border-amber-100 rounded-lg">
+            {/* <div className="mt-8 p-4 bg-amber-50 border border-amber-100 rounded-lg">
                 <h3 className="font-semibold text-amber-900 mb-2">Simulasi Pembayaran (Development Only)</h3>
                 <p className="text-sm text-amber-800 mb-4">
                     Gunakan halaman simulasi untuk mencoba transfer ke VA di atas.
@@ -67,7 +66,7 @@ export default async function DigitalPaymentPage() {
                 >
                     Buka Simulator Bank
                 </a>
-            </div>
+            </div> */}
         </div>
     );
 }

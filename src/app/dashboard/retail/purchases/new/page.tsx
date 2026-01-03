@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createClient } from '@/lib/supabase/server';
 import { RetailService } from '@/lib/services/retail-service';
 import { redirect } from 'next/navigation';
 import PurchaseForm from '@/components/retail/purchase-form';
@@ -59,7 +59,7 @@ export default async function NewPurchasePage() {
     const notes = formData.get('notes') as string;
     const finalNotes = supplierRef ? `Supplier Ref: ${supplierRef}. ${notes}` : notes;
 
-    await retailService.createPurchase({
+    await retailService.createPurchaseRecord({
         koperasi_id: koperasiId,
         unit_usaha_id: unitUsaha?.id,
         supplier_id: formData.get('supplier_id') as string,
@@ -88,3 +88,4 @@ export default async function NewPurchasePage() {
     />
   );
 }
+
