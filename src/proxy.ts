@@ -30,7 +30,7 @@ const BENDAHARA_ROUTES = ['/bendahara', '/api/bendahara'];
 // Public routes (no authentication required)
 const PUBLIC_ROUTES = ['/', '/register', '/login', '/api/auth'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for static files and API routes that don't need auth
@@ -53,20 +53,20 @@ export async function middleware(request: NextRequest) {
     // Only warn in development, but don't crash middleware
     // This allows public pages to load even if Supabase config is broken
     if (process.env.NODE_ENV === 'development') {
-       console.warn('Middleware Warning: Missing Supabase Environment Variables');
+      console.warn('Middleware Warning: Missing Supabase Environment Variables');
     }
-    
+
     // If it's a public route, just let it pass without auth check
     if (
-      pathname === '/' || 
-      pathname === '/login' || 
+      pathname === '/' ||
+      pathname === '/login' ||
       pathname === '/register' ||
       pathname.startsWith('/_next') ||
       pathname.startsWith('/static')
     ) {
       return NextResponse.next();
     }
-    
+
     // For protected routes, we can't proceed without Supabase
     return NextResponse.json(
       { error: 'Configuration Error: Missing Supabase Environment Variables' },

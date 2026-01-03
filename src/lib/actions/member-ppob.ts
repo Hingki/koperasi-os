@@ -62,7 +62,7 @@ export async function getPPOBProducts() {
   }
 }
 
-export async function purchasePPOB(formData: FormData) {
+export type PurchaseResult = { success: true; transaction: any; message: string } | { success: false; error: string }; export async function purchasePPOB(formData: FormData): Promise<PurchaseResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
