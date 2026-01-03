@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix: resolve build errors (retail service typo and mock-bank removal)
+
+## [Unreleased]
 - chore: cleanup unused files and update features
 
 ## [Unreleased]
@@ -96,6 +99,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
