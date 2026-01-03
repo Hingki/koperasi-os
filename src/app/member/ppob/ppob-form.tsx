@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { PPOBProduct, purchasePPOB } from '@/lib/actions/member-ppob';
+import { PPOBProduct, purchasePPOB, PurchaseResult } from '@/lib/actions/member-ppob';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,7 +37,7 @@ export function PPOBForm({ accounts, adminFee, products }: { accounts: Account[]
     formData.append('customerNumber', customerNumber);
     formData.append('accountId', selectedAccount);
 
-    const result = await purchasePPOB(formData);
+    const result: PurchaseResult = await purchasePPOB(formData);
     setLoading(false);
 
     if (result.success) {
