@@ -67,7 +67,7 @@ export async function purchasePPOB(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: 'Unauthorized' };
+    return { success: false, error: 'Unauthorized' };
   }
 
   const productId = formData.get('productId') as string;
@@ -75,7 +75,7 @@ export async function purchasePPOB(formData: FormData) {
   const accountId = formData.get('accountId') as string;
 
   if (!productId || !customerNumber || !accountId) {
-    return { error: 'Data tidak lengkap' };
+    return { success: false, error: 'Data tidak lengkap' };
   }
 
   // 1. Get Account to identify Member & Koperasi
@@ -85,7 +85,7 @@ export async function purchasePPOB(formData: FormData) {
     .eq('id', accountId)
     .single();
 
-  if (accError || !account) return { error: 'Rekening tidak ditemukan' };
+  if (accError || !account) return { success: false, error: 'Rekening tidak ditemukan' };
 
   // 1.5 Verify Account Ownership (Security & Audit)
   // Ensure the authenticated user owns this member profile
@@ -97,7 +97,7 @@ export async function purchasePPOB(formData: FormData) {
     .single();
 
   if (!member) {
-    return { error: 'Unauthorized: Rekening ini bukan milik Anda' };
+    return { success: false, error: 'Unauthorized: Rekening ini bukan milik Anda' };
   }
 
   // 2. Use MarketplaceService for Orchestration
@@ -117,7 +117,7 @@ export async function purchasePPOB(formData: FormData) {
     );
 
     revalidatePath('/member/ppob');
-    return { success: true, transaction: result.transaction };
+    return { success: true, transaction: result.transaction, message: 'Pembelian berhasil diproses' };
   } catch (error: any) {
     console.error('PPOB Purchase Failed:', error);
     let friendlyError = error.message;
@@ -130,6 +130,6 @@ export async function purchasePPOB(formData: FormData) {
       friendlyError = 'Produk sedang tidak tersedia.';
     }
 
-    return { error: friendlyError };
+    return { success: false, error: friendlyError };
   }
 }
