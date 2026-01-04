@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -40,8 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(\
-ama_lengkap.ilike.%\%,nik.ilike.%\%\);
+      query = query.or(`nama_lengkap.ilike.%${search}%,nik.ilike.%${search}%`);
     }
 
     const { data: members, error: fetchError } = await query;

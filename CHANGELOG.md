@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- feat: complete member registration and admin verification with fixed build
+
+## [Unreleased]
 - feat: complete member registration and admin verification module
 
 ## [Unreleased]
@@ -114,6 +117,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
