@@ -127,7 +127,7 @@ export default function KioskView({
 
       const result = await processPosTransaction(transactionData, items);
 
-      if (result.success) {
+      if (result.success && result.data) {
         setLastOrderNumber(result.data.invoice_number);
         setIsConfirmOpen(false);
         setIsSuccessOpen(true);
