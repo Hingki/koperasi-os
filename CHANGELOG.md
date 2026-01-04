@@ -1,4 +1,7 @@
 ﻿## [Unreleased]
+- fix(retail): return full operational data in checkoutRetail to resolve build error
+
+## [Unreleased]
 - fix: cast result.data to any to bypass strict type checking for invoice_number
 
 ## [Unreleased]
@@ -129,6 +132,7 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
 
 
 
