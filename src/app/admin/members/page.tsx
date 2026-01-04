@@ -56,7 +56,7 @@ export default function AdminMembersPage() {
       if (statusFilter !== 'all') queryParams.append('status', statusFilter);
       if (searchTerm) queryParams.append('search', searchTerm);
 
-      const res = await fetch(\/api/admin/members?\\);
+      const res = await fetch(\/api/admin/members?\);
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'Failed to fetch members');
@@ -81,7 +81,7 @@ export default function AdminMembersPage() {
   const handleApprove = async (id: string) => {
     setProcessingId(id);
     try {
-      const res = await fetch(\/api/admin/members/\/approve\, {
+      const res = await fetch(\/api/admin/members//approve\, {
         method: 'POST',
       });
       const data = await res.json();
@@ -112,7 +112,7 @@ export default function AdminMembersPage() {
     
     setProcessingId(id);
     try {
-      const res = await fetch(\/api/admin/members/\/reject\, {
+      const res = await fetch(\/api/admin/members//reject\, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: 'Admin rejected' }),
