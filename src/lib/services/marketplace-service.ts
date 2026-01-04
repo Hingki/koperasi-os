@@ -335,23 +335,18 @@ export class MarketplaceService {
     const prepared = await this.retailService.prepareTransactionData(transactionData, items, payments);
     
     // 2. Create Transaction (Initiated)
-    // NOTE: We need to allow NULL journal_id temporarily or handle it. 
-    // For now, I'll insert with a dummy UUID if I can't change schema, 
-    // OR I will assume I can fix the schema.
-    // Let's try to insert. If it fails, I'll know.
     let trx = await this.createTransaction(koperasiId, 'retail', prepared.finalAmount, userId, idempotencyKey);
 
     // If we got an existing transaction (Idempotency), we need to check its state
     if (idempotencyKey && trx.status === 'settled') {
-       // Already done
-       return { success: true, transaction: trx, operational: { id: trx.entity_id } };
+       const operational = trx.entity_id && trx.entity_id !== 'pending' 
+         ? await this.retailService.getPosTransactionById(trx.entity_id)
+         : { id: trx.entity_id };
+       return { success: true, transaction: trx, operational };
     }
-    // If it's partially done, we should resume. But for now, let's assume if it exists, we return it or continue if not settled.
-    // Ideally we should implement resumption logic. 
-    // For this MVP/UAT, if it exists and not settled, we might re-attempt steps or throw "In Progress".
-    // But since createTransaction returns the *existing* one if found, we are effectively resuming!
-    // We just need to check status and jump to correct step.
     
+    let operationalResult = null;
+
     try {
       // 3. Lock Journal (Journal Locked)
       if (trx.status === 'initiated') {
@@ -362,8 +357,7 @@ export class MarketplaceService {
 
       // 4. Fulfill (Fulfilled)
       if (trx.status === 'journal_locked') {
-          // Call Retail Service (Operational Only)
-          const operationalResult = await this.retailService.fulfillTransaction(
+          operationalResult = await this.retailService.fulfillTransaction(
              trx.journal_id, 
              { ...transactionData, invoice_number: prepared.invoiceNumber, final_amount: prepared.finalAmount },
              items,
@@ -374,20 +368,20 @@ export class MarketplaceService {
       }
 
       // 5. Settle (Settled)
-      // Usually synchronous for Retail, but can be async.
-      // User said: "Revenue is recognized ONLY at settlement."
-      // We do it immediately for Retail.
       if (trx.status === 'fulfilled') {
           trx = await this.settleTransaction(trx.id);
       }
       
-      return { success: true, transaction: trx, operational: { id: trx.entity_id } };
+      if (!operationalResult && trx.entity_id && trx.entity_id !== 'pending') {
+          operationalResult = await this.retailService.getPosTransactionById(trx.entity_id);
+      }
+      
+      return { success: true, transaction: trx, operational: operationalResult || { id: trx.entity_id } };
 
     } catch (error: any) {
       console.error('Checkout Failed, attempting Reversal:', error);
-      // Failure Recovery
       if (trx.status === 'journal_locked' || trx.status === 'fulfilled') {
-        await this.reverseTransaction(trx.id, `System Failure: ${error.message}`);
+        await this.reverseTransaction(trx.id, 'System Failure: ' + error.message);
       }
       throw error;
     }

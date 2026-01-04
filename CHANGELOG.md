@@ -1,4 +1,13 @@
 ﻿## [Unreleased]
+- fix: cast result.data to any to bypass strict type checking for invoice_number
+
+## [Unreleased]
+- fix: resolve potential undefined data in kiosk view transaction result
+
+## [Unreleased]
+- fix: recreate empty API route files
+
+## [Unreleased]
 - fix: resolve template literal syntax errors in admin modules
 
 ## [Unreleased]
@@ -120,6 +129,9 @@ Format mengikuti Keep a Changelog dan Semantic Versioning.
   - Optimized database queries to reduce server strain.
 
 ## [v6.1.0] - 2025-12-20
+
+
+
 
 
 
