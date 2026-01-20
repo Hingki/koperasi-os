@@ -71,7 +71,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.0.10",
+    "eslint-config-next": "16.1.1",
     "globals": "^16.5.0",
     "pgsql-ast-parser": "^1.2.0",
     "tailwindcss": "^4",
