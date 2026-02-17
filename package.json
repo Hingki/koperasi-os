@@ -70,7 +70,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "eslint": "^10.0.0",
     "eslint-config-next": "16.0.10",
     "globals": "^16.5.0",
     "pgsql-ast-parser": "^1.2.0",
